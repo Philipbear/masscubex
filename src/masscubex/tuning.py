@@ -271,6 +271,10 @@ def calibrate_file(source, config, *, scan_source=None):
     ) as scans:
         for scan in scans:
             if isinstance(scan, MS2Scan):
+                # Calibration needs precursor metadata only. The bounded source
+                # keeps its own replay copy; never pin full fragment arrays in
+                # this file-wide list after the source cache overflows.
+                scan.mz = scan.intensity = None
                 if scan.polarity == "unknown" and scan.precursor_ref:
                     parents = [s for s in previous.values() if s.native_id == scan.precursor_ref]
                     if len(parents) == 1:

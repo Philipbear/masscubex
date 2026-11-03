@@ -43,6 +43,9 @@ Implementation map:
 | Source | Responsibility |
 | --- | --- |
 | [readers.py](../src/masscubex/readers.py) | XML, binary arrays, metadata, scan identifiers |
+| [scan_cache.py](../src/masscubex/scan_cache.py) | Budgeted decoded-scan replay and streaming fallback |
+| [chromatograms.py](../src/masscubex/chromatograms.py) | Compiled peak segmentation and measurements |
+| [calibration.py](../src/masscubex/calibration.py) | Compiled quality screening; reproducible accepted-candidate measurements |
 | [noise.py](../src/masscubex/noise.py) | Adaptive MS1 background and threshold |
 | [centroid.py](../src/masscubex/centroid.py) | Profile MS1 mass detection |
 | [features.py](../src/masscubex/features.py) | Trace pools, segmentation, quantification |
@@ -723,7 +726,7 @@ it never makes the m/z divisor negative. Custom shifts are supplied directly
 as total ionic mass shifts, not per-charge offsets.
 
 For each pair of enabled ordinary ion forms in a known polarity, derive
-neutral masses from each potential source feature and binary-search predicted
+neutral masses from each potential source feature and find matching predicted
 partner masses. Require a positive neutral mass and candidate m/z. Use the
 larger of 10 ppm and 0.002 Da by default. Known associated precursor-charge
 magnitudes restrict allowed forms; if several magnitudes are recorded, a form

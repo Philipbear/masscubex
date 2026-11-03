@@ -79,3 +79,45 @@ def test_late_xml_corruption_cannot_complete_cache(tmp_path):
     with pytest.raises(Exception):
         list(source.scans())
     assert not source._complete and not source._scans
+
+
+@pytest.mark.parametrize("budget", [0, 0.001, 64])
+def test_calibration_keeps_only_metadata_without_removing_replayed_fragments(
+    tmp_path, monkeypatch, budget
+):
+    from masscubex import tuning
+
+    spectra = []
+    for index in range(10):
+        spectra.extend(
+            [
+                mzml_spectrum(2 * index, index, [100], [20]),
+                mzml_spectrum(
+                    2 * index + 1,
+                    index + 0.1,
+                    [50, 60],
+                    [5, 10],
+                    level=2,
+                    precursor=precursor_mzml(),
+                ),
+            ]
+        )
+    path = write_mzml(tmp_path / "metadata-only.mzML", spectra)
+    config = Config(scan_cache_mb=budget)
+    source = ScanSource(path, config)
+    original = tuning.derive_settings
+    observed = []
+
+    def inspect(peaks, intervals, records, *args):
+        observed.extend(records)
+        assert all(scan.mz is None and scan.intensity is None for scan in records)
+        return original(peaks, intervals, records, *args)
+
+    monkeypatch.setattr(tuning, "derive_settings", inspect)
+    tuning.calibrate_file(path, config, scan_source=source)
+    assert len(observed) == 10
+    replay = [scan for scan in source.scans() if isinstance(scan, MS2Scan)]
+    for scan in replay:
+        np.testing.assert_array_equal(scan.mz, [50, 60])
+        assert scan.fragment_intensity == 15
+    assert source.stats["peak_bytes"] <= source.budget

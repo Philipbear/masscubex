@@ -22,6 +22,11 @@ def main():
     parser.add_argument("--executor", choices=["process", "thread"], default="process")
     parser.add_argument("--format", choices=["parquet", "tsv"], default="parquet")
     parser.add_argument(
+        "--reference-tables",
+        type=Path,
+        help="Current-version tables to compare byte-for-byte after a separate scientific audit",
+    )
+    parser.add_argument(
         "--reference",
         type=Path,
         default=Path(f"benchmarks/results/MSV000086989-ms2-v{__version__}.json"),
@@ -91,7 +96,13 @@ def main():
     expected = {row["name"]: row["tsv_sha256"] for row in reference["rows"]}
     for row in outcomes:
         if row["status"] == "ok":
-            if args.format == "tsv":
+            if args.reference_tables is not None:
+                ref = args.reference_tables / (Path(row["input"]).name + "." + args.format)
+                assert (
+                    hashlib.sha256(Path(row["output"]).read_bytes()).digest()
+                    == hashlib.sha256(ref.read_bytes()).digest()
+                )
+            elif args.format == "tsv":
                 assert (
                     hashlib.sha256(Path(row["output"]).read_bytes()).hexdigest()
                     == expected[Path(row["input"]).name]
@@ -147,6 +158,7 @@ def main():
         "executor": args.executor,
         "output_format": args.format,
         "reference_report": str(args.reference),
+        "reference_tables": str(args.reference_tables) if args.reference_tables else None,
         "resume_skipped_all_50_completed_files": True,
         "wall_seconds_including_cli_startup": elapsed,
         "all_valid_tables_match_reference": True,
