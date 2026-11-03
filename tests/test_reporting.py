@@ -8,6 +8,7 @@ import multiprocessing
 import os
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -22,6 +23,15 @@ def _crash_test_job(source, output_dir, config, resume, overwrite):
     assert multiprocessing.current_process().name != "MainProcess"
     if Path(source).name == "crash.mzML":
         os._exit(19)
+    # Hold the other initially submitted jobs until the parent observes the
+    # broken pool. Otherwise a faster-starting worker can consume the whole
+    # input stream before the crashing worker starts, leaving no undispatched
+    # inputs with which to exercise pool replacement.
+    deadline = time.monotonic() + 30
+    while not (Path(output_dir) / "crash_reported").exists():
+        if time.monotonic() > deadline:
+            raise TimeoutError("Parent did not report the injected worker crash")
+        time.sleep(0.01)
     return {"input": str(source), "status": "ok", "features": 0}
 
 
@@ -242,11 +252,18 @@ def test_broken_worker_pool_is_replaced_without_losing_undispatched_inputs(
 def test_abrupt_child_exit_does_not_prevent_remaining_files(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "_job", _crash_test_job)
     paths = [tmp_path / "crash.mzML"] + [tmp_path / f"good_{i}.mzML" for i in range(10)]
-    results = list(cli.run_batch(paths, tmp_path / "out", Config(), workers=2))
+    output = tmp_path / "out"
+    output.mkdir()
+    results = []
+    for result in cli.run_batch(paths, output, Config(), workers=2):
+        results.append(result)
+        if result["status"] == "error":
+            (output / "crash_reported").touch()
     assert len(results) == len(paths)
     assert {r["input"] for r in results} == {str(p) for p in paths}
     failed = [r for r in results if r["status"] == "error"]
     assert str(paths[0]) in {r["input"] for r in failed}
     assert all(r["stage"] == "worker" and r["error_type"] == "BrokenProcessPool" for r in failed)
+    assert len(failed) <= 4
     # Up to four submitted tasks can be affected; undispatched inputs survive.
     assert all(r["status"] == "ok" for r in results if r["input"] in {str(p) for p in paths[-3:]})
