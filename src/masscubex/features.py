@@ -10,6 +10,7 @@ import numpy as np
 from numba import njit
 
 from .config import Config
+from .chromatograms import peak_settings, summarize_candidates
 
 
 # Float state per live trace. The compiled kernels use these named columns
@@ -19,7 +20,7 @@ MEAN_MZ, TOTAL_INTENSITY, LAST_INTENSITY, LAST_OBSERVED_TIME = range(4)
 HEAD_NODE, TAIL_NODE, NODE_COUNT, OBSERVATION_COUNT, MISSING_SCANS = range(5)
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=True, inline="always")
 def _append_observation(
     slot, mz, intensity, rt, threshold, track_layout, nodes, links, free_nodes, available
 ):
@@ -145,6 +146,33 @@ def _advance_tracks(
     return active_count, available_tracks, available_nodes, finished_tracks[:finished_count]
 
 
+@njit(cache=True)
+def _take_trace(
+    slot,
+    minimum,
+    track_layout,
+    nodes,
+    links,
+    free_tracks,
+    available_tracks,
+    free_nodes,
+    available_nodes,
+):
+    """Copy one qualified trace, then release its nodes and track slot."""
+    keep = track_layout[slot, OBSERVATION_COUNT] >= minimum
+    trace = np.empty((track_layout[slot, NODE_COUNT] if keep else 0, 4))
+    node = track_layout[slot, HEAD_NODE]
+    for j in range(track_layout[slot, NODE_COUNT]):
+        if keep:
+            for column in range(4):
+                trace[j, column] = nodes[node, column]
+        free_nodes[available_nodes] = node
+        available_nodes += 1
+        node = links[node]
+    free_tracks[available_tracks] = slot
+    return trace, available_tracks + 1, available_nodes
+
+
 @njit(cache=True, nogil=True)
 def _drain_tracks(
     finished_tracks,
@@ -160,20 +188,56 @@ def _drain_tracks(
     """Materialize qualified completed traces and recycle their pool storage."""
     traces = []
     for slot in finished_tracks:
-        keep = track_layout[slot, OBSERVATION_COUNT] >= minimum
-        trace = np.empty((track_layout[slot, NODE_COUNT] if keep else 0, 4))
-        node = track_layout[slot, HEAD_NODE]
-        for j in range(track_layout[slot, NODE_COUNT]):
-            if keep:
-                trace[j, :] = nodes[node, :]
-            free_nodes[available_nodes] = node
-            available_nodes += 1
-            node = links[node]
-        free_tracks[available_tracks] = slot
-        available_tracks += 1
-        if keep:
+        trace, available_tracks, available_nodes = _take_trace(
+            slot,
+            minimum,
+            track_layout,
+            nodes,
+            links,
+            free_tracks,
+            available_tracks,
+            free_nodes,
+            available_nodes,
+        )
+        if len(trace):
             traces.append(trace)
     return traces, available_tracks, available_nodes
+
+
+@njit(cache=True, nogil=True)
+def _drain_candidates(
+    finished_tracks,
+    settings,
+    track_layout,
+    nodes,
+    links,
+    free_tracks,
+    available_tracks,
+    free_nodes,
+    available_nodes,
+):
+    """Drain and summarize a scan's completed traces in one native call.
+
+    Calibration still requests raw traces. Extraction uses this fused path so
+    each intermediate chromatogram stays in compiled code instead of making
+    a Python/Numba round trip for every trace.
+    """
+    candidates = []
+    for slot in finished_tracks:
+        trace, available_tracks, available_nodes = _take_trace(
+            slot,
+            settings.minimum_scans,
+            track_layout,
+            nodes,
+            links,
+            free_tracks,
+            available_tracks,
+            free_nodes,
+            available_nodes,
+        )
+        if len(trace):
+            candidates.extend(summarize_candidates(trace, settings))
+    return candidates, available_tracks, available_nodes
 
 
 class TraceTracker:
@@ -181,6 +245,7 @@ class TraceTracker:
 
     def __init__(self, config: Config, capacity=1024, node_capacity=8192):
         self.config = config
+        self.peak_settings = peak_settings(config)
         self.track_values = np.zeros((capacity, 4))
         self.track_layout = np.zeros((capacity, 5), dtype=np.int64)
         self.nodes = np.empty((node_capacity, 4))
@@ -235,7 +300,7 @@ class TraceTracker:
         )
         return traces
 
-    def add(self, mz, intensity, threshold, rt):
+    def _advance(self, mz, intensity, threshold, rt):
         if rt <= self.last_rt:
             raise ValueError(
                 "MS1 retention times must increase strictly within each polarity; "
@@ -267,12 +332,40 @@ class TraceTracker:
         )
         self.peak_active_traces = max(self.peak_active_traces, self.active_count)
         self.peak_live_nodes = max(self.peak_live_nodes, len(self.nodes) - self.available_nodes)
-        return self._finish(finished_tracks)
+        return finished_tracks
+
+    def add(self, mz, intensity, threshold, rt):
+        """Return raw completed traces, used by the calibration pilot."""
+        return self._finish(self._advance(mz, intensity, threshold, rt))
 
     def flush(self):
         finished_tracks = self.active[: self.active_count].copy()
         self.active_count = 0
         return self._finish(finished_tracks)
+
+    def _finish_features(self, finished_tracks, polarity):
+        candidates, self.available_tracks, self.available_nodes = _drain_candidates(
+            finished_tracks,
+            self.peak_settings,
+            self.track_layout,
+            self.nodes,
+            self.links,
+            self.free_tracks,
+            self.available_tracks,
+            self.free_nodes,
+            self.available_nodes,
+        )
+        return _candidate_features(candidates, self.config, polarity)
+
+    def add_features(self, mz, intensity, threshold, rt, polarity="unknown"):
+        """Return features from the completed traces in this scan."""
+        return self._finish_features(self._advance(mz, intensity, threshold, rt), polarity)
+
+    def flush_features(self, polarity="unknown"):
+        """Finish the remaining traces at EOF without a per-trace Python loop."""
+        finished_tracks = self.active[: self.active_count].copy()
+        self.active_count = 0
+        return self._finish_features(finished_tracks, polarity)
 
 
 @dataclass(slots=True)
@@ -314,24 +407,24 @@ class Feature:
 
 def summarize_trace(trace, config: Config, polarity="unknown"):
     """Segment one trace in compiled code; measure the original observations."""
-    from .chromatograms import summarize_chromatogram
+    # The tracker already supplies writable, contiguous float64 arrays. Keep
+    # the standalone interface usable with views and read-only caller arrays.
+    trace = np.ascontiguousarray(trace, dtype=np.float64)
+    if not trace.flags.writeable:
+        trace = trace.copy()
+    candidates = summarize_candidates(trace, peak_settings(config))
+    yield from _candidate_features(candidates, config, polarity)
 
-    summaries, tied = summarize_chromatogram(
-        trace,
-        config.min_scans,
-        config.segment,
-        float(config.smoothing_sigma),
-        float(config.smoothing_seconds),
-        config.peak_distance,
-        float(config.peak_distance_seconds),
-        float(config.peak_prominence),
-    )
-    if tied:
-        from .reference_chromatograms import summarize_reference_trace
 
-        yield from summarize_reference_trace(trace, config, polarity)
-        return
-    for peak in summaries:
+def _candidate_features(candidates, config, polarity):
+    """Build public feature records; resolve only ambiguous ties with SciPy."""
+    for candidate in candidates:
+        if candidate.needs_reference:
+            from .reference_chromatograms import summarize_reference_trace
+
+            yield from summarize_reference_trace(candidate.trace, config, polarity)
+            continue
+        peak = candidate.summary
         yield Feature(
             mz=peak.mz,
             rt_apex_seconds=peak.apex_time,
@@ -347,7 +440,7 @@ def summarize_trace(trace, config: Config, polarity="unknown"):
             polarity=polarity,
             intensity=peak.height if config.quant_method == "peak_height" else peak.area,
             quant_method=config.quant_method,
-            trace=trace[peak.first : peak.last + 1, 1:3].copy() if config.group_ions else None,
+            trace=candidate.trace if config.group_ions else None,
         )
 
 
@@ -368,6 +461,9 @@ def warmup():
     tracker.add(mz, intensity, threshold, 0.0)
     tracker.add(mz, intensity, threshold, 1.0)
     tracker.flush()
+    tracker.add_features(mz, intensity, threshold, 2.0)
+    tracker.add_features(mz, intensity, threshold, 3.0)
+    list(tracker.flush_features())
     centroid_profile(mz, intensity, np.zeros(2), threshold, 3, 4.0)
     trace = np.column_stack((intensity, np.arange(2, dtype=float)))
     trace_correlation(trace, trace)

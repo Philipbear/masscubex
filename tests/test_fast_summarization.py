@@ -55,11 +55,12 @@ def test_compiled_summarization_matches_scipy(seed, settings):
 
 @pytest.mark.parametrize("sigma", [0.05, 0.5, 1, 1.25, 4, 20])
 def test_compiled_gaussian_matches_scipy(sigma):
-    for y in ([0, 1, 1, 0], [10, 1, 10], [1, 1, 1], [0], [0, 0], [1, 2, 3, 2, 1]):
+    for y in ([], [0, 1, 1, 0], [10, 1, 10], [1, 1, 1], [0], [0, 0], [1, 2, 3, 2, 1]):
         values = np.asarray(y, dtype=float)
         expected = gaussian_filter1d(np.pad(values, 1), sigma)
         smooth = gaussian_smooth(values, sigma, pad=True)
         np.testing.assert_allclose(smooth, expected, rtol=5e-15, atol=1e-15)
+    assert gaussian_smooth(np.empty(0), sigma).size == 0
 
 
 def test_plateaus_prominence_and_distance_order_exhaustively():
@@ -79,6 +80,23 @@ def test_equal_priority_uses_reference_tie_order():
     assert select_peaks(y, 3, 0.0)[1]
     trace = np.column_stack((np.full(len(y), 100.0), y, np.arange(len(y)), np.ones(len(y))))
     config = Config(min_scans=2, smoothing_sigma=0.05, peak_distance=3)
+    assert_features_equal(
+        list(summarize_trace(trace, config)), list(summarize_reference_trace(trace, config))
+    )
+
+
+@pytest.mark.parametrize("layout", ["strided", "fortran", "readonly"])
+@pytest.mark.parametrize("group", [False, True])
+def test_summary_accepts_noncontiguous_trace_views(layout, group):
+    values = np.tile([1.0, 2.0, 1.0], 10)
+    trace = np.column_stack(
+        (np.full(len(values), 100.0), values, np.arange(len(values)), np.ones(len(values)))
+    )
+    trace = trace[::2] if layout == "strided" else np.asfortranarray(trace)
+    if layout == "readonly":
+        trace = np.ascontiguousarray(trace)
+        trace.flags.writeable = False
+    config = Config(min_scans=2, smoothing_sigma=0.05, peak_distance=3, group_ions=group)
     assert_features_equal(
         list(summarize_trace(trace, config)), list(summarize_reference_trace(trace, config))
     )

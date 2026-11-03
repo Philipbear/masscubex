@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.7.0 processing path,
+This document describes the implemented MassCubeX 0.8.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -195,7 +195,7 @@ The Numba kernel sorts positive intensities once per scan to assign stable
 intensity ranks. A segment tree over those ranks stores the active count,
 mean and sum of squared deviations from the mean (`M2`) for each node. Two
 pointers advance an inclusive physical m/z window; adding/removing a sample
-changes its leaf and rebuilds the ancestors. The candidate's leaf is temporarily
+changes its leaf and updates ancestor counts. The candidate's leaf is temporarily
 removed while querying the lowest `k_i` active ranks, then restored.
 
 An order-statistic query descends the tree using subtree counts. Complete
@@ -222,9 +222,21 @@ selected subset, so no temporary tree updates are needed. Otherwise it is
 removed, the prefix is queried again, and it is restored. The selection count
 always excludes the candidate. Centered moments and μ + 3σ are unchanged.
 
+Version 0.8.0 marks ancestor moments dirty instead of recalculating moments
+that no low-tail query uses. A query refreshes its requested subtrees in
+postorder; clean subtrees are reused and empty subtrees need no descent.
+The centered merge order is unchanged. A cached prefix result is reusable only
+when its size, selected ranks **and first unselected rank** have not changed.
+The last condition preserves the query's subtree partition and float64 merge
+order even when brighter points leave the window. Candidate exclusion is
+temporary and never changes the cached result. These are computation shortcuts,
+not changes to the selected background or threshold rule.
+
 The one-time sort plus window updates and prefix queries take **O(N log N)**
-time and O(N) temporary storage. Tree storage is three arrays with twice the
-next power of two of the positive-point count, plus rank/order/output arrays.
+amortized time and O(N) temporary storage: each dirty node is refreshed at most
+once between updates. Tree storage is three numeric arrays and one boolean
+dirty array with twice the next power of two of the positive-point count,
+plus rank/order/output arrays.
 Kernels are compiled and cached with `nogil=True`; there is no Python loop
 per m/z point, full sliding-window matrix, or nested Numba thread pool.
 
@@ -426,6 +438,14 @@ trace closure. Capacity grows geometrically when needed; it does not grow
 merely because another completed feature was encountered. Numba handles
 matching, node insertion and draining without a Python object per centroid.
 
+Version 0.8.0 uses a batched extraction interface: copy and recycle a completed
+trace, segment and quantify it, then retain only its feature summaries and
+optional two-column grouping trace. The raw chromatogram stays inside compiled
+code; there is no Python/Numba round trip per completed trace. Calibration
+retains its raw-trace interface. Pool reuse cannot modify already emitted
+traces. Rare ambiguous peak priorities carry their original trace to the SciPy
+fallback in the same output position.
+
 For F active traces and N current centroids, the scan requires a priority sort
 (approximately F log F), binary-search starts (F log N), candidate-window
 inspection, and linear insertion/draining work. It avoids an all-traces by
@@ -468,6 +488,12 @@ order can change final float64 bits: numerical parity is tested with tight
 tolerances, while feature boundaries and MS/MS identities must match exactly.
 See the [performance and equivalence report](../benchmarks/results/PERFORMANCE.md).
 The SciPy compatibility source and BSD notice are credited in `NOTICE`.
+
+Version 0.8.0 materializes reflected Gaussian boundary samples once per trace
+instead of repeating reflection arithmetic for every convolution pair. The
+kernel, outside-in summation order, padding and measured observations stay
+unchanged. Named `PeakSettings` and `PeakCandidate` records carry the batch
+options, summaries and fallback status across the native/Python boundary.
 
 Between consecutive detected maxima, cut at the first minimum of the smoothed
 signal. Add the trace's first and last points as outer boundaries. Adjacent

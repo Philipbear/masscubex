@@ -24,6 +24,38 @@ class PeakSummary(NamedTuple):
     noise_threshold: float
 
 
+class PeakSettings(NamedTuple):
+    """Fixed segmentation options passed once per completed scan batch."""
+
+    minimum_scans: int
+    segment: bool
+    smoothing_sigma: float
+    smoothing_seconds: float
+    peak_distance: int
+    peak_distance_seconds: float
+    relative_prominence: float
+    keep_trace: bool
+
+
+class PeakCandidate(NamedTuple):
+    summary: PeakSummary
+    trace: np.ndarray
+    needs_reference: bool
+
+
+def peak_settings(config):
+    return PeakSettings(
+        config.min_scans,
+        config.segment,
+        float(config.smoothing_sigma),
+        float(config.smoothing_seconds),
+        config.peak_distance,
+        float(config.peak_distance_seconds),
+        float(config.peak_prominence),
+        config.group_ions,
+    )
+
+
 @njit(cache=True)
 def median_spacing(times):
     intervals = np.empty(len(times) - 1)
@@ -65,14 +97,20 @@ def gaussian_smooth(values, sigma, pad=False):
         signal = np.empty(len(values) + 2)
         signal[0] = signal[-1] = 0.0
         signal[1:-1] = values
+    if len(signal) == 0:
+        return np.empty(0)
+    # Reflect each position once. Doing this inside the convolution would need
+    # two integer divisions per pair, for every output point and kernel offset.
+    extended = np.empty(len(signal) + 2 * radius)
+    for index in range(len(extended)):
+        extended[index] = signal[reflected_index(index - radius, len(signal))]
     result = np.empty(len(signal))
     for index in range(len(signal)):
         value = signal[index] * weights[radius]
         # Symmetric pairs, outside-in, as in SciPy's order-zero correlation.
         for offset in range(radius, 0, -1):
-            left = reflected_index(index - offset, len(signal))
-            right = reflected_index(index + offset, len(signal))
-            value += (signal[left] + signal[right]) * weights[radius - offset]
+            left, right = index + radius - offset, index + radius + offset
+            value += (extended[left] + extended[right]) * weights[radius - offset]
         result[index] = value
     return result
 
@@ -236,3 +274,35 @@ def summarize_chromatogram(
             )
         )
     return summaries, False
+
+
+@njit(cache=True, nogil=True)
+def summarize_candidates(trace, settings):
+    """Package summaries and grouping traces before crossing back to Python.
+
+    A tied distance-priority order preserves the original four-column trace
+    for the SciPy fallback. Ordinary candidates carry only the two columns
+    needed for ion grouping, or an empty array when grouping is disabled.
+    """
+    summaries, tied = summarize_chromatogram(
+        trace,
+        settings.minimum_scans,
+        settings.segment,
+        settings.smoothing_sigma,
+        settings.smoothing_seconds,
+        settings.peak_distance,
+        settings.peak_distance_seconds,
+        settings.relative_prominence,
+    )
+    candidates = []
+    if tied:
+        unused = PeakSummary(0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0)
+        candidates.append(PeakCandidate(unused, trace, True))
+        return candidates
+    empty = np.empty((0, 2))
+    for summary in summaries:
+        grouping_trace = empty
+        if settings.keep_trace:
+            grouping_trace = trace[summary.first : summary.last + 1, 1:3].copy()
+        candidates.append(PeakCandidate(summary, grouping_trace, False))
+    return candidates

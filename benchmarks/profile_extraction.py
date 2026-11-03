@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import time
 
-from masscubex import __version__, pipeline, gapfill, grouping
+from masscubex import __version__, pipeline, gapfill, grouping, features
 from masscubex.features import warmup
 from masscubex.pipeline import implementation_id
 
@@ -61,9 +61,14 @@ def instrument():
         # The same bounded source supplies calibration, extraction and gapfill.
         patch(pipeline.ScanSource, "scans", "shared.scan_reading_and_replay", True)
     patch(pipeline, "estimate_noise", "extraction.noise")
-    patch(pipeline, "summarize_trace", "extraction.peak_summarization", True)
-    # This class is shared with calibration, so its timer overlaps both stages.
-    patch(pipeline.TraceTracker, "add", "shared.trace_tracking")
+    if hasattr(pipeline.TraceTracker, "add_features"):
+        patch(features, "_drain_candidates", "extraction.peak_summarization")
+        patch(features, "_candidate_features", "extraction.peak_summarization", True)
+        # Includes calibration; finishing/segmentation has its own timer above.
+        patch(pipeline.TraceTracker, "_advance", "shared.trace_tracking")
+    else:
+        patch(pipeline, "summarize_trace", "extraction.peak_summarization", True)
+        patch(pipeline.TraceTracker, "add", "shared.trace_tracking")
     try:
         yield timers
     finally:
@@ -123,6 +128,7 @@ def main():
             "Extraction includes reader, noise, tracking and peak summarization.",
             "Substeps are inclusive and must not be added to top-level stages.",
             "Shared trace tracking includes calibration and extraction; it is not exclusive to either stage.",
+            "From 0.8, peak summarization includes native draining/copying of completed traces, previously charged to tracking.",
         ],
     }
     args.report.write_text(json.dumps(report, indent=2) + "\n")

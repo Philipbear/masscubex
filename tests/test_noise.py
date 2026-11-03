@@ -232,3 +232,19 @@ def test_low_tail_sigma_is_not_a_full_distribution_noise_significance_test():
     intensity = rng.uniform(8, 12, len(mz))
     cutoff = estimate_noise(mz, intensity)[2]
     assert np.count_nonzero(intensity > cutoff) > 0.8 * len(mz)
+
+
+@pytest.mark.parametrize("fraction", [0.1, 0.5, 1.0])
+def test_lazy_noise_moments_follow_repeated_empty_and_refilled_rank_subtrees(fraction):
+    # Alternating disjoint intensity ranges empty and refill different parts
+    # of the rank tree as the m/z window moves across each acquisition region.
+    rng = np.random.default_rng(204)
+    mz = np.concatenate([100 * region + np.arange(64) * 0.25 for region in range(1, 7)])
+    intensity = np.concatenate(
+        [rng.integers(1, 100, 64) * scale for scale in (1.0, 1e8, 1.0, 1e8, 1.0, 1e8)]
+    )
+    intensity[::7] = 0
+    config = Config(noise_fraction=fraction, noise_window_da=8.0)
+    actual = estimate_noise(mz, intensity, config)
+    expected = brute_force_low_tail(mz, intensity, config)
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)

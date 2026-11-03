@@ -16,7 +16,7 @@ import time
 from . import __version__
 from .config import Config
 from .centroid import centroid_profile
-from .features import TraceTracker, summarize_trace
+from .features import TraceTracker
 from .output import FEATURE_COLUMNS, resolve_output, write_features
 from .noise import estimate_noise
 from .readers import file_format
@@ -103,11 +103,9 @@ def extract_features(scans, config: Config, stats=None, configs=None):
                 float(config.profile_gap_factor),
             )
         stats["retained_centroids"] += len(mz)
-        for trace in tracker.add(mz, intensity, threshold, scan.rt):
-            yield from summarize_trace(trace, effective, scan.polarity)
+        yield from tracker.add_features(mz, intensity, threshold, scan.rt, scan.polarity)
     for polarity, tracker in trackers.items():
-        for trace in tracker.flush():
-            yield from summarize_trace(trace, tracker.config, polarity)
+        yield from tracker.flush_features(polarity)
     stats["peak_active_traces"] = sum(t.peak_active_traces for t in trackers.values())
     stats["peak_live_nodes"] = sum(t.peak_live_nodes for t in trackers.values())
     stats["ms1_polarities"] = sorted(trackers)

@@ -1,3 +1,5 @@
+from dataclasses import fields
+
 import numpy as np
 import pytest
 
@@ -95,3 +97,51 @@ def test_array_pool_growth_and_recycling():
     assert len(set(tracker.free_tracks[: tracker.available_tracks])) == tracker.available_tracks
     assert len(set(tracker.free_nodes[: tracker.available_nodes])) == tracker.available_nodes
     assert len(tracker.nodes) < 400  # reuse slots instead of retaining previous cycles
+
+
+@pytest.mark.parametrize("group", [False, True])
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {},
+        {"segment": False, "quant_method": "peak_area"},
+        {"smoothing_seconds": 0.7, "peak_distance_seconds": 1.0},
+        {"smoothing_sigma": 0.05, "peak_distance": 3},
+    ],
+)
+def test_batched_features_preserve_order_values_and_owned_traces(group, settings):
+    """Compare both tracker interfaces through growth, EOF, gaps and reuse."""
+    config = Config(min_scans=2, max_gap_scans=1, group_ions=group, **settings)
+    raw = TraceTracker(config, capacity=2, node_capacity=2)
+    batched = TraceTracker(config, capacity=2, node_capacity=2)
+    expected, deferred = [], []
+    rng = np.random.default_rng(340)
+    masses = np.linspace(100, 300, 20)
+    rt = 0.0
+    for index in range(80):
+        rt += rng.uniform(0.3, 1.2)
+        y = rng.integers(0, 5, len(masses)).astype(float)
+        if index % 15 in (13, 14):
+            y[:] = 0
+        keep = y > 0
+        mz, intensity, threshold = masses[keep], y[keep], np.ones(sum(keep))
+        for trace in raw.add(mz, intensity, threshold, rt):
+            expected.extend(summarize_trace(trace, config, "negative"))
+        # Consume only after all subsequent pool reuse has happened. Returned
+        # grouping traces must own their data, never point into recycled nodes.
+        deferred.append(batched.add_features(mz, intensity, threshold, rt, "negative"))
+    for trace in raw.flush():
+        expected.extend(summarize_trace(trace, config, "negative"))
+    deferred.append(batched.flush_features("negative"))
+    actual = [feature for batch in deferred for feature in batch]
+    assert len(actual) == len(expected) > 20
+    for feature, reference in zip(actual, expected):
+        for field in fields(feature):
+            a, b = getattr(feature, field.name), getattr(reference, field.name)
+            if isinstance(b, np.ndarray):
+                np.testing.assert_array_equal(a, b)
+            else:
+                assert a == b, field.name
+    assert batched.available_tracks == len(batched.track_values)
+    assert batched.available_nodes == len(batched.nodes)
+    assert list(batched.flush_features()) == []

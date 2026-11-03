@@ -99,28 +99,66 @@ def _merge_moments(n_a, mean_a, m2_a, n_b, mean_b, m2_b):
 
 
 @njit(cache=True, inline="always")
-def _tree_update(leaf, value, active, counts, means, m2):
-    """Set one rank's membership, then rebuild centered moments to the root."""
+def _tree_update(leaf, value, active, counts, means, m2, dirty):
+    """Update membership immediately; defer moments until a query needs them.
+
+    Most sliding-window changes affect intensities above the selected low tail.
+    Their counts are needed for rank selection, but their moments are not.
+    """
+    change = int(active) - counts[leaf]
     counts[leaf] = int(active)
     means[leaf] = value if active else 0.0
     m2[leaf] = 0.0
     node = leaf // 2
     while node:
-        a, b = 2 * node, 2 * node + 1
-        counts[node], means[node], m2[node] = _merge_moments(
-            counts[a], means[a], m2[a], counts[b], means[b], m2[b]
-        )
+        counts[node] += change
+        dirty[node] = True
         node //= 2
 
 
 @njit(cache=True, inline="always")
-def _lowest_moments(k, counts, means, m2):
+def _refresh_moments(root, counts, means, m2, dirty):
+    """Refresh a requested subtree in postorder without recursion or a stack.
+
+    Clean subtrees are already correct. Empty subtrees need no descent. The
+    merge order is identical to the eager tree, including float64 rounding.
+    """
+    node = root
+    while True:
+        if dirty[node]:
+            left, right = 2 * node, 2 * node + 1
+            if counts[node] == 0:
+                means[node] = m2[node] = 0.0
+            elif dirty[left]:
+                node = left
+                continue
+            elif dirty[right]:
+                node = right
+                continue
+            else:
+                _, means[node], m2[node] = _merge_moments(
+                    counts[left],
+                    means[left],
+                    m2[left],
+                    counts[right],
+                    means[right],
+                    m2[right],
+                )
+            dirty[node] = False
+        if node == root:
+            return
+        node //= 2
+
+
+@njit(cache=True, inline="always")
+def _lowest_moments(k, counts, means, m2, dirty):
     """Return moments and the last covered rank of the lowest k active leaves."""
     node, remaining, count = 1, k, 0
     last_subtree = 1
     mean = total_m2 = 0.0
     while remaining:
         if counts[node] <= remaining:
+            _refresh_moments(node, counts, means, m2, dirty)
             count, mean, total_m2 = _merge_moments(
                 count, mean, total_m2, counts[node], means[node], m2[node]
             )
@@ -129,6 +167,7 @@ def _lowest_moments(k, counts, means, m2):
             break
         left = 2 * node
         if counts[left] <= remaining:
+            _refresh_moments(left, counts, means, m2, dirty)
             count, mean, total_m2 = _merge_moments(
                 count, mean, total_m2, counts[left], means[left], m2[left]
             )
@@ -142,6 +181,27 @@ def _lowest_moments(k, counts, means, m2):
     while last_subtree < len(counts) // 2:
         last_subtree = 2 * last_subtree + 1
     return mean, np.sqrt(max(0.0, total_m2 / k)), last_subtree
+
+
+@njit(cache=True, inline="always")
+def _prefix_guard(k, counts):
+    """Find the first unselected rank, or the tree's end if none exists.
+
+    This extra rank fixes the query's subtree partition. Guarding only the
+    selected ranks would preserve their values but could change the order of
+    floating-point merges when a brighter neighboring rank leaves the window.
+    """
+    if counts[1] <= k:
+        return len(counts) - 1
+    node, remaining = 1, k + 1
+    while node < len(counts) // 2:
+        left = 2 * node
+        if remaining <= counts[left]:
+            node = left
+        else:
+            remaining -= counts[left]
+            node = left + 1
+    return node
 
 
 @njit(cache=True, nogil=True)
@@ -166,16 +226,23 @@ def _estimate_low_tail(mz, intensity, window, sigma, fraction, minimum, floor):
     counts = np.zeros(2 * base, dtype=np.int64)
     means = np.zeros(2 * base)
     m2 = np.zeros(2 * base)
+    dirty = np.zeros(2 * base, dtype=np.bool_)
     left = right = active = 0
+    cached_count, cached_last_rank, cached_guard = -1, 0, 0
+    background = deviation = 0.0
     for i in range(n):
         while right < n and mz[right] <= mz[i] + window / 2:
             if ranks[right]:
-                _tree_update(ranks[right], intensity[right], True, counts, means, m2)
+                if ranks[right] <= cached_guard:
+                    cached_count = -1
+                _tree_update(ranks[right], intensity[right], True, counts, means, m2, dirty)
                 active += 1
             right += 1
         while left < right and mz[left] < mz[i] - window / 2:
             if ranks[left]:
-                _tree_update(ranks[left], intensity[left], False, counts, means, m2)
+                if ranks[left] <= cached_guard:
+                    cached_count = -1
+                _tree_update(ranks[left], intensity[left], False, counts, means, m2, dirty)
                 active -= 1
             left += 1
         # Positive profile samples / centroids are references; zero padding is
@@ -184,18 +251,28 @@ def _estimate_low_tail(mz, intensity, window, sigma, fraction, minimum, floor):
         if count < minimum:
             continue
         k = max(minimum, int(np.ceil(fraction * count)))
-        background, deviation, last_rank = _lowest_moments(k, counts, means, m2)
+        # Reuse only when the size, selected ranks and first unselected rank
+        # are unchanged. Higher ranks cannot alter the query or its moments.
+        # The cached prefix includes the candidate; exclusion below is local
+        # to this output point and never overwrites the cached values.
+        if k != cached_count:
+            background, deviation, cached_last_rank = _lowest_moments(k, counts, means, m2, dirty)
+            cached_count = k
+            cached_guard = _prefix_guard(k, counts)
+        candidate_background, candidate_deviation = background, deviation
         # Most candidates exceed the low tail and cannot contribute to their
         # own estimate. Only rebuild the tree when the candidate is in that tail.
-        excluded = 0 < ranks[i] <= last_rank
+        excluded = 0 < ranks[i] <= cached_last_rank
         if excluded:
-            _tree_update(ranks[i], intensity[i], False, counts, means, m2)
-            background, deviation, _ = _lowest_moments(k, counts, means, m2)
-        mean[i] = background
-        std[i] = deviation
-        threshold[i] = max(floor, mean[i] + sigma * deviation)
+            _tree_update(ranks[i], intensity[i], False, counts, means, m2, dirty)
+            candidate_background, candidate_deviation, _ = _lowest_moments(
+                k, counts, means, m2, dirty
+            )
+        mean[i] = candidate_background
+        std[i] = candidate_deviation
+        threshold[i] = max(floor, candidate_background + sigma * candidate_deviation)
         if excluded:
-            _tree_update(ranks[i], intensity[i], True, counts, means, m2)
+            _tree_update(ranks[i], intensity[i], True, counts, means, m2, dirty)
     return mean, std, threshold
 
 
