@@ -8,6 +8,7 @@ from .adducts import Adduct, DEFAULT_ADDUCT_IDS, selected_adducts
 
 @dataclass(frozen=True)
 class Config:
+    scan_cache_mb: float = 64.0
     auto_tune: bool = True
     tuning_min_peaks: int = 20
     tuning_max_peaks: int = 100
@@ -119,6 +120,7 @@ class Config:
         ):
             raise ValueError("tuning_locked must contain valid tunable parameter names")
         nonnegative = {
+            "scan_cache_mb",
             "min_intensity",
             "mz_tolerance_da",
             "mz_tolerance_ppm",

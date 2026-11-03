@@ -253,3 +253,20 @@ def test_optional_grouping_end_to_end_and_disabled_isf(tmp_path):
     assert {link["relation"] for row in rows for link in json.loads(row["ion_relations"])} == {
         "adduct"
     }
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_sorted_window_sweep_matches_binary_search(seed):
+    from masscubex.grouping import sorted_mass_windows
+
+    rng = np.random.default_rng(seed)
+    masses = np.sort(rng.integers(0, 500, 1000).astype(float))
+    centers = masses * rng.uniform(0.2, 2) + rng.uniform(-100, 100)
+    for tolerance in (0.001, 5, 1000):
+        lower, upper = centers - tolerance, centers + tolerance
+        for ordered in (True, False):
+            if not ordered:
+                lower, upper = lower[::-1].copy(), upper[::-1].copy()
+            left, right = sorted_mass_windows(masses, lower, upper)
+            np.testing.assert_array_equal(left, np.searchsorted(masses, lower))
+            np.testing.assert_array_equal(right, np.searchsorted(masses, upper, side="right"))

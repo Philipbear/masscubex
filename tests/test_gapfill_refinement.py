@@ -101,7 +101,7 @@ def test_broad_search_edge_retains_complete_narrow_eic(tmp_path, monkeypatch):
     monkeypatch.setattr(
         pipeline,
         "calibrate_file",
-        lambda *args: TuningResult(
+        lambda *args, **kwargs: TuningResult(
             {"positive": config}, {"polarities": {"positive": {"status": "tuned"}}}
         ),
     )

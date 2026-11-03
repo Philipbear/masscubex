@@ -126,53 +126,86 @@ def feature_rows(features):
         yield {"feature_id": index, **row}
 
 
+def _write_tsv(path, features):
+    count = 0
+    with open(path, "w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
+        writer.writerow(FEATURE_COLUMNS)
+        for row in feature_rows(features):
+            writer.writerow(
+                [
+                    ""
+                    if row[name] is None
+                    else format(row[name], ".17g")
+                    if name in FLOAT_COLUMNS
+                    else json.dumps(row[name], separators=(",", ":"), allow_nan=False)
+                    if name in NESTED_COLUMNS
+                    else row[name]
+                    for name in FEATURE_COLUMNS
+                ]
+            )
+            count += 1
+    return count
+
+
+def _parquet_batch(features, first_id, schema):
+    """Build Arrow columns directly, avoiding an intermediate dictionary per row."""
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    for index, feature in enumerate(features, first_id):
+        for relation in feature.ion_relations:
+            if not RELATION_COLUMNS.issuperset(relation):
+                raise ValueError(f"Unknown ion evidence fields in feature {index}")
+            if any(
+                isinstance(value, float) and not math.isfinite(value) for value in relation.values()
+            ):
+                raise ValueError(f"Non-finite ion evidence in feature {index}")
+    columns = [pa.array(range(first_id, first_id + len(features)), type=pa.int64())]
+    for field in schema:
+        if field.name == "feature_id":
+            continue
+        column = pa.array([getattr(feature, field.name) for feature in features], type=field.type)
+        if field.name in FLOAT_COLUMNS and pc.all(pc.is_finite(column)).as_py() is False:
+            raise ValueError(f"Non-finite feature value (numerical overflow) in {field.name}")
+        columns.append(column)
+    return pa.Table.from_arrays(columns, schema=schema)
+
+
+def _write_parquet(path, features):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    schema = parquet_schema()
+    categories = [field.name for field in schema if pa.types.is_string(field.type)]
+    count = 0
+    with pq.ParquetWriter(
+        path, schema, compression="zstd", compression_level=3, use_dictionary=categories
+    ) as writer:
+        batch = []
+        for feature in features:
+            batch.append(feature)
+            if len(batch) == ROW_GROUP_SIZE:
+                writer.write_table(_parquet_batch(batch, count + 1, schema))
+                count += len(batch)
+                batch.clear()
+        if batch:
+            writer.write_table(_parquet_batch(batch, count + 1, schema))
+            count += len(batch)
+    return count
+
+
 def write_features(path, features, output_format):
     """Write a temporary table; the pipeline owns atomic publication and cleanup."""
-    if output_format not in {"parquet", "tsv"}:
-        raise ValueError("Output format must be parquet or tsv")
-    count = 0
-    rows = feature_rows(features)
-    if output_format == "tsv":
-        with open(path, "w", encoding="utf-8", newline="") as stream:
-            writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
-            writer.writerow(FEATURE_COLUMNS)
-            for row in rows:
-                writer.writerow(
-                    [
-                        ""
-                        if row[name] is None
-                        else format(row[name], ".17g")
-                        if name in FLOAT_COLUMNS
-                        else json.dumps(row[name], separators=(",", ":"), allow_nan=False)
-                        if name in NESTED_COLUMNS
-                        else row[name]
-                        for name in FEATURE_COLUMNS
-                    ]
-                )
-                count += 1
-            stream.flush()
-            os.fsync(stream.fileno())
+    if output_format == "parquet":
+        count = _write_parquet(path, features)
+    elif output_format == "tsv":
+        count = _write_tsv(path, features)
     else:
-        import pyarrow as pa
-        import pyarrow.parquet as pq
-
-        schema = parquet_schema()
-        categories = [f.name for f in schema if pa.types.is_string(f.type)]
-        with pq.ParquetWriter(
-            path, schema, compression="zstd", compression_level=3, use_dictionary=categories
-        ) as writer:
-            batch = []
-            for row in rows:
-                batch.append(row)
-                count += 1
-                if len(batch) == ROW_GROUP_SIZE:
-                    writer.write_table(pa.Table.from_pylist(batch, schema=schema))
-                    batch.clear()
-            if batch:
-                writer.write_table(pa.Table.from_pylist(batch, schema=schema))
-        # Windows' _commit (used by os.fsync) requires a writable descriptor.
-        with open(path, "r+b" if os.name == "nt" else "rb") as stream:
-            os.fsync(stream.fileno())
+        raise ValueError("Output format must be parquet or tsv")
+    # Windows' _commit (used by os.fsync) requires a writable descriptor.
+    with open(path, "r+b" if os.name == "nt" else "rb") as stream:
+        os.fsync(stream.fileno())
     return count
 
 

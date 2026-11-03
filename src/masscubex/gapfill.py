@@ -1,7 +1,8 @@
 """MS2-seeded features quantified from a second, streaming pass over raw MS1.
 
 These are forced local EIC measurements, not new noise-qualified detections.
-Only unmatched usable precursors are queried; complete spectra are never cached.
+Only unmatched usable precursors are queried. A bounded decoded-scan cache can
+provide this pass; larger files are streamed again from disk.
 """
 
 from bisect import bisect_left, bisect_right, insort
@@ -51,7 +52,9 @@ class _Measurement:
     finalized: bool = False
 
 
-def seed_ms2_features(features, records, assignments, source, config, stats, configs=None):
+def seed_ms2_features(
+    features, records, assignments, source, config, stats, configs=None, *, scan_source=None
+):
     """Keep existing assignments and measure unmatched precursors on raw MS1.
 
     Each seed is anchored to its first MS2 m/z and time. Later scans can reuse it
@@ -170,7 +173,11 @@ def seed_ms2_features(features, records, assignments, source, config, stats, con
 
     if schedules:
         stats["ms2_gapfill_passes"] = 1
-        with closing(iter_ms1(source, assume_centroid=config.assume_centroid)) as scans:
+        with closing(
+            scan_source.ms1()
+            if scan_source is not None
+            else iter_ms1(source, assume_centroid=config.assume_centroid)
+        ) as scans:
             for scan in scans:
                 if scan.polarity not in schedules:
                     continue

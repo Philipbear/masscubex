@@ -235,6 +235,10 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
         ],
     )
     for feature, indices in zip(features, assigned):
+        if not indices and feature.ms2_count == 0:
+            # Fresh unassigned features already have empty provenance. Avoid
+            # rebuilding three empty tuples and resetting eight fields twice.
+            continue
         indices.sort(key=lambda i: records[i].spectrum_index)
         feature._ms2_records = tuple(indices)
         feature.ms2_count = len(indices)

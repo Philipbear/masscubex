@@ -5,18 +5,25 @@ there is no Python object or Python append call per centroid.
 """
 
 from dataclasses import dataclass, field
-from functools import lru_cache
 
 import numpy as np
 from numba import njit
-from scipy.ndimage import correlate1d
-from scipy.signal import find_peaks
 
 from .config import Config
 
 
+# Float state per live trace. The compiled kernels use these named columns
+# instead of Python objects for each of the millions of observations.
+MEAN_MZ, TOTAL_INTENSITY, LAST_INTENSITY, LAST_OBSERVED_TIME = range(4)
+# Integer state: linked-list endpoints and observation/gap counters.
+HEAD_NODE, TAIL_NODE, NODE_COUNT, OBSERVATION_COUNT, MISSING_SCANS = range(5)
+
+
 @njit(cache=True, nogil=True)
-def _append(slot, mz, intensity, rt, threshold, ti, nodes, links, free_nodes, available):
+def _append_observation(
+    slot, mz, intensity, rt, threshold, track_layout, nodes, links, free_nodes, available
+):
+    """Append one observation to a trace, consuming one free pool node."""
     available -= 1
     node = free_nodes[available]
     nodes[node, 0] = mz
@@ -24,17 +31,17 @@ def _append(slot, mz, intensity, rt, threshold, ti, nodes, links, free_nodes, av
     nodes[node, 2] = rt
     nodes[node, 3] = threshold
     links[node] = -1
-    if ti[slot, 2] == 0:
-        ti[slot, 0] = node
+    if track_layout[slot, NODE_COUNT] == 0:
+        track_layout[slot, HEAD_NODE] = node
     else:
-        links[ti[slot, 1]] = node
-    ti[slot, 1] = node
-    ti[slot, 2] += 1
+        links[track_layout[slot, TAIL_NODE]] = node
+    track_layout[slot, TAIL_NODE] = node
+    track_layout[slot, NODE_COUNT] += 1
     return available
 
 
 @njit(cache=True, nogil=True)
-def _advance(
+def _advance_tracks(
     mz,
     intensity,
     threshold,
@@ -44,30 +51,30 @@ def _advance(
     max_gaps,
     max_seconds,
     active,
-    nactive,
-    tf,
-    ti,
+    active_count,
+    track_values,
+    track_layout,
     nodes,
     links,
     free_tracks,
-    ft,
+    available_tracks,
     free_nodes,
-    fn,
+    available_nodes,
 ):
-    old = active[:nactive].copy()
+    previous_active = active[:active_count].copy()
     # Stronger traces claim peaks first; stable ties preserve acquisition order.
-    priority = np.argsort(-tf[old, 2], kind="mergesort")
+    priority = np.argsort(-track_values[previous_active, LAST_INTENSITY], kind="mergesort")
     used = np.zeros(mz.size, dtype=np.bool_)
-    done = np.empty(nactive, dtype=np.int64)
-    ndone = 0
-    nactive = 0
+    finished_tracks = np.empty(active_count, dtype=np.int64)
+    finished_count = 0
+    active_count = 0
     for k in priority:
-        slot = old[k]
-        if rt - tf[slot, 3] > max_seconds:
-            done[ndone] = slot
-            ndone += 1
+        slot = previous_active[k]
+        if rt - track_values[slot, LAST_OBSERVED_TIME] > max_seconds:
+            finished_tracks[finished_count] = slot
+            finished_count += 1
             continue
-        target = tf[slot, 0]
+        target = track_values[slot, MEAN_MZ]
         tolerance = max(da, target * ppm * 1e-6)
         start = np.searchsorted(mz, target - tolerance)
         best = -1
@@ -80,69 +87,93 @@ def _advance(
                 best, error = j, distance
         if best >= 0:
             used[best] = True
-            weight = tf[slot, 1] + intensity[best]
-            tf[slot, 0] += (mz[best] - target) * (intensity[best] / weight)
-            tf[slot, 1] = weight
-            tf[slot, 2] = intensity[best]
-            tf[slot, 3] = rt
-            ti[slot, 3] += 1
-            ti[slot, 4] = 0
-            fn = _append(
+            weight = track_values[slot, TOTAL_INTENSITY] + intensity[best]
+            track_values[slot, MEAN_MZ] += (mz[best] - target) * (intensity[best] / weight)
+            track_values[slot, TOTAL_INTENSITY] = weight
+            track_values[slot, LAST_INTENSITY] = intensity[best]
+            track_values[slot, LAST_OBSERVED_TIME] = rt
+            track_layout[slot, OBSERVATION_COUNT] += 1
+            track_layout[slot, MISSING_SCANS] = 0
+            available_nodes = _append_observation(
                 slot,
                 mz[best],
                 intensity[best],
                 rt,
                 threshold[best],
-                ti,
+                track_layout,
                 nodes,
                 links,
                 free_nodes,
-                fn,
+                available_nodes,
             )
         else:
-            ti[slot, 4] += 1
-            if ti[slot, 4] > max_gaps:
-                done[ndone] = slot
-                ndone += 1
+            track_layout[slot, MISSING_SCANS] += 1
+            if track_layout[slot, MISSING_SCANS] > max_gaps:
+                finished_tracks[finished_count] = slot
+                finished_count += 1
                 continue
-            fn = _append(slot, target, 0.0, rt, 0.0, ti, nodes, links, free_nodes, fn)
-        active[nactive] = slot
-        nactive += 1
+            available_nodes = _append_observation(
+                slot, target, 0.0, rt, 0.0, track_layout, nodes, links, free_nodes, available_nodes
+            )
+        active[active_count] = slot
+        active_count += 1
     for j in range(mz.size):
         if used[j]:
             continue
-        ft -= 1
-        slot = free_tracks[ft]
-        ti[slot, :] = 0
-        ti[slot, 3] = 1
-        tf[slot, 0] = mz[j]
-        tf[slot, 1] = intensity[j]
-        tf[slot, 2] = intensity[j]
-        tf[slot, 3] = rt
-        fn = _append(slot, mz[j], intensity[j], rt, threshold[j], ti, nodes, links, free_nodes, fn)
-        active[nactive] = slot
-        nactive += 1
-    return nactive, ft, fn, done[:ndone]
+        available_tracks -= 1
+        slot = free_tracks[available_tracks]
+        track_layout[slot, :] = 0
+        track_layout[slot, OBSERVATION_COUNT] = 1
+        track_values[slot, MEAN_MZ] = mz[j]
+        track_values[slot, TOTAL_INTENSITY] = intensity[j]
+        track_values[slot, LAST_INTENSITY] = intensity[j]
+        track_values[slot, LAST_OBSERVED_TIME] = rt
+        available_nodes = _append_observation(
+            slot,
+            mz[j],
+            intensity[j],
+            rt,
+            threshold[j],
+            track_layout,
+            nodes,
+            links,
+            free_nodes,
+            available_nodes,
+        )
+        active[active_count] = slot
+        active_count += 1
+    return active_count, available_tracks, available_nodes, finished_tracks[:finished_count]
 
 
 @njit(cache=True, nogil=True)
-def _drain(done, minimum, ti, nodes, links, free_tracks, ft, free_nodes, fn):
+def _drain_tracks(
+    finished_tracks,
+    minimum,
+    track_layout,
+    nodes,
+    links,
+    free_tracks,
+    available_tracks,
+    free_nodes,
+    available_nodes,
+):
+    """Materialize qualified completed traces and recycle their pool storage."""
     traces = []
-    for slot in done:
-        keep = ti[slot, 3] >= minimum
-        trace = np.empty((ti[slot, 2] if keep else 0, 4))
-        node = ti[slot, 0]
-        for j in range(ti[slot, 2]):
+    for slot in finished_tracks:
+        keep = track_layout[slot, OBSERVATION_COUNT] >= minimum
+        trace = np.empty((track_layout[slot, NODE_COUNT] if keep else 0, 4))
+        node = track_layout[slot, HEAD_NODE]
+        for j in range(track_layout[slot, NODE_COUNT]):
             if keep:
                 trace[j, :] = nodes[node, :]
-            free_nodes[fn] = node
-            fn += 1
+            free_nodes[available_nodes] = node
+            available_nodes += 1
             node = links[node]
-        free_tracks[ft] = slot
-        ft += 1
+        free_tracks[available_tracks] = slot
+        available_tracks += 1
         if keep:
             traces.append(trace)
-    return traces, ft, fn
+    return traces, available_tracks, available_nodes
 
 
 class TraceTracker:
@@ -150,55 +181,57 @@ class TraceTracker:
 
     def __init__(self, config: Config, capacity=1024, node_capacity=8192):
         self.config = config
-        self.tf = np.zeros((capacity, 4))
-        self.ti = np.zeros((capacity, 5), dtype=np.int64)
+        self.track_values = np.zeros((capacity, 4))
+        self.track_layout = np.zeros((capacity, 5), dtype=np.int64)
         self.nodes = np.empty((node_capacity, 4))
         self.links = np.empty(node_capacity, dtype=np.int64)
         self.free_tracks = np.arange(capacity, dtype=np.int64)
         self.free_nodes = np.arange(node_capacity, dtype=np.int64)
         self.active = np.empty(capacity, dtype=np.int64)
-        self.ft, self.fn, self.nactive = capacity, node_capacity, 0
+        self.available_tracks, self.available_nodes, self.active_count = capacity, node_capacity, 0
         self.last_rt = -np.inf
         self.peak_active_traces = 0
         self.peak_live_nodes = 0
 
     def _ensure(self, peaks):
-        if self.ft < peaks:
-            old = len(self.tf)
-            size = max(old * 2, old + peaks - self.ft)
-            self.tf = np.vstack((self.tf, np.zeros((size - old, 4))))
-            self.ti = np.vstack((self.ti, np.zeros((size - old, 5), dtype=np.int64)))
+        if self.available_tracks < peaks:
+            old = len(self.track_values)
+            size = max(old * 2, old + peaks - self.available_tracks)
+            self.track_values = np.vstack((self.track_values, np.zeros((size - old, 4))))
+            self.track_layout = np.vstack(
+                (self.track_layout, np.zeros((size - old, 5), dtype=np.int64))
+            )
             free = np.empty(size, dtype=np.int64)
-            free[: self.ft] = self.free_tracks[: self.ft]
-            free[self.ft : self.ft + size - old] = np.arange(old, size)
+            free[: self.available_tracks] = self.free_tracks[: self.available_tracks]
+            free[self.available_tracks : self.available_tracks + size - old] = np.arange(old, size)
             self.free_tracks = free
-            self.ft += size - old
+            self.available_tracks += size - old
             active = np.empty(size, dtype=np.int64)
-            active[: self.nactive] = self.active[: self.nactive]
+            active[: self.active_count] = self.active[: self.active_count]
             self.active = active
-        needed = self.nactive + peaks
-        if self.fn < needed:
+        needed = self.active_count + peaks
+        if self.available_nodes < needed:
             old = len(self.nodes)
-            size = max(old * 2, old + needed - self.fn)
+            size = max(old * 2, old + needed - self.available_nodes)
             self.nodes = np.vstack((self.nodes, np.empty((size - old, 4))))
             self.links = np.concatenate((self.links, np.empty(size - old, dtype=np.int64)))
             free = np.empty(size, dtype=np.int64)
-            free[: self.fn] = self.free_nodes[: self.fn]
-            free[self.fn : self.fn + size - old] = np.arange(old, size)
+            free[: self.available_nodes] = self.free_nodes[: self.available_nodes]
+            free[self.available_nodes : self.available_nodes + size - old] = np.arange(old, size)
             self.free_nodes = free
-            self.fn += size - old
+            self.available_nodes += size - old
 
-    def _finish(self, done):
-        traces, self.ft, self.fn = _drain(
-            done,
+    def _finish(self, finished_tracks):
+        traces, self.available_tracks, self.available_nodes = _drain_tracks(
+            finished_tracks,
             self.config.min_scans,
-            self.ti,
+            self.track_layout,
             self.nodes,
             self.links,
             self.free_tracks,
-            self.ft,
+            self.available_tracks,
             self.free_nodes,
-            self.fn,
+            self.available_nodes,
         )
         return traces
 
@@ -210,34 +243,36 @@ class TraceTracker:
             )
         self.last_rt = rt
         self._ensure(len(mz))
-        self.nactive, self.ft, self.fn, done = _advance(
-            mz,
-            intensity,
-            threshold,
-            float(rt),
-            float(self.config.mz_tolerance_ppm),
-            float(self.config.mz_tolerance_da),
-            self.config.max_gap_scans,
-            float(self.config.max_gap_seconds),
-            self.active,
-            self.nactive,
-            self.tf,
-            self.ti,
-            self.nodes,
-            self.links,
-            self.free_tracks,
-            self.ft,
-            self.free_nodes,
-            self.fn,
+        self.active_count, self.available_tracks, self.available_nodes, finished_tracks = (
+            _advance_tracks(
+                mz,
+                intensity,
+                threshold,
+                float(rt),
+                float(self.config.mz_tolerance_ppm),
+                float(self.config.mz_tolerance_da),
+                self.config.max_gap_scans,
+                float(self.config.max_gap_seconds),
+                self.active,
+                self.active_count,
+                self.track_values,
+                self.track_layout,
+                self.nodes,
+                self.links,
+                self.free_tracks,
+                self.available_tracks,
+                self.free_nodes,
+                self.available_nodes,
+            )
         )
-        self.peak_active_traces = max(self.peak_active_traces, self.nactive)
-        self.peak_live_nodes = max(self.peak_live_nodes, len(self.nodes) - self.fn)
-        return self._finish(done)
+        self.peak_active_traces = max(self.peak_active_traces, self.active_count)
+        self.peak_live_nodes = max(self.peak_live_nodes, len(self.nodes) - self.available_nodes)
+        return self._finish(finished_tracks)
 
     def flush(self):
-        done = self.active[: self.nactive].copy()
-        self.nactive = 0
-        return self._finish(done)
+        finished_tracks = self.active[: self.active_count].copy()
+        self.active_count = 0
+        return self._finish(finished_tracks)
 
 
 @dataclass(slots=True)
@@ -277,143 +312,42 @@ class Feature:
     _ms2_records: tuple = field(default=(), repr=False, metadata={"tsv": False})
 
 
-@lru_cache(maxsize=512)
-def _gaussian_weights(sigma):
-    radius = int(4.0 * sigma + 0.5)
-    positions = np.arange(-radius, radius + 1)
-    weights = np.exp((-0.5 / (sigma * sigma)) * positions**2)
-    weights /= weights.sum()
-    weights.flags.writeable = False
-    return weights
-
-
-def _smooth_padded(signal, sigma):
-    """Same zero pad and order-0 reflect Gaussian as scipy.gaussian_filter1d.
-
-    Cache only the small kernel, never a signal or a peak result. A bounded
-    cache avoids rebuilding identical kernels for every chromatographic trace.
-    """
-    padded = np.empty(len(signal) + 2, dtype=np.float64)
-    padded[0] = padded[-1] = 0.0
-    padded[1:-1] = signal
-    return correlate1d(padded, _gaussian_weights(float(sigma)), mode="reflect")
-
-
-@njit(cache=True, nogil=True)
-def _has_multiple_maxima(values):
-    """Count local maxima with SciPy's plateau definition, stopping after two.
-
-    With zero/one maximum, prominence and distance cannot produce a split, so
-    the expensive peak-property calculation is unnecessary. Multiple maxima
-    always use the original SciPy prominence/distance algorithm.
-    """
-    peaks = 0
-    i = 1
-    while i < len(values) - 1:
-        if values[i] > values[i - 1]:
-            end = i
-            while end < len(values) - 1 and values[end] == values[end + 1]:
-                end += 1
-            if end < len(values) - 1 and values[end] > values[end + 1]:
-                peaks += 1
-                if peaks > 1:
-                    return True
-            i = end
-        i += 1
-    return False
-
-
-@njit(cache=True, nogil=True)
-def _median_spacing(rt):
-    # Trace columns are strided; Numba's np.diff requires a contiguous input.
-    differences = np.empty(len(rt) - 1, dtype=np.float64)
-    for i in range(len(differences)):
-        differences[i] = rt[i + 1] - rt[i]
-    return np.median(differences)
-
-
 def summarize_trace(trace, config: Config, polarity="unknown"):
-    """Split at chromatographic valleys; quantify original, un-smoothed signals.
+    """Segment one trace in compiled code; measure the original observations."""
+    from .chromatograms import summarize_chromatogram
 
-    Adjacent segments share a valley point, but no trapezoid interval is counted
-    twice. Area is intensity * seconds, and missing MS1 scans contribute zeros.
-    """
-    valid = np.flatnonzero(trace[:, 1] > 0)
-    if len(valid) < config.min_scans:
+    summaries, tied = summarize_chromatogram(
+        trace,
+        config.min_scans,
+        config.segment,
+        float(config.smoothing_sigma),
+        float(config.smoothing_seconds),
+        config.peak_distance,
+        float(config.peak_distance_seconds),
+        float(config.peak_prominence),
+    )
+    if tied:
+        from .reference_chromatograms import summarize_reference_trace
+
+        yield from summarize_reference_trace(trace, config, polarity)
         return
-    trace = trace[valid[0] : valid[-1] + 1]
-    intensity = trace[:, 1]
-    cuts = [0]
-    if config.segment:
-        rt = trace[:, 2]
-        physical = config.smoothing_seconds > 0 or config.peak_distance_seconds > 0
-        if physical and len(rt) > 1:
-            step = float(_median_spacing(rt))
-            size = min(len(rt) * 4, max(2, int(np.ceil((rt[-1] - rt[0]) / step - 1e-9)) + 1))
-            grid = np.linspace(rt[0], rt[-1], size)
-            step = float(grid[1] - grid[0])
-            signal = np.interp(grid, rt, intensity)
-            sigma = (
-                config.smoothing_seconds / step
-                if config.smoothing_seconds > 0
-                else config.smoothing_sigma
-            )
-            distance = (
-                max(1, int(np.ceil(config.peak_distance_seconds / step - 1e-9)))
-                if config.peak_distance_seconds > 0
-                else config.peak_distance
-            )
-        else:
-            grid, signal, sigma, distance = (
-                rt,
-                intensity,
-                config.smoothing_sigma,
-                config.peak_distance,
-            )
-        smooth = _smooth_padded(signal, sigma)
-        peaks = np.empty(0, dtype=np.int64)
-        if _has_multiple_maxima(smooth):
-            peaks, _ = find_peaks(
-                smooth, prominence=smooth.max() * config.peak_prominence, distance=distance
-            )
-        peaks = peaks - 1
-        peaks = peaks[(peaks >= 0) & (peaks < len(signal))]
-        for left, right in zip(peaks[:-1], peaks[1:]):
-            valley = left + int(np.argmin(smooth[left + 1 : right + 2]))
-            if physical:
-                index = int(np.searchsorted(rt, grid[valley]))
-                index = min(index, len(rt) - 1)
-                if index and abs(rt[index - 1] - grid[valley]) <= abs(rt[index] - grid[valley]):
-                    index -= 1
-                valley = index
-            if cuts[-1] < valley < len(intensity) - 1:
-                cuts.append(valley)
-    cuts.append(len(trace) - 1)
-    for left, right in zip(cuts[:-1], cuts[1:]):
-        part = trace[left : right + 1]
-        y = part[:, 1]
-        count = int(np.count_nonzero(y))
-        if count < config.min_scans:
-            continue
-        apex = int(np.argmax(y))
-        rt = part[:, 2]
-        height = float(y[apex])
-        threshold = float(part[apex, 3])
-        area = float(np.dot(np.diff(rt), (y[:-1] + y[1:]) * 0.5))
+    for peak in summaries:
         yield Feature(
-            mz=float(np.dot(part[:, 0], y / y.sum())),
-            rt_apex_seconds=float(rt[apex]),
-            rt_start_seconds=float(rt[0]),
-            rt_end_seconds=float(rt[-1]),
-            peak_height=height,
-            peak_area=area,
-            scan_count=count,
-            apex_noise_threshold=threshold,
-            apex_threshold_ratio=height / threshold if threshold > 0 else None,
+            mz=peak.mz,
+            rt_apex_seconds=peak.apex_time,
+            rt_start_seconds=peak.start_time,
+            rt_end_seconds=peak.end_time,
+            peak_height=peak.height,
+            peak_area=peak.area,
+            scan_count=peak.observations,
+            apex_noise_threshold=peak.noise_threshold,
+            apex_threshold_ratio=peak.height / peak.noise_threshold
+            if peak.noise_threshold > 0
+            else None,
             polarity=polarity,
-            intensity=height if config.quant_method == "peak_height" else area,
+            intensity=peak.height if config.quant_method == "peak_height" else peak.area,
             quant_method=config.quant_method,
-            trace=part[:, 1:3].copy() if config.group_ions else None,
+            trace=trace[peak.first : peak.last + 1, 1:3].copy() if config.group_ions else None,
         )
 
 
@@ -421,8 +355,10 @@ def warmup():
     """Compile/load the small fixed kernel set once per long-lived worker."""
     from .noise import estimate_noise
     from .centroid import centroid_profile
-    from .grouping import trace_correlation, _candidate_pairs
+    from .grouping import trace_correlation, _candidate_pairs, sorted_mass_windows
     from .gapfill import eic_intensities
+    from .calibration import measure_representative
+    from .gapfill_refinement import _eic
 
     config = Config(min_scans=2)
     mz = np.array([100.0, 200.0])
@@ -436,7 +372,9 @@ def warmup():
     trace = np.column_stack((intensity, np.arange(2, dtype=float)))
     trace_correlation(trace, trace)
     eic_intensities(mz, intensity, mz, 20.0, 0.01)
-    _has_multiple_maxima(intensity)
-    _median_spacing(mz)
+    list(summarize_trace(np.column_stack((mz, intensity, mz, threshold)), config))
+    measure_representative(np.zeros((2, 4)), 0.05, 100.0)
     ids = np.arange(2, dtype=np.int64)
+    sorted_mass_windows(mz, mz, mz)
+    _eic(mz, intensity, np.array([0, 2], dtype=np.int64), 100.0, 0.01)
     list(_candidate_pairs(ids, ids, ids, ids + 1, mz, intensity, ids + 1, 5.0))

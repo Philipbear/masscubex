@@ -66,6 +66,17 @@ Corrupted or missing files do not stop other inputs. Every run automatically
 saves a summary and an error-file list, as described below. A batch with file
 failures returns a nonzero exit code **after processing the remaining files**.
 
+## Memory and scan replay
+
+The default decoded-scan cache budget is **64 MiB per worker**. Calibration,
+extraction and raw-MS1 gap filling reuse it within a file. If a file exceeds the
+budget, extraction discards the cache and streams subsequent passes from disk.
+`--scan-cache-mb 0` disables it; a larger value can help large files when RAM
+permits. Feature histories, MS2 metadata and Arrow buffers need additional memory.
+The cache does not reuse features across files or runs, and does not replace
+checksum-verified `--resume` behavior. Sidecars report read/replay counts and
+peak charged cache bytes under `scan_cache`.
+
 ## Corrupted files and batch reports
 
 No extra flag is needed to continue after malformed XML, broken binary arrays,

@@ -93,7 +93,7 @@ def test_refined_queries_release_finished_slices_and_enforce_collection_limit(
     monkeypatch.setattr(
         pipeline,
         "calibrate_file",
-        lambda *args: TuningResult(
+        lambda *args, **kwargs: TuningResult(
             {"positive": config}, {"polarities": {"positive": {"status": "tuned"}}}
         ),
     )
@@ -109,7 +109,9 @@ def test_refined_queries_release_finished_slices_and_enforce_collection_limit(
                 )
             )
     stage, finished, measurements = {"scans": 0}, [], []
-    original_read, original_refine = gapfill.iter_ms1, gapfill.refine_measurement
+    from masscubex.scan_cache import ScanSource
+
+    original_read, original_refine = ScanSource.ms1, gapfill.refine_measurement
 
     def read(*args, **kwargs):
         for scan in original_read(*args, **kwargs):
@@ -121,7 +123,7 @@ def test_refined_queries_release_finished_slices_and_enforce_collection_limit(
         measurements.append(m)
         original_refine(f, m, c)
 
-    monkeypatch.setattr(gapfill, "iter_ms1", read)
+    monkeypatch.setattr(ScanSource, "ms1", read)
     monkeypatch.setattr(gapfill, "refine_measurement", refine)
     output = tmp_path / "out.tsv"
     process_file(write_mzml(tmp_path / "queries.mzML", spectra), output, config=config)

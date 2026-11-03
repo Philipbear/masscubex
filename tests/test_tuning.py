@@ -117,3 +117,20 @@ def test_cli_defaults_and_explicit_default_value_lock(capsys):
     assert config["auto_tune"] and config["group_ions"]
     assert config["tuning_min_peaks"] == 20
     assert config["tuning_locked"] == ["mz_tolerance_ppm"]
+
+
+@pytest.mark.parametrize("seed", range(30))
+def test_compiled_calibration_matches_independent_scipy_measurements(seed):
+    from dataclasses import asdict
+    from reference_calibration import representative as reference
+
+    rng = np.random.default_rng(seed)
+    t = np.cumsum(rng.uniform(0.2, 0.5, 100))
+    for noise in (0.0, 0.01, 0.2, 1.0):
+        y = 1e5 * (np.exp(-0.5 * ((t - np.median(t)) / 3) ** 2) + noise * rng.random(len(t)))
+        trace = np.column_stack((100 + rng.normal(0, 0.0001, len(t)), y, t, np.zeros(len(t))))
+        a, a_reason = representative(trace, Config())
+        b, b_reason = reference(trace, Config())
+        assert a_reason == b_reason
+        if b is not None:
+            assert asdict(a) == pytest.approx(asdict(b), rel=2e-14, abs=1e-14)

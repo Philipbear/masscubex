@@ -16,3 +16,12 @@ and default-on candidate ion relationships,
 and a configurable per-file Parquet/TSV command-line workflow. Packaging and documentation have been rewritten;
 vendor readers, alignment, annotation, statistics, and plotting are removed.
 The original Apache License 2.0 and attribution above are retained.
+
+SciPy compatibility algorithms
+The Gaussian reflection, plateau detection, distance selection and prominence
+routines in src/masscubex/chromatograms.py follow the semantics and accumulation
+order of SciPy 1.13.1 (scipy/ndimage/src/ni_filters.c and
+scipy/signal/_peak_finding_utils.pyx), adapted to readable Numba kernels.
+Copyright (c) 2001-2002 Enthought, Inc. 2003-2024, SciPy Developers.
+Copyright (c) 2003-2005, Peter J. Verveer.
+The applicable BSD 3-Clause notice is retained in licenses/SCIPY-BSD-3-Clause.txt.

@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.6.0 processing path,
+This document describes the implemented MassCubeX 0.7.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -67,10 +67,17 @@ ion relationships → publish one Parquet/TSV table and one JSON sidecar.
 ### Formats and streaming
 
 File extensions are case-insensitive: `.mzML`, `.mzXML`, and either with `.gz`.
-The extraction pass uses `lxml.iterparse`; auto-calibration adds an initial
-streaming pass, and MS2-seeded measurements add a targeted streaming pass (§7). Elements and preceding siblings are
-released after use; no byte-offset index or complete raw-spectrum collection
-is constructed. External entity resolution, DTD loading and network access
+The reader uses `lxml.iterparse`. Calibration, extraction and raw-MS1 gap filling
+remain separate logical passes. Version 0.7.0 replays decoded scans when their
+conservatively charged array/metadata storage fits `scan_cache_mb` (64 MiB per
+worker by default). On overflow, the cache is discarded and later passes stream
+the input again; `--scan-cache-mb 0` always streams. A cache is usable only after
+the first pass reaches valid XML EOF. MS2 metadata is copied per pass so polarity
+inference, precursor intensity estimation and fragment pruning cannot contaminate
+subsequent passes. Raw MS1 arrays stay unfiltered for gap filling. Cached arrays
+are released before ion grouping. Sidecar `scan_cache` records the budget, peak
+charged bytes and physical-read/replay counts. XML elements and preceding siblings
+are released after use; no byte-offset index is constructed. External entity resolution, DTD loading and network access
 are disabled. There is no runtime controlled-vocabulary download.
 
 mzML supports plain and indexed wrappers, referenceable parameter groups,
@@ -205,6 +212,12 @@ This avoids subtraction of two nearly equal large raw second moments, and
 rebuilding nodes avoids accumulating subtractive error as strong peaks leave
 the window. Before building the tree, an intensity range whose squared span
 times the positive-point count would overflow float64 raises a file error.
+
+Version 0.7.0 first queries the lowest-k prefix with the candidate present.
+If the candidate rank is outside that prefix, excluding it cannot change the
+selected subset, so no temporary tree updates are needed. Otherwise it is
+removed, the prefix is queried again, and it is restored. The selection count
+always excludes the candidate. Centered moments and μ + 3σ are unchanged.
 
 The one-time sort plus window updates and prefix queries take **O(N log N)**
 time and O(N) temporary storage. Tree storage is three arrays with twice the
@@ -438,14 +451,20 @@ Gaussian filter with reflected boundaries, equivalent to SciPy's
 `peak_prominence × maximum_smoothed_intensity` (default 0.1). Resampling and
 smoothing affect segmentation only, never original-sample quantification.
 
-Version 0.6.0 caches up to 512 Gaussian kernels (radius `int(4*sigma + 0.5)`)
-and applies them through SciPy's public `correlate1d`. It replaces repeated
-padding setup with a direct allocation. A compiled plateau-aware scan skips
-prominence/distance calculations only when the smoothed trace has at most one
-local maximum, where splitting cannot occur. Multiple-maxima traces still use
-the original SciPy peak selection. A compiled median-spacing helper supports
-strided trace columns. These changes preserve the segmentation rules and the
-original NumPy arithmetic for quantification; they do not change thresholds.
+Version 0.7.0 fuses resampling, reflected Gaussian smoothing (radius
+`int(4*sigma + 0.5)`), plateau midpoints, peak selection and quantification in
+Numba. Minimum distance is applied **before** prominence, matching SciPy's
+selection order; prominence searches extend until a strictly higher sample or
+the signal boundary. Exact or near-equal distance priorities (within eight
+float64 epsilons relative to the larger magnitude) use the retained SciPy path
+so its unstable-sort tie policy is preserved. The named summary record carries
+original trace bounds, avoiding implicit positional fields in the Python layer.
+No fast-math or float32 conversion is used. Strided measurement loops avoid
+allocating several temporary arrays per peak. Compiled exp/sum/dot operation
+order can change final float64 bits: numerical parity is tested with tight
+tolerances, while feature boundaries and MS/MS identities must match exactly.
+See the [performance and equivalence report](../benchmarks/results/PERFORMANCE.md).
+The SciPy compatibility source and BSD notice are credited in `NOTICE`.
 
 Between consecutive detected maxima, cut at the first minimum of the smoothed
 signal. Add the trace's first and last points as outer boundaries. Adjacent
@@ -710,7 +729,10 @@ larger of 10 ppm and 0.002 Da by default. Known associated precursor-charge
 magnitudes restrict allowed forms; if several magnitudes are recorded, a form
 must match at least one. Unknown charge permits hypotheses, not confirmation.
 
-Mass bounds are searched in vectorized batches. Version 0.6.0 rejects self-pairs,
+Adduct mass bounds are found by a linear sweep of sorted query bounds and sorted
+feature masses. Nonmonotone bounds from custom ion forms/extreme tolerances fall
+back to independent binary searches. Small MS2 fragment queries retain binary
+searches. The compiled candidate iterator rejects self-pairs,
 empty traces and incompatible apex times in a compiled loop before creating
 Python correlation/evidence objects. It reuses per-feature apex/count/charge
 data and vectorizes MS2 product-mass searches. Candidate ordering, inclusive
@@ -843,10 +865,14 @@ process workers load/initialize their own caches. Numerical kernels use
 many file workers. The benchmark found processes faster for this XML/Python
 workload, despite GIL-free numerical kernels.
 
-Default memory includes the current raw spectrum, active trace histories,
+Default memory includes up to 64 MiB of conservatively charged decoded-scan
+cache per worker (configurable/disableable), the current raw spectrum, active trace histories,
 completed feature summaries, compact MS2 metadata and their associations.
-Calibration adds bounded pilot traces/candidate pools and compact MS2 records
-during its separate pass. Refined gap filling retains bounded complete slices
+Calibration adds bounded pilot traces/candidate pools and MS2 metadata
+during its logical pass. Its one-trace quality screening runs in a separate
+compiled module; all selection thresholds and robust per-polarity policies are
+unchanged. Gap filling packs each bounded raw query into contiguous arrays once
+so repeated candidate EIC queries avoid Python calls per sample. Refined gap filling retains bounded complete slices
 per active query; total memory still depends on simultaneous queries.
 Grouping additionally retains feature intensity/time histories and bounded
 product-mass lists. Completed rows can be streamed directly when both grouping

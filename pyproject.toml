@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "masscubex"
-version = "0.6.0"
+version = "0.7.0"
 description = "Streaming mzML/mzXML to per-file MS1 feature tables"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license = "Apache-2.0 AND BSD-3-Clause"
+license-files = ["LICENSE", "NOTICE", "licenses/SCIPY-BSD-3-Clause.txt"]
 dependencies = ["numpy>=1.24", "numba>=0.60", "scipy>=1.10", "lxml>=4.9", "pyarrow>=17"]
 
 [project.optional-dependencies]

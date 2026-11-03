@@ -236,6 +236,7 @@ _SETTING_FLAGS = (
     ("noise_estimator", "--noise-estimator", str),
     ("noise_fraction", "--noise-fraction", float),
     ("noise_window_da", "--noise-window-da", float),
+    ("scan_cache_mb", "--scan-cache-mb", float),
     ("noise_sigma", "--noise-sigma", float),
     ("noise_clip_sigma", "--noise-clip-sigma", float),
     ("noise_iterations", "--noise-iterations", int),
@@ -368,6 +369,8 @@ def _parser():
             help_ += "; weakest positive fraction in (0, 1], low_tail only"
         if name == "noise_sigma":
             help_ += "; fixed at 3; tune the background subset with --noise-fraction"
+        if name == "scan_cache_mb":
+            help_ += "; per-worker decoded scan budget in MiB; 0 disables replay"
         if name == "noise_min_neighbors":
             help_ += "; minimum selected background count, excluding the candidate"
         if name in {"noise_clip_sigma", "noise_iterations"}:

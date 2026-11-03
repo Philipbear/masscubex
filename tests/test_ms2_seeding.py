@@ -222,7 +222,6 @@ def test_gapfill_window_controls_actual_measurement_and_resume(tmp_path):
 
 
 def test_gapfill_failure_does_not_publish_partial_outputs(tmp_path, monkeypatch):
-    from masscubex import gapfill
 
     path = write_mzml(
         tmp_path / "failure.mzML",
@@ -241,7 +240,9 @@ def test_gapfill_failure_does_not_publish_partial_outputs(tmp_path, monkeypatch)
         raise ValueError("second-pass read failed")
         yield  # A streaming reader, not a pre-materialized list.
 
-    monkeypatch.setattr(gapfill, "iter_ms1", broken)
+    from masscubex.scan_cache import ScanSource
+
+    monkeypatch.setattr(ScanSource, "ms1", broken)
     with pytest.raises(ValueError, match="second-pass"):
         process_file(path, output, overwrite=True)
     assert output.read_bytes() == before and metadata.read_bytes() == before_json

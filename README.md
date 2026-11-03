@@ -94,6 +94,7 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
 - [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
 - [Extraction speed and output-size measurements](benchmarks/results/PERFORMANCE.md)
+- [Code structure and numerical development checks](docs/DEVELOPMENT.md)
 
 DIA classification/deconvolution, mobility-resolved feature extraction, library
 annotation and dataset alignment are not implemented.
@@ -109,5 +110,6 @@ python -m build
 
 Install the optional Numpress decoder above to include its encoding tests.
 
-Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Original MassCube
-attribution and Git history are retained.
+Apache License 2.0, with BSD-licensed SciPy compatibility portions; see
+[LICENSE](LICENSE), [NOTICE](NOTICE) and [third-party notice](licenses/SCIPY-BSD-3-Clause.txt).
+Original MassCube attribution and Git history are retained.

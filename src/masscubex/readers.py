@@ -16,6 +16,8 @@ import zlib
 from lxml import etree
 import numpy as np
 
+from .array_validation import normalized_arrays
+
 
 @dataclass(slots=True)
 class Scan:
@@ -128,6 +130,8 @@ def _arrays(mz, intensity, *, profile=False):
     intensity = np.ascontiguousarray(intensity, dtype=np.float64)
     if mz.ndim != 1 or intensity.ndim != 1 or mz.size != intensity.size:
         raise ValueError("Mismatched m/z and intensity arrays")
+    if normalized_arrays(mz, intensity, True, not profile):
+        return mz, intensity
     if not np.all(np.isfinite(mz)) or not np.all(np.isfinite(intensity)):
         raise ValueError("Non-finite m/z or intensity")
     if np.any(mz <= 0) or (not profile and np.any(intensity < 0)):

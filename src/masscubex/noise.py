@@ -9,6 +9,7 @@ import numpy as np
 from numba import njit
 
 from .config import Config
+from .array_validation import normalized_arrays
 
 
 @njit(cache=True, inline="always")
@@ -114,8 +115,9 @@ def _tree_update(leaf, value, active, counts, means, m2):
 
 @njit(cache=True, inline="always")
 def _lowest_moments(k, counts, means, m2):
-    """Select a prefix containing exactly k active ranks in O(log N)."""
+    """Return moments and the last covered rank of the lowest k active leaves."""
     node, remaining, count = 1, k, 0
+    last_subtree = 1
     mean = total_m2 = 0.0
     while remaining:
         if counts[node] <= remaining:
@@ -123,6 +125,7 @@ def _lowest_moments(k, counts, means, m2):
                 count, mean, total_m2, counts[node], means[node], m2[node]
             )
             remaining -= counts[node]
+            last_subtree = node
             break
         left = 2 * node
         if counts[left] <= remaining:
@@ -130,10 +133,15 @@ def _lowest_moments(k, counts, means, m2):
                 count, mean, total_m2, counts[left], means[left], m2[left]
             )
             remaining -= counts[left]
+            last_subtree = left
             node = left + 1
         else:
             node = left
-    return mean, np.sqrt(max(0.0, total_m2 / k))
+    # Every active rank through this subtree belongs to the selected prefix.
+    # Inactive leaves at its right edge do not affect candidate membership.
+    while last_subtree < len(counts) // 2:
+        last_subtree = 2 * last_subtree + 1
+    return mean, np.sqrt(max(0.0, total_m2 / k)), last_subtree
 
 
 @njit(cache=True, nogil=True)
@@ -175,13 +183,18 @@ def _estimate_low_tail(mz, intensity, window, sigma, fraction, minimum, floor):
         count = active - int(ranks[i] > 0)
         if count < minimum:
             continue
-        if ranks[i]:
-            _tree_update(ranks[i], intensity[i], False, counts, means, m2)
         k = max(minimum, int(np.ceil(fraction * count)))
-        mean[i], deviation = _lowest_moments(k, counts, means, m2)
+        background, deviation, last_rank = _lowest_moments(k, counts, means, m2)
+        # Most candidates exceed the low tail and cannot contribute to their
+        # own estimate. Only rebuild the tree when the candidate is in that tail.
+        excluded = 0 < ranks[i] <= last_rank
+        if excluded:
+            _tree_update(ranks[i], intensity[i], False, counts, means, m2)
+            background, deviation, _ = _lowest_moments(k, counts, means, m2)
+        mean[i] = background
         std[i] = deviation
         threshold[i] = max(floor, mean[i] + sigma * deviation)
-        if ranks[i]:
+        if excluded:
             _tree_update(ranks[i], intensity[i], True, counts, means, m2)
     return mean, std, threshold
 
@@ -198,13 +211,7 @@ def estimate_noise(mz, intensity, config: Config | None = None):
     intensity = np.ascontiguousarray(intensity, dtype=np.float64)
     if mz.ndim != 1 or intensity.ndim != 1 or mz.shape != intensity.shape:
         raise ValueError("m/z and intensity must be equal-length one-dimensional arrays")
-    if (
-        not np.all(np.isfinite(mz))
-        or not np.all(np.isfinite(intensity))
-        or np.any(mz <= 0)
-        or np.any(intensity < 0)
-        or np.any(mz[1:] < mz[:-1])
-    ):
+    if not normalized_arrays(mz, intensity, False, False):
         raise ValueError("Noise estimation requires sorted finite m/z and nonnegative intensity")
     if config.noise_mode == "none":
         return np.zeros(mz.size), np.zeros(mz.size), np.full(mz.size, config.min_intensity)

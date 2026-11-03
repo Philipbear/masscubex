@@ -55,7 +55,11 @@ def instrument():
     patch(pipeline, "associate_ms2", "ms2_association")
     patch(gapfill, "seed_ms2_features", "ms2_gapfill")
     patch(grouping, "group_ions", "ion_grouping")
-    patch(pipeline, "iter_scans", "extraction.reading", True)
+    if hasattr(pipeline, "iter_scans"):
+        patch(pipeline, "iter_scans", "extraction.reading", True)
+    else:
+        # The same bounded source supplies calibration, extraction and gapfill.
+        patch(pipeline.ScanSource, "scans", "shared.scan_reading_and_replay", True)
     patch(pipeline, "estimate_noise", "extraction.noise")
     patch(pipeline, "summarize_trace", "extraction.peak_summarization", True)
     # This class is shared with calibration, so its timer overlaps both stages.

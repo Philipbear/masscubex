@@ -3,6 +3,7 @@
 from bisect import bisect_left, bisect_right, insort
 
 import numpy as np
+from numba import njit
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks
 
@@ -14,14 +15,17 @@ def _radius(mass, config):
     return max(config.gapfill_mz_tolerance_da, mass * config.gapfill_mz_tolerance_ppm * 1e-6)
 
 
-def _eic(samples, center, config):
-    radius = _radius(center, config)
-    y = np.zeros(len(samples))
-    for i, (_, mz, intensity) in enumerate(samples):
-        a = np.searchsorted(mz, center - radius)
-        b = np.searchsorted(mz, center + radius, side="right")
-        if b > a:
-            y[i] = np.max(intensity[a:b])
+@njit(cache=True, nogil=True)
+def _eic(masses, intensities, offsets, center, radius):
+    """Query packed raw scan slices without Python dispatch per observation."""
+    y = np.zeros(len(offsets) - 1)
+    for index in range(len(y)):
+        start, stop = offsets[index], offsets[index + 1]
+        mz = masses[start:stop]
+        left = start + np.searchsorted(mz, center - radius)
+        right = start + np.searchsorted(mz, center + radius, side="right")
+        for point in range(left, right):
+            y[index] = max(y[index], intensities[point])
     return y
 
 
@@ -86,17 +90,23 @@ def refine_measurement(feature, measurement, config):
         feature.peak_height = feature.peak_area = feature.intensity = 0.0
         feature.ms1_quant_status = feature.gapfill_status = "no_ms1_signal"
         return
-    masses.sort()
+    intensities = np.concatenate([sample[2] for sample in samples])
+    offsets = np.empty(len(samples) + 1, dtype=np.int64)
+    offsets[0] = 0
+    np.cumsum([len(sample[1]) for sample in samples], out=offsets[1:])
+    ordered_masses = np.sort(masses)
     # Bound each cluster's full diameter: no chain of close masses can span the query.
     centers = []
     start = 0
     while start < len(masses):
         end = int(
             np.searchsorted(
-                masses, masses[start] + 2 * _radius(masses[start], config), side="right"
+                ordered_masses,
+                ordered_masses[start] + 2 * _radius(ordered_masses[start], config),
+                side="right",
             )
         )
-        centers.append(float(np.median(masses[start:end])))
+        centers.append(float(np.median(ordered_masses[start:end])))
         start = end
     dt = float(np.median(np.diff(t))) if len(t) > 1 else 0.0
     local = np.abs(t - feature.seed_rt_seconds) <= max(config.ms2_rt_tolerance, 2 * dt)
@@ -109,7 +119,7 @@ def refine_measurement(feature, measurement, config):
     for center in centers:
         if abs(center - feature.seed_precursor_mz) > search:
             continue
-        y = _eic(samples, center, config)
+        y = _eic(masses, intensities, offsets, center, _radius(center, config))
         height = float(np.max(y[local], initial=0.0))
         if height > 0:
             candidates.append((height, center, y))

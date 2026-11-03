@@ -19,7 +19,8 @@ from .centroid import centroid_profile
 from .features import TraceTracker, summarize_trace
 from .output import FEATURE_COLUMNS, resolve_output, write_features
 from .noise import estimate_noise
-from .readers import file_format, iter_scans
+from .readers import file_format
+from .scan_cache import ScanSource
 from .ms2 import MS2Collector, associate_ms2
 from .tuning import calibrate_file, config_for
 
@@ -35,14 +36,19 @@ def implementation_id():
     for name in (
         "config.py",
         "readers.py",
+        "array_validation.py",
+        "scan_cache.py",
         "noise.py",
         "centroid.py",
         "features.py",
+        "chromatograms.py",
+        "reference_chromatograms.py",
         "pipeline.py",
         "ms2.py",
         "gapfill.py",
         "gapfill_refinement.py",
         "tuning.py",
+        "calibration.py",
         "adducts.py",
         "grouping.py",
         "output.py",
@@ -224,9 +230,14 @@ def process_file(
         if (output.exists() or metadata_path.exists()) and not (overwrite or resume):
             raise FileExistsError(f"Output exists: {output}; use resume=True or overwrite=True")
         started = time.perf_counter()
-        tuning = calibrate_file(source, config)
+        scan_source = ScanSource(source, config)
+        tuning = calibrate_file(source, config, scan_source=scan_source)
         timings = {"calibration": time.perf_counter() - started}
-        stats = {"parameter_tuning": tuning.diagnostics, "timings_seconds": timings}
+        stats = {
+            "parameter_tuning": tuning.diagnostics,
+            "timings_seconds": timings,
+            "scan_cache": scan_source.stats,
+        }
         with tempfile.NamedTemporaryFile(
             mode="wb",
             dir=output.parent,
@@ -236,15 +247,7 @@ def process_file(
         ) as stream:
             temp_table = Path(stream.name)
             temporary.append(temp_table)
-        with closing(
-            iter_scans(
-                source,
-                assume_centroid=config.assume_centroid,
-                include_ms2=config.associate_ms2,
-                decode_ms2=config.group_ions and config.group_isf,
-                sum_ms2=config.best_ms2 == "fragment_intensity",
-            )
-        ) as scans:
+        with closing(scan_source.scans()) as scans:
             collector = MS2Collector(config, tuning.configs)
             stream_ms1 = collector.ms1_stream(scans) if config.associate_ms2 else scans
             features = _timed_extraction(
@@ -271,8 +274,10 @@ def process_file(
                         config,
                         stats,
                         tuning.configs,
+                        scan_source=scan_source,
                     )
                     timings["ms2_gapfill"] = time.perf_counter() - started
+                scan_source.release()
                 if config.group_ions:
                     from .grouping import group_ions
 

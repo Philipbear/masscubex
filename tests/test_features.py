@@ -90,8 +90,8 @@ def test_array_pool_growth_and_recycling():
     finished.extend(tracker.flush())
     assert len(finished) == 20 * 50
     assert all(len(trace) == 3 for trace in finished)
-    assert tracker.ft == len(tracker.tf)
-    assert tracker.fn == len(tracker.nodes)
-    assert len(set(tracker.free_tracks[: tracker.ft])) == tracker.ft
-    assert len(set(tracker.free_nodes[: tracker.fn])) == tracker.fn
+    assert tracker.available_tracks == len(tracker.track_values)
+    assert tracker.available_nodes == len(tracker.nodes)
+    assert len(set(tracker.free_tracks[: tracker.available_tracks])) == tracker.available_tracks
+    assert len(set(tracker.free_nodes[: tracker.available_nodes])) == tracker.available_nodes
     assert len(tracker.nodes) < 400  # reuse slots instead of retaining previous cycles

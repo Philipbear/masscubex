@@ -10,6 +10,27 @@ from .tuning import config_for
 
 
 @njit(cache=True, nogil=True)
+def sorted_mass_windows(masses, lower, upper):
+    """Linear sweep for ordered adduct queries; inclusive upper mass bounds.
+
+    Extreme user tolerances or custom ion forms can produce unordered bounds.
+    Those retain independent binary searches rather than assuming monotonicity.
+    """
+    if np.any(lower[1:] < lower[:-1]) or np.any(upper[1:] < upper[:-1]):
+        return np.searchsorted(masses, lower), np.searchsorted(masses, upper, side="right")
+    left = np.empty(len(lower), dtype=np.int64)
+    right = np.empty(len(upper), dtype=np.int64)
+    start = stop = 0
+    for index in range(len(lower)):
+        while start < len(masses) and masses[start] < lower[index]:
+            start += 1
+        while stop < len(masses) and masses[stop] <= upper[index]:
+            stop += 1
+        left[index], right[index] = start, stop
+    return left, right
+
+
+@njit(cache=True, nogil=True)
 def trace_correlation(a, b):
     """Pair shared nonzero scans by actual time; constant/short traces give no evidence."""
     i = j = n = 0
@@ -120,8 +141,7 @@ def group_ions(features, records, config, stats, configs=None):
             tolerances = np.maximum(
                 config.group_mz_tolerance_da, expected * config.group_mz_tolerance_ppm * 1e-6
             )
-            left = np.searchsorted(mz, expected - tolerances)
-            right = np.searchsorted(mz, expected + tolerances, side="right")
+            left, right = sorted_mass_windows(mz, expected - tolerances, expected + tolerances)
             for position, target in _candidate_pairs(
                 ids, ids, left, right, expected, apices, counts, rt_tolerance
             ):
