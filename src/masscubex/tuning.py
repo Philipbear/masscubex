@@ -15,7 +15,7 @@ import numpy as np
 from numba import njit
 
 from .centroid import centroid_profile
-from .calibration import measure_representative
+from .calibration import measure_representative, reference_measurements
 from .config import Config, TUNABLE_FIELDS
 from .features import TraceTracker
 from .readers import MS2Scan, iter_scans
@@ -73,7 +73,11 @@ def representative(trace, config):
     values, reason = measure_representative(
         trace, float(config.tuning_search_da), float(config.tuning_search_ppm)
     )
-    return (Representative(*values), None) if values is not None else (None, reason)
+    return (
+        (Representative(*reference_measurements(trace)), None)
+        if values is not None
+        else (None, reason)
+    )
 
 
 def _inliers(values, floor=1e-9):

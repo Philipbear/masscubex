@@ -7,6 +7,7 @@ This module only measures one original trace and explains a rejection.
 from typing import NamedTuple
 import numpy as np
 from numba import njit
+from scipy.ndimage import gaussian_filter1d
 from .chromatograms import gaussian_smooth, select_peaks
 
 
@@ -21,6 +22,38 @@ class RepresentativeValues(NamedTuple):
     mass_error_da: float
     mass_error_ppm: float
     observations: int
+
+
+def reference_measurements(trace):
+    """Preserve NumPy/SciPy rounding for the small pool of accepted candidates.
+
+    Calibration values set later mass/time boundaries. Re-measure only accepted
+    peaks with the original arithmetic so tiny kernel rounding differences do
+    not propagate into every seeded query's window or learned mass radius.
+    """
+    mz, intensity, times, _ = trace.T
+    smooth = gaussian_filter1d(intensity, 0.6)
+    baseline = float(np.quantile(intensity, 0.1))
+    apex = int(np.argmax(smooth))
+    amplitude = float(smooth[apex] - baseline)
+    central = intensity >= baseline + amplitude * 0.5
+    crossing = getattr(_crossings, "py_func", _crossings)
+    half = crossing(times, smooth, apex, baseline + amplitude * 0.5)
+    outer = crossing(times, smooth, apex, baseline + amplitude * 0.1)
+    center = float(np.median(mz[central]))
+    error = float(np.quantile(np.abs(mz[central] - center), 0.95))
+    return RepresentativeValues(
+        center,
+        float(times[apex]),
+        half[0],
+        half[1],
+        float(intensity.max()),
+        half[1] - half[0],
+        outer[1] - outer[0],
+        error,
+        error / center * 1e6,
+        int(np.count_nonzero(central)),
+    )
 
 
 @njit(cache=True)

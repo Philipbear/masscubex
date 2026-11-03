@@ -871,7 +871,9 @@ completed feature summaries, compact MS2 metadata and their associations.
 Calibration adds bounded pilot traces/candidate pools and MS2 metadata
 during its logical pass. Its one-trace quality screening runs in a separate
 compiled module; all selection thresholds and robust per-polarity policies are
-unchanged. Gap filling packs each bounded raw query into contiguous arrays once
+unchanged. Accepted candidates are re-measured with the previous NumPy/SciPy
+arithmetic so calibrated mass/time bounds remain bit-reproducible; the numerous
+rejected traces incur only compiled screening. Gap filling packs each bounded raw query into contiguous arrays once
 so repeated candidate EIC queries avoid Python calls per sample. Refined gap filling retains bounded complete slices
 per active query; total memory still depends on simultaneous queries.
 Grouping additionally retains feature intensity/time histories and bounded

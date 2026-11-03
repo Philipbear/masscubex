@@ -133,4 +133,4 @@ def test_compiled_calibration_matches_independent_scipy_measurements(seed):
         b, b_reason = reference(trace, Config())
         assert a_reason == b_reason
         if b is not None:
-            assert asdict(a) == pytest.approx(asdict(b), rel=2e-14, abs=1e-14)
+            assert asdict(a) == asdict(b)

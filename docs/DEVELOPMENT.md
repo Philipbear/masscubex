@@ -12,7 +12,7 @@ per-file failure reporting. Neither contains per-mass numerical loops.
 | `features.py` | Recyclable trace pools and the `Feature` record. `MEAN_MZ`, `HEAD_NODE`, etc. name pool columns; `available_nodes` and `active_count` name state counters. |
 | `chromatograms.py` | Compiled segmentation and original-sample measurements, returned as `PeakSummary` with named fields. |
 | `reference_chromatograms.py` | Readable SciPy compatibility path for tied peak priorities and a differential-test oracle. |
-| `calibration.py` | Compiled measurement/quality screening of one representative trace; named `RepresentativeValues` and explicit rejection reasons. |
+| `calibration.py` | Compiled quality screening of one representative trace; accepted candidates retain NumPy/SciPy measurement arithmetic to preserve calibrated boundaries. Named `RepresentativeValues` and explicit rejection reasons. |
 | `tuning.py` | Representative selection, robust per-polarity estimates, evidence minima and override policy. |
 | `noise.py`, `centroid.py` | MS1 noise estimation and profile mass detection. |
 | `ms2.py`, `gapfill.py`, `gapfill_refinement.py` | MS2 bookkeeping, unmatched precursor seeds, query scheduling and raw-MS1 measurements. |
