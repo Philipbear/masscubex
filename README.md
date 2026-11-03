@@ -21,6 +21,7 @@ masscubex warmup
 ```
 
 For MS-Numpress-encoded mzML, install `python -m pip install -e '.[numpress]'`.
+Python 3.13 needs the [Numpress installation steps](docs/USAGE.md#optional-numpress-decoder).
 Processing runs offline. The package, import and command are named `masscubex`;
 this fork is not API-compatible with `masscube`.
 
@@ -96,11 +97,13 @@ annotation and dataset alignment are not implemented.
 ## Development and license
 
 ```bash
-python -m pip install -e '.[dev,numpress]'
+python -m pip install -e '.[dev]'
 pytest -q
 ruff check src tests benchmarks
 python -m build
 ```
+
+Install the optional Numpress decoder above to include its encoding tests.
 
 Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Original MassCube
 attribution and Git history are retained.

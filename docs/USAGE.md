@@ -3,6 +3,30 @@
 For installation and a short introduction, see the [README](../README.md).
 For algorithm details, see [METHODS.md](METHODS.md).
 
+## Optional Numpress decoder
+
+Ordinary float32/float64 mzML and mzXML arrays need no additional decoder.
+MS-Numpress-encoded mzML needs `pynumpress`; install it on Python 3.10–3.12 with
+`python -m pip install -e '.[numpress]'` from this checkout.
+
+On Python 3.13, `pynumpress` 0.0.9's isolated build pins NumPy 2.0, which predates
+Python 3.13 wheels. Install MassCubeX first, then build the decoder against the
+compatible NumPy already installed in your virtual environment:
+
+```bash
+python -m pip install -e .
+python -m pip install "setuptools>=77" wheel Cython
+python -m pip install --no-build-isolation "pynumpress>=0.0.9,<0.1"
+```
+
+A C/C++ compiler is needed when no decoder wheel is available (for example,
+Xcode Command Line Tools on macOS or Microsoft C++ Build Tools on Windows).
+The explicit build tools above are needed because pip does not install build
+dependencies when [build isolation is disabled](https://pip.pypa.io/en/stable/reference/build-system/#disabling-build-isolation).
+CI exercises this route on Python 3.13 on all three platforms. Missing Numpress
+support is reported as a file error when an input uses that encoding; other
+files in the batch continue.
+
 ## Extract features
 
 ```bash
