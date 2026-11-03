@@ -260,16 +260,26 @@ def test_float32_mass_boundary_and_duplicate_centroids_use_normalized_raw_ms1(tm
 
 
 @pytest.mark.parametrize("executor", ["thread", "process"])
-def test_seeded_outputs_are_identical_across_file_workers(tmp_path, executor):
+@pytest.mark.parametrize("output_format", ["parquet", "tsv"])
+def test_seeded_outputs_are_identical_across_file_workers(tmp_path, executor, output_format):
     from masscubex.cli import run_batch
 
     spectra = [mzml_spectrum(1, 0, [100], [2]), mzml_spectrum(2, 1, [100], [4])]
     spectra.append(mzml_spectrum(3, 1.1, [50], [5], level=2, precursor=precursor_mzml(width=25)))
     a = write_mzml(tmp_path / "a.mzML", spectra)
     b = write_mzml(tmp_path / "b.mzML", spectra)
-    reference = tmp_path / "reference.tsv"
-    outputs(a, reference)
-    results = list(run_batch([a, b], tmp_path / "parallel", Config(), workers=2, executor=executor))
+    reference = tmp_path / ("reference." + output_format)
+    process_file(a, reference)
+    results = list(
+        run_batch(
+            [a, b],
+            tmp_path / "parallel",
+            Config(),
+            workers=2,
+            executor=executor,
+            output_format=output_format,
+        )
+    )
     assert len(results) == 2 and all(r["status"] == "ok" for r in results)
     for result in results:
         assert Path(result["output"]).read_bytes() == reference.read_bytes()

@@ -76,7 +76,7 @@ def test_failed_parse_leaves_no_outputs_and_preserves_old_result(sample_file, tm
 
 def test_empty_scans_header_only_but_ms2_only_errors(tmp_path):
     path = write_mzml(tmp_path / "empty.mzML", [mzml_spectrum(1, 0, [], [])])
-    result = process_file(path)
+    result = process_file(path, output_format="tsv")
     assert result.features == 0
     assert len(Path(result.output).read_text().splitlines()) == 1
     path = write_mzml(tmp_path / "ms2.mzML", [mzml_spectrum(1, 0, [], [], level=2)])

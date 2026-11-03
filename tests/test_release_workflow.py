@@ -19,8 +19,9 @@ def test_supported_tuning_is_identical_in_parallel_and_resumable(tmp_path, execu
     config = Config(
         noise_mode="none", min_intensity=100, tuning_block_scans=2048, tuning_block_seconds=300
     )
-    reference = tmp_path / "reference.tsv"
-    _, meta = outputs(source, reference, config)
+    reference = tmp_path / "reference.parquet"
+    process_file(source, reference, config=config)
+    meta = json.loads(Path(str(reference) + ".json").read_text())
     paths = [source]
     for i in range(3):
         copy = tmp_path / f"copy-{i}.mzML.gz"

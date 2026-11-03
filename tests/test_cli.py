@@ -142,6 +142,8 @@ def test_cli_area_selection_reaches_output(sample_file, tmp_path, capsys):
                 "--best-ms2",
                 "apex",
                 "--no-segment",
+                "--format",
+                "tsv",
             ]
         )
         == 0

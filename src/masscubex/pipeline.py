@@ -1,15 +1,13 @@
 """Streaming extraction and crash-safe, independently resumable file outputs."""
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from contextlib import closing
 from datetime import datetime, timezone
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-import csv
 import hashlib
 import json
-import math
 import os
 import socket
 import tempfile
@@ -18,17 +16,16 @@ import time
 from . import __version__
 from .config import Config
 from .centroid import centroid_profile
-from .features import Feature, TraceTracker, summarize_trace
+from .features import TraceTracker, summarize_trace
+from .output import FEATURE_COLUMNS, resolve_output, write_features
 from .noise import estimate_noise
 from .readers import file_format, iter_scans
 from .ms2 import MS2Collector, associate_ms2
 from .tuning import calibrate_file, config_for
 
 
-SCHEMA_VERSION = 4
-TSV_COLUMNS = ["feature_id"] + [
-    field.name for field in fields(Feature) if field.metadata.get("tsv", True)
-]
+SCHEMA_VERSION = 5
+TSV_COLUMNS = FEATURE_COLUMNS  # Compatibility for table readers and existing audits.
 
 
 @lru_cache(maxsize=1)
@@ -48,9 +45,10 @@ def implementation_id():
         "tuning.py",
         "adducts.py",
         "grouping.py",
+        "output.py",
     ):
         digest.update(Path(__file__).with_name(name).read_bytes())
-    dependencies = {name: version(name) for name in ("numpy", "numba", "scipy", "lxml")}
+    dependencies = {name: version(name) for name in ("numpy", "numba", "scipy", "lxml", "pyarrow")}
     # Optional decoding can affect rounding, so it belongs in provenance too.
     try:
         dependencies["pynumpress"] = version("pynumpress")
@@ -122,7 +120,21 @@ def _sha256(path):
     return digest.hexdigest()
 
 
-def _resume_metadata(output, metadata_path, signature, config):
+def _timed_extraction(features, timings):
+    iterator = iter(features)
+    timings["feature_extraction"] = 0.0
+    while True:
+        started = time.perf_counter()
+        try:
+            feature = next(iterator)
+        except StopIteration:
+            timings["feature_extraction"] += time.perf_counter() - started
+            return
+        timings["feature_extraction"] += time.perf_counter() - started
+        yield feature
+
+
+def _resume_metadata(output, metadata_path, signature, config, output_format):
     try:
         metadata = json.loads(metadata_path.read_text())
         if (
@@ -141,8 +153,9 @@ def _resume_metadata(output, metadata_path, signature, config):
                     config.associate_ms2 and config.ms2_seeded_features and metadata["features"] > 0
                 )
             )
-            and metadata["tsv_bytes"] == output.stat().st_size
-            and metadata["tsv_sha256"] == _sha256(output)
+            and metadata["output_format"] == output_format
+            and metadata["output_bytes"] == output.stat().st_size
+            and metadata["output_sha256"] == _sha256(output)
         ):
             return metadata
     except (OSError, ValueError, KeyError, TypeError):
@@ -151,9 +164,18 @@ def _resume_metadata(output, metadata_path, signature, config):
 
 
 def process_file(
-    input_path, output_path=None, *, config: Config | None = None, resume=False, overwrite=False
+    input_path,
+    output_path=None,
+    *,
+    config: Config | None = None,
+    resume=False,
+    overwrite=False,
+    output_format=None,
 ):
-    """Write one TSV plus a JSON provenance/completion sidecar.
+    """Write one Parquet (default) or TSV table plus a JSON completion sidecar.
+
+    An explicit output path selects its format by extension. ``output_format``
+    may select the default name, or validate an explicitly supplied extension.
 
     ``resume=True`` skips only a matching, checksum-verified result and replaces
     stale results. No input-content hash is read: input identity is absolute path,
@@ -166,9 +188,7 @@ def process_file(
     file_format(source)
     if not source.is_file():
         raise ValueError(f"Input is not a regular file: {source}")
-    output = Path(output_path or (str(source) + ".features.tsv")).resolve()
-    if output.suffix.lower() != ".tsv":
-        raise ValueError("Output path must end with .tsv")
+    output, output_format = resolve_output(source, output_path, output_format)
     output.parent.mkdir(parents=True, exist_ok=True)
     metadata_path = Path(str(output) + ".json")
     lock = Path(str(output) + ".lock")
@@ -191,7 +211,7 @@ def process_file(
             )
         signature = _signature(source)
         if resume:
-            metadata = _resume_metadata(output, metadata_path, signature, config)
+            metadata = _resume_metadata(output, metadata_path, signature, config, output_format)
             if metadata is not None:
                 return ProcessingResult(
                     str(source),
@@ -203,80 +223,73 @@ def process_file(
                 )
         if (output.exists() or metadata_path.exists()) and not (overwrite or resume):
             raise FileExistsError(f"Output exists: {output}; use resume=True or overwrite=True")
+        started = time.perf_counter()
         tuning = calibrate_file(source, config)
-        stats = {"parameter_tuning": tuning.diagnostics}
-        count = 0
+        timings = {"calibration": time.perf_counter() - started}
+        stats = {"parameter_tuning": tuning.diagnostics, "timings_seconds": timings}
         with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            newline="",
+            mode="wb",
             dir=output.parent,
             prefix="." + output.name + ".",
             suffix=".partial",
             delete=False,
         ) as stream:
-            temp_tsv = Path(stream.name)
-            temporary.append(temp_tsv)
-            writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
-            writer.writerow(TSV_COLUMNS)
-            with closing(
-                iter_scans(
-                    source,
-                    assume_centroid=config.assume_centroid,
-                    include_ms2=config.associate_ms2,
-                    decode_ms2=config.group_ions and config.group_isf,
-                    sum_ms2=config.best_ms2 == "fragment_intensity",
-                )
-            ) as scans:
-                collector = MS2Collector(config, tuning.configs)
-                stream_ms1 = collector.ms1_stream(scans) if config.associate_ms2 else scans
-                features = extract_features(stream_ms1, config, stats, tuning.configs)
-                if config.associate_ms2 or config.group_ions:
-                    # Compact summaries are needed to resolve overlapping peaks
-                    # globally. Complete MS1 spectra are still never retained.
-                    features = list(features)
-                    if config.associate_ms2:
-                        from .gapfill import seed_ms2_features
+            temp_table = Path(stream.name)
+            temporary.append(temp_table)
+        with closing(
+            iter_scans(
+                source,
+                assume_centroid=config.assume_centroid,
+                include_ms2=config.associate_ms2,
+                decode_ms2=config.group_ions and config.group_isf,
+                sum_ms2=config.best_ms2 == "fragment_intensity",
+            )
+        ) as scans:
+            collector = MS2Collector(config, tuning.configs)
+            stream_ms1 = collector.ms1_stream(scans) if config.associate_ms2 else scans
+            features = _timed_extraction(
+                extract_features(stream_ms1, config, stats, tuning.configs), timings
+            )
+            if config.associate_ms2 or config.group_ions:
+                # Compact summaries resolve overlaps globally; full MS1 spectra
+                # remain streamed. The no-MS2/no-grouping path writes lazily.
+                features = list(features)
+                if config.associate_ms2:
+                    from .gapfill import seed_ms2_features
 
-                        assignments = associate_ms2(
-                            features, collector.records, config, stats, tuning.configs
-                        )
-                        seed_ms2_features(
-                            features,
-                            collector.records,
-                            assignments,
-                            source,
-                            config,
-                            stats,
-                            tuning.configs,
-                        )
-                    if config.group_ions:
-                        from .grouping import group_ions
-
-                        group_ions(features, collector.records, config, stats, tuning.configs)
-                for count, feature in enumerate(features, start=1):
-                    values = [getattr(feature, name) for name in TSV_COLUMNS[1:]]
-                    if any(isinstance(v, float) and not math.isfinite(v) for v in values):
-                        raise ValueError(
-                            f"Non-finite feature value (numerical overflow) in feature {count}"
-                        )
-                    writer.writerow(
-                        [count]
-                        + [
-                            format(v, ".17g")
-                            if isinstance(v, float)
-                            else ""
-                            if v is None
-                            else json.dumps(v, separators=(",", ":"), allow_nan=False)
-                            if isinstance(v, (tuple, list, dict))
-                            else v
-                            for v in values
-                        ]
+                    started = time.perf_counter()
+                    assignments = associate_ms2(
+                        features, collector.records, config, stats, tuning.configs
                     )
-            if not stats["ms1_scans"] and not count:
-                raise ValueError(f"No MS1 scans or usable MS2 precursor features found in {source}")
-            stream.flush()
-            os.fsync(stream.fileno())
+                    timings["ms2_association"] = time.perf_counter() - started
+                    started = time.perf_counter()
+                    seed_ms2_features(
+                        features,
+                        collector.records,
+                        assignments,
+                        source,
+                        config,
+                        stats,
+                        tuning.configs,
+                    )
+                    timings["ms2_gapfill"] = time.perf_counter() - started
+                if config.group_ions:
+                    from .grouping import group_ions
+
+                    started = time.perf_counter()
+                    group_ions(features, collector.records, config, stats, tuning.configs)
+                    timings["ion_grouping"] = time.perf_counter() - started
+            extraction_before_write = timings.get("feature_extraction", 0.0)
+            started = time.perf_counter()
+            count = write_features(temp_table, features, output_format)
+            timings["table_write"] = (
+                time.perf_counter()
+                - started
+                - timings["feature_extraction"]
+                + extraction_before_write
+            )
+        if not stats["ms1_scans"] and not count:
+            raise ValueError(f"No MS1 scans or usable MS2 precursor features found in {source}")
         if signature != _signature(source):
             raise RuntimeError(f"Input changed during extraction: {source}")
         elapsed = time.perf_counter() - start
@@ -291,9 +304,14 @@ def process_file(
             "features": count,
             **stats,
             "elapsed_seconds": elapsed,
-            "tsv_bytes": temp_tsv.stat().st_size,
-            "tsv_sha256": _sha256(temp_tsv),
+            "output_format": output_format,
+            "output_bytes": temp_table.stat().st_size,
+            "output_sha256": _sha256(temp_table),
         }
+        if output_format == "tsv":
+            metadata.update(
+                tsv_bytes=metadata["output_bytes"], tsv_sha256=metadata["output_sha256"]
+            )
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
@@ -308,7 +326,7 @@ def process_file(
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temp_tsv, output)
+        os.replace(temp_table, output)
         # JSON is the completion marker. A crash between renames cannot pass resume validation.
         os.replace(temp_json, metadata_path)
         return ProcessingResult(

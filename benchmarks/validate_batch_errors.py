@@ -20,14 +20,20 @@ from masscubex import __version__
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--executor", choices=["process", "thread"], default="process")
+    parser.add_argument("--format", choices=["parquet", "tsv"], default="parquet")
+    parser.add_argument(
+        "--reference",
+        type=Path,
+        default=Path(f"benchmarks/results/MSV000086989-ms2-v{__version__}.json"),
+    )
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     source_dir = root / "validation/MSV000086989"
-    directory = root / "validation/corruption_check" / f"v{__version__}-{args.executor}"
-    directory.mkdir(parents=True, exist_ok=True)
-    reference = json.loads(
-        (root / f"benchmarks/results/MSV000086989-ms2-v{__version__}.json").read_text()
+    directory = (
+        root / "validation/corruption_check" / f"v{__version__}-{args.executor}-{args.format}"
     )
+    directory.mkdir(parents=True, exist_ok=True)
+    reference = json.loads(args.reference.read_text())
     good = [source_dir / row["name"] for row in reference["rows"]]
     cases = {
         "truncated.mzML": b'<mzML xmlns="http://psi.hupo.org/ms/mzml"><run>',
@@ -69,6 +75,8 @@ def main():
             "4",
             "--executor",
             args.executor,
+            "--format",
+            args.format,
             "--overwrite",
         ],
         capture_output=True,
@@ -83,10 +91,18 @@ def main():
     expected = {row["name"]: row["tsv_sha256"] for row in reference["rows"]}
     for row in outcomes:
         if row["status"] == "ok":
-            assert (
-                hashlib.sha256(Path(row["output"]).read_bytes()).hexdigest()
-                == expected[Path(row["input"]).name]
-            )
+            if args.format == "tsv":
+                assert (
+                    hashlib.sha256(Path(row["output"]).read_bytes()).hexdigest()
+                    == expected[Path(row["input"]).name]
+                )
+            else:
+                from masscubex import iter_feature_rows
+
+                ref = (
+                    source_dir / f"v{reference['version']}-ms2" / (Path(row["input"]).name + ".tsv")
+                )
+                assert list(iter_feature_rows(row["output"])) == list(iter_feature_rows(ref))
     line = next(line for line in run.stderr.splitlines() if line.startswith("Batch report: "))
     summary_path = Path(line.removeprefix("Batch report: "))
     summary = json.loads(summary_path.read_text())
@@ -111,6 +127,8 @@ def main():
             "4",
             "--executor",
             args.executor,
+            "--format",
+            args.format,
             "--resume",
         ],
         capture_output=True,
@@ -127,9 +145,11 @@ def main():
         "exit_code": run.returncode,
         "workers": 4,
         "executor": args.executor,
+        "output_format": args.format,
+        "reference_report": str(args.reference),
         "resume_skipped_all_50_completed_files": True,
         "wall_seconds_including_cli_startup": elapsed,
-        "all_valid_tsvs_match_reference": True,
+        "all_valid_tables_match_reference": True,
         "error_types": summary["error_types"],
         "error_files": [
             {"name": Path(row["input"]).name, "error_type": row["error_type"]} for row in errors
@@ -138,7 +158,9 @@ def main():
         "temporary_outputs_cleaned": True,
         "scope": "50 real centroid mzXML files plus five corrupt/missing fixtures. Error continuation/retry is also tested in sequential and thread modes by the test suite.",
     }
-    destination = root / f"benchmarks/results/batch-errors-{args.executor}-v{__version__}.json"
+    destination = (
+        root / f"benchmarks/results/batch-errors-{args.executor}-{args.format}-v{__version__}.json"
+    )
     destination.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 

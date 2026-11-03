@@ -13,6 +13,6 @@ MS1 extraction, profile mass detection, compiled numerical kernels, adaptive
 local noise estimation, MS/MS provenance, MS2-seeded features with raw-MS1
 gap filling, robust per-polarity parameter estimation, physical-time segmentation,
 and default-on candidate ion relationships,
-and a configurable per-file TSV command-line workflow. Packaging and documentation have been rewritten;
+and a configurable per-file Parquet/TSV command-line workflow. Packaging and documentation have been rewritten;
 vendor readers, alignment, annotation, statistics, and plotting are removed.
 The original Apache License 2.0 and attribution above are retained.

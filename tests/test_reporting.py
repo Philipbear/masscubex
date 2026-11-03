@@ -18,7 +18,7 @@ from masscubex.reporting import BatchReport, InputFailure, error_result, retry_s
 from conftest import mzml_spectrum, mzxml_scan, write_mzml, write_mzxml
 
 
-def _crash_test_job(source, output_dir, config, resume, overwrite):
+def _crash_test_job(source, output_dir, config, resume, overwrite, output_format="parquet"):
     # Exercise an actual lost child, without touching raw inputs or table files.
     assert multiprocessing.current_process().name != "MainProcess"
     if Path(source).name == "crash.mzML":

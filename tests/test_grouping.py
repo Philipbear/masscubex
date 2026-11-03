@@ -132,6 +132,22 @@ def test_correlation_pairs_acquisition_times_and_excludes_missing_scans():
     assert trace_correlation(a[:2], b)[1] == 0
 
 
+@pytest.mark.parametrize("polarity,ions", [("positive", (1, 2)), ("negative", (5, 8))])
+@pytest.mark.parametrize("outside", [False, True])
+def test_compiled_candidates_respect_per_polarity_rt_boundary(polarity, ions, outside):
+    a, b = [catalog()[i] for i in ions]
+    first, second = feature(a.mz(300), polarity=polarity), feature(b.mz(300), polarity=polarity)
+    tolerance = 2.0
+    second.rt_apex_seconds += tolerance
+    if outside:
+        second.rt_apex_seconds = np.nextafter(second.rt_apex_seconds, np.inf)
+    config = Config(group_ions=True, adduct_ids=ions, group_rt_tolerance=10)
+    effective = replace(config, group_rt_tolerance=tolerance)
+    stats = {}
+    group_ions([first, second], [], config, stats, {polarity: effective})
+    assert stats["adduct_relations"] == (0 if outside else 1)
+
+
 def test_water_losses_distinguished_from_adducts_and_ms2_supported_isf():
     ions = catalog()
     parent = ions[1].mz(300)

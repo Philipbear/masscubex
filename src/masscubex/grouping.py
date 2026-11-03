@@ -36,6 +36,25 @@ def trace_correlation(a, b):
     return n, min(1.0, max(-1.0, covariance / np.sqrt(variance_a * variance_b)))
 
 
+@njit(cache=True, nogil=True)
+def _candidate_pairs(ids, source_ids, left, right, expected, apices, counts, rt_tolerance):
+    """Reject incompatible mass-window hits before crossing back into Python.
+
+    Preserve original source/target order, including inclusive RT boundaries.
+    Dense chromatograms commonly have thousands of equal-mass peaks at other
+    times; only coeluting, nonempty traces need correlation or evidence objects.
+    """
+    # Yield matches incrementally: dense files must not allocate a full pair list.
+    for position in range(len(source_ids)):
+        i = source_ids[position]
+        if expected[position] <= 0 or counts[i] == 0:
+            continue
+        for target in range(left[position], right[position]):
+            j = ids[target]
+            if i != j and counts[j] > 0 and abs(apices[i] - apices[j]) <= rt_tolerance:
+                yield position, j
+
+
 def group_ions(features, records, config, stats, configs=None):
     """Annotate candidate adducts, water losses and MS2-supported source fragments.
 
@@ -52,16 +71,23 @@ def group_ions(features, records, config, stats, configs=None):
     by_name = {rule.name: rule for rule in rules}
     relations = [[] for _ in features]
     masses = np.array([f.mz for f in features])
+    apices = np.array([f.rt_apex_seconds for f in features])
+    counts = np.array([f.scan_count for f in features], dtype=np.int64)
+    rt_tolerances = np.array(
+        [config_for(f.polarity, config, configs).group_rt_tolerance for f in features]
+    )
+    charges = [
+        {abs(records[r].precursor_charge) for r in f._ms2_records if records[r].precursor_charge}
+        for f in features
+    ]
     cache = {}
 
     def evidence(i, j):
-        effective = config_for(features[i].polarity, config, configs)
         if (
             i == j
-            or features[i].scan_count == 0
-            or features[j].scan_count == 0
-            or abs(features[i].rt_apex_seconds - features[j].rt_apex_seconds)
-            > effective.group_rt_tolerance
+            or counts[i] == 0
+            or counts[j] == 0
+            or abs(apices[i] - apices[j]) > rt_tolerances[i]
         ):
             return None
         key = min(i, j), max(i, j)
@@ -80,12 +106,7 @@ def group_ions(features, records, config, stats, configs=None):
         return cache[key]
 
     def charge_ok(index, rule):
-        charges = {
-            abs(records[r].precursor_charge)
-            for r in features[index]._ms2_records
-            if records[r].precursor_charge
-        }
-        return not charges or abs(rule.charge) in charges
+        return not charges[index] or abs(rule.charge) in charges[index]
 
     for polarity in ("positive", "negative"):
         ids = np.array([i for i, f in enumerate(features) if f.polarity == polarity], dtype=int)
@@ -93,6 +114,7 @@ def group_ions(features, records, config, stats, configs=None):
         mz = masses[ids]
         if not len(ids):
             continue
+        rt_tolerance = config_for(polarity, config, configs).group_rt_tolerance
 
         def candidates(expected):
             tolerances = np.maximum(
@@ -100,13 +122,14 @@ def group_ions(features, records, config, stats, configs=None):
             )
             left = np.searchsorted(mz, expected - tolerances)
             right = np.searchsorted(mz, expected + tolerances, side="right")
-            for position in np.flatnonzero((right > left) & (expected > 0)):
+            for position, target in _candidate_pairs(
+                ids, ids, left, right, expected, apices, counts, rt_tolerance
+            ):
                 i = int(ids[position])
-                for target in range(left[position], right[position]):
-                    j = int(ids[target])
-                    proof = evidence(i, j)
-                    if proof is not None:
-                        yield i, j, float(expected[position]), proof
+                j = int(target)
+                proof = evidence(i, j)
+                if proof is not None:
+                    yield i, j, float(expected[position]), proof
 
         ordinary = [r for r in rules if r.polarity == polarity and r.kind == "adduct"]
         for a, b in combinations(ordinary, 2):
@@ -152,33 +175,37 @@ def group_ions(features, records, config, stats, configs=None):
                 base = float(scan.intensity.max())
                 if base <= 0:
                     continue
-                for product, height in zip(scan.mz, scan.intensity):
-                    relative = float(height / base)
-                    if relative < config.isf_min_relative_intensity:
+                relative = scan.intensity / base
+                tolerances = np.maximum(
+                    config.group_mz_tolerance_da, scan.mz * config.group_mz_tolerance_ppm * 1e-6
+                )
+                selected = (relative >= config.isf_min_relative_intensity) & (
+                    scan.mz < masses[i] - tolerances
+                )
+                products, relative = scan.mz[selected], relative[selected]
+                tolerances = tolerances[selected]
+                left = np.searchsorted(mz, products - tolerances)
+                right = np.searchsorted(mz, products + tolerances, side="right")
+                sources = np.full(len(products), i, dtype=np.int64)
+                for k, j in _candidate_pairs(
+                    ids, sources, left, right, products, apices, counts, rt_tolerance
+                ):
+                    product, fraction = float(products[k]), float(relative[k])
+                    j = int(j)
+                    if evidence(i, j) is None:
                         continue
-                    tolerance = max(
-                        config.group_mz_tolerance_da, product * config.group_mz_tolerance_ppm * 1e-6
-                    )
-                    if product >= masses[i] - tolerance:
-                        continue
-                    lo = np.searchsorted(mz, product - tolerance)
-                    hi = np.searchsorted(mz, product + tolerance, side="right")
-                    for j in ids[lo:hi]:
-                        j = int(j)
-                        if evidence(i, j) is None:
-                            continue
-                        rank = (-relative, abs(masses[j] - product), scan.spectrum_index)
-                        if (i, j) not in supported or rank < supported[i, j][0]:
-                            supported[i, j] = (
-                                rank,
-                                {
-                                    "evidence_ms2_scan_number": scan.scan_number,
-                                    "evidence_ms2_native_id": scan.native_id,
-                                    "evidence_ms2_spectrum_index": scan.spectrum_index,
-                                    "fragment_mz": float(product),
-                                    "fragment_relative_intensity": relative,
-                                },
-                            )
+                    rank = (-fraction, abs(masses[j] - product), scan.spectrum_index)
+                    if (i, j) not in supported or rank < supported[i, j][0]:
+                        supported[i, j] = (
+                            rank,
+                            {
+                                "evidence_ms2_scan_number": scan.scan_number,
+                                "evidence_ms2_native_id": scan.native_id,
+                                "evidence_ms2_spectrum_index": scan.spectrum_index,
+                                "fragment_mz": float(product),
+                                "fragment_relative_intensity": fraction,
+                            },
+                        )
 
         def add_fragment(i, j, relation, target, source_ion=None, fragment_ion=None):
             shared, correlation = evidence(i, j)

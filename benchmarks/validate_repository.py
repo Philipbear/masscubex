@@ -206,6 +206,7 @@ def main():
                 workers=4,
                 executor=executor,
                 overwrite=True,
+                output_format="tsv",
             )
         )
         elapsed = time.perf_counter() - started
@@ -217,7 +218,14 @@ def main():
         parallel[executor] = {"workers": 4, "wall_seconds": elapsed, "identical_tsvs": True}
     started = time.perf_counter()
     resumed = list(
-        run_batch(paths, result_dir / "process_features", config, workers=1, resume=True)
+        run_batch(
+            paths,
+            result_dir / "process_features",
+            config,
+            workers=1,
+            resume=True,
+            output_format="tsv",
+        )
     )
     assert all(r["status"] == "skipped" for r in resumed)
     resume_seconds = time.perf_counter() - started

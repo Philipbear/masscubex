@@ -5,10 +5,11 @@ there is no Python object or Python append call per centroid.
 """
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 import numpy as np
 from numba import njit
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import correlate1d
 from scipy.signal import find_peaks
 
 from .config import Config
@@ -276,6 +277,61 @@ class Feature:
     _ms2_records: tuple = field(default=(), repr=False, metadata={"tsv": False})
 
 
+@lru_cache(maxsize=512)
+def _gaussian_weights(sigma):
+    radius = int(4.0 * sigma + 0.5)
+    positions = np.arange(-radius, radius + 1)
+    weights = np.exp((-0.5 / (sigma * sigma)) * positions**2)
+    weights /= weights.sum()
+    weights.flags.writeable = False
+    return weights
+
+
+def _smooth_padded(signal, sigma):
+    """Same zero pad and order-0 reflect Gaussian as scipy.gaussian_filter1d.
+
+    Cache only the small kernel, never a signal or a peak result. A bounded
+    cache avoids rebuilding identical kernels for every chromatographic trace.
+    """
+    padded = np.empty(len(signal) + 2, dtype=np.float64)
+    padded[0] = padded[-1] = 0.0
+    padded[1:-1] = signal
+    return correlate1d(padded, _gaussian_weights(float(sigma)), mode="reflect")
+
+
+@njit(cache=True, nogil=True)
+def _has_multiple_maxima(values):
+    """Count local maxima with SciPy's plateau definition, stopping after two.
+
+    With zero/one maximum, prominence and distance cannot produce a split, so
+    the expensive peak-property calculation is unnecessary. Multiple maxima
+    always use the original SciPy prominence/distance algorithm.
+    """
+    peaks = 0
+    i = 1
+    while i < len(values) - 1:
+        if values[i] > values[i - 1]:
+            end = i
+            while end < len(values) - 1 and values[end] == values[end + 1]:
+                end += 1
+            if end < len(values) - 1 and values[end] > values[end + 1]:
+                peaks += 1
+                if peaks > 1:
+                    return True
+            i = end
+        i += 1
+    return False
+
+
+@njit(cache=True, nogil=True)
+def _median_spacing(rt):
+    # Trace columns are strided; Numba's np.diff requires a contiguous input.
+    differences = np.empty(len(rt) - 1, dtype=np.float64)
+    for i in range(len(differences)):
+        differences[i] = rt[i + 1] - rt[i]
+    return np.median(differences)
+
+
 def summarize_trace(trace, config: Config, polarity="unknown"):
     """Split at chromatographic valleys; quantify original, un-smoothed signals.
 
@@ -292,7 +348,7 @@ def summarize_trace(trace, config: Config, polarity="unknown"):
         rt = trace[:, 2]
         physical = config.smoothing_seconds > 0 or config.peak_distance_seconds > 0
         if physical and len(rt) > 1:
-            step = float(np.median(np.diff(rt)))
+            step = float(_median_spacing(rt))
             size = min(len(rt) * 4, max(2, int(np.ceil((rt[-1] - rt[0]) / step - 1e-9)) + 1))
             grid = np.linspace(rt[0], rt[-1], size)
             step = float(grid[1] - grid[0])
@@ -314,10 +370,12 @@ def summarize_trace(trace, config: Config, polarity="unknown"):
                 config.smoothing_sigma,
                 config.peak_distance,
             )
-        smooth = gaussian_filter1d(np.pad(signal, 1), sigma)
-        peaks, _ = find_peaks(
-            smooth, prominence=smooth.max() * config.peak_prominence, distance=distance
-        )
+        smooth = _smooth_padded(signal, sigma)
+        peaks = np.empty(0, dtype=np.int64)
+        if _has_multiple_maxima(smooth):
+            peaks, _ = find_peaks(
+                smooth, prominence=smooth.max() * config.peak_prominence, distance=distance
+            )
         peaks = peaks - 1
         peaks = peaks[(peaks >= 0) & (peaks < len(signal))]
         for left, right in zip(peaks[:-1], peaks[1:]):
@@ -363,7 +421,7 @@ def warmup():
     """Compile/load the small fixed kernel set once per long-lived worker."""
     from .noise import estimate_noise
     from .centroid import centroid_profile
-    from .grouping import trace_correlation
+    from .grouping import trace_correlation, _candidate_pairs
     from .gapfill import eic_intensities
 
     config = Config(min_scans=2)
@@ -378,3 +436,7 @@ def warmup():
     trace = np.column_stack((intensity, np.arange(2, dtype=float)))
     trace_correlation(trace, trace)
     eic_intensities(mz, intensity, mz, 20.0, 0.01)
+    _has_multiple_maxima(intensity)
+    _median_spacing(mz)
+    ids = np.arange(2, dtype=np.int64)
+    list(_candidate_pairs(ids, ids, ids, ids + 1, mz, intensity, ids + 1, 5.0))

@@ -103,23 +103,25 @@ def iter_inputs(paths, manifest=None, retry_errors=None):
                 yield from iter_inputs([source])
 
 
-def output_for(source, output_dir):
+def output_for(source, output_dir, output_format="parquet"):
     """128-bit path IDs avoid collisions; a prefix shards large output folders."""
     path = Path(source).resolve()
     digest = hashlib.sha256(os.fsencode(path)).hexdigest()[:32]
     # Keep long input basenames from exceeding filesystem filename limits.
     name = path.name.encode("utf-8")[:100].decode("utf-8", errors="ignore")
-    return Path(output_dir) / digest[:2] / f"{name}.{digest}.features.tsv"
+    if output_format not in {"parquet", "tsv"}:
+        raise ValueError("Output format must be parquet or tsv")
+    return Path(output_dir) / digest[:2] / f"{name}.{digest}.features.{output_format}"
 
 
-def _job(source, output_dir, config, resume, overwrite):
+def _job(source, output_dir, config, resume, overwrite, output_format="parquet"):
     from .pipeline import process_file
 
     try:
         return asdict(
             process_file(
                 source,
-                output_for(source, output_dir),
+                output_for(source, output_dir, output_format),
                 config=config,
                 resume=resume,
                 overwrite=overwrite,
@@ -130,19 +132,29 @@ def _job(source, output_dir, config, resume, overwrite):
 
 
 def run_batch(
-    paths, output_dir, config, *, workers=1, executor="process", resume=False, overwrite=False
+    paths,
+    output_dir,
+    config,
+    *,
+    workers=1,
+    executor="process",
+    resume=False,
+    overwrite=False,
+    output_format="parquet",
 ):
     """Yield each outcome as soon as ready, with at most 2 * workers futures."""
     if type(workers) is not int or workers < 1:
         raise ValueError("workers must be a positive integer")
     if executor not in {"process", "thread"}:
         raise ValueError("executor must be process or thread")
+    if output_format not in {"parquet", "tsv"}:
+        raise ValueError("Output format must be parquet or tsv")
     if workers == 1:
         for path in paths:
             yield (
                 path.result
                 if isinstance(path, InputFailure)
-                else _job(path, output_dir, config, resume, overwrite)
+                else _job(path, output_dir, config, resume, overwrite, output_format)
             )
         return
     from .features import warmup
@@ -178,7 +190,9 @@ def run_batch(
                     yield path.result
                     continue
                 try:
-                    future = pool.submit(_job, path, output_dir, config, resume, overwrite)
+                    future = pool.submit(
+                        _job, path, output_dir, config, resume, overwrite, output_format
+                    )
                 except BrokenProcessPool:
                     # This input was not submitted. Drain the failed pool first,
                     # then dispatch it into a fresh one without losing its path.
@@ -190,7 +204,9 @@ def run_batch(
                     pending.clear()
                     pool.shutdown(wait=True, cancel_futures=True)
                     pool = new_pool()
-                    future = pool.submit(_job, path, output_dir, config, resume, overwrite)
+                    future = pool.submit(
+                        _job, path, output_dir, config, resume, overwrite, output_format
+                    )
                 pending[future] = path
             if pending:
                 done, _ = wait(pending, return_when=FIRST_COMPLETED)
@@ -304,7 +320,7 @@ def _resolve_config(args):
 
 def _parser():
     parser = argparse.ArgumentParser(
-        description="Stream mzML/mzXML to feature TSVs with automatic calibration, MS2 references and ion grouping."
+        description="Stream mzML/mzXML to feature Parquet/TSV tables with calibration, MS2 references and ion grouping."
     )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -322,6 +338,12 @@ def _parser():
     )
     extract.add_argument("--workers", type=int, default=1, help="File workers (default: 1)")
     extract.add_argument("--executor", choices=("process", "thread"), default="process")
+    extract.add_argument(
+        "--format",
+        choices=("parquet", "tsv"),
+        default="parquet",
+        help="Feature table format (default: parquet, Zstd compressed)",
+    )
     mode = extract.add_mutually_exclusive_group()
     mode.add_argument(
         "--resume", action="store_true", help="Verify and skip completed jobs; repair stale results"
@@ -450,6 +472,7 @@ def main(argv=None):
         "output_dir": str(Path(args.output_dir).absolute()),
         "workers": args.workers,
         "executor": args.executor,
+        "output_format": args.format,
         "resume": args.resume,
         "overwrite": args.overwrite,
     }
@@ -463,6 +486,7 @@ def main(argv=None):
                     config,
                     workers=args.workers,
                     executor=args.executor,
+                    output_format=args.format,
                     resume=args.resume,
                     overwrite=args.overwrite,
                 )
