@@ -170,7 +170,8 @@ def write_features(path, features, output_format):
                     batch.clear()
             if batch:
                 writer.write_table(pa.Table.from_pylist(batch, schema=schema))
-        with open(path, "rb") as stream:
+        # Windows' _commit (used by os.fsync) requires a writable descriptor.
+        with open(path, "r+b" if os.name == "nt" else "rb") as stream:
             os.fsync(stream.fileno())
     return count
 

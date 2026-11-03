@@ -13,6 +13,7 @@ import time
 
 from masscubex import __version__, pipeline, gapfill, grouping
 from masscubex.features import warmup
+from masscubex.pipeline import implementation_id
 
 
 @contextmanager
@@ -103,6 +104,8 @@ def main():
             )
     report = {
         "version": __version__,
+        "implementation_sha256": implementation_id()[0],
+        "dependencies": implementation_id()[1],
         "format": args.format,
         "rows": rows,
         "notes": [
