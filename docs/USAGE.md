@@ -43,6 +43,9 @@ masscubex extract /data/study -o features --workers 8 --executor thread --resume
 # Default quantification is peak height; both height and area are always written
 masscubex extract sample.mzML -o features --quant-method peak_area
 
+# Compressed Parquet is the default; TSV remains available
+masscubex extract sample.mzML -o features --format tsv
+
 # Adduct / in-source-fragment candidates run by default; opt out when needed
 masscubex extract sample.mzML -o ungrouped --no-group-ions
 ```
@@ -52,8 +55,10 @@ unless absolute. Empty lines and lines starting with `#` are ignored. Directory
 input is recursive. Symlinked directories are not followed. Avoid duplicate
 inputs in the same job.
 
-Each input produces a TSV and a `.tsv.json` sidecar. CLI outputs are sharded as
-`features/<hash-prefix>/<input-name>.<path-hash>.features.tsv`. The hash uses the
+Each input produces a Parquet table and a `.parquet.json` sidecar by default.
+CLI outputs are sharded as
+`features/<hash-prefix>/<input-name>.<path-hash>.features.parquet`. With
+`--format tsv`, the endings become `.tsv` and `.tsv.json`. The hash uses the
 resolved absolute input path, preventing collisions between repeated basenames
 or mzML/mzXML exports. Moving inputs changes their output IDs. A JSON-lines job
 report on stdout maps every input to its output; stderr carries the summary.
@@ -89,7 +94,8 @@ masscubex extract --retry-errors features/reports/RUN_ID/errors.tsv \
 
 Replace `RUN_ID` with the run folder printed by the CLI. Use the same processing
 settings as the original run; `--retry-errors` reads
-paths, not settings. A new report records the retry. Omit `--config params.json`
+paths, not settings. Include `--format tsv` if that was the original format.
+A new report records the retry. Omit `--config params.json`
 if the original run used defaults. Use a TSV parser to read error messages or
 paths containing tabs/newlines.
 
@@ -112,12 +118,29 @@ from masscubex import Config, process_file
 
 result = process_file(
     "sample.mzXML",
-    "features/sample.tsv",
+    "features/sample.parquet",
     config=Config(noise_window_da=50, noise_sigma=3, min_scans=5),
     resume=True,
 )
 print(result.features, result.elapsed_seconds)
 ```
+
+Without an output path, `process_file("sample.mzXML")` writes
+`sample.mzXML.features.parquet`. An explicit `.tsv` path selects TSV; alternatively
+use `output_format="tsv"`. A path/format mismatch is rejected. The CLI `--format`
+option is an execution setting, separate from the scientific JSON configuration.
+
+Read selected Parquet columns without parsing the rest:
+
+```python
+import pyarrow.parquet as pq
+
+table = pq.read_table("features/sample.parquet", columns=["mz", "peak_height"])
+```
+
+For typed row-by-row access to either format, including normalized relationship
+dictionaries, use `from masscubex import iter_feature_rows` and iterate over
+`iter_feature_rows("features/sample.parquet")`.
 
 Settings are immutable and file state is independent, so the API can be called
 from separate threads or processes. The default CLI uses one worker; multiple
@@ -137,7 +160,7 @@ masscubex extract sample.mzML -o grouped --group-ions --adducts 1-15,22,23
 ```
 
 Every processing parameter is available in JSON; explicit CLI flags override
-that file. The resolved configuration is saved beside each TSV. Custom ion
+that file. The resolved configuration is saved beside each table. Custom ion
 definitions can be supplied through `--adduct-file ions.json`; see the
 [ion-grouping reference](ION_GROUPING.md).
 
@@ -190,7 +213,7 @@ MS1 measurement if metadata is absent or zero. The fallback checks polarity,
 parent reference when supplied, m/z and scan age. It uses the nearest centroid
 or the profile apex within the tolerance. If all associated scans lack that
 intensity, selection falls back to apex proximity and records `apex_fallback`.
-The method, score, precursor intensity and its source are explicit TSV columns.
+The method, score, precursor intensity and its source are explicit table columns.
 
 The isolation-width cutoff is **disabled by default** (`ms2_max_isolation_width=0`).
 A positive `--ms2-max-isolation-width` opts into excluding wider MS2 scans; this
@@ -219,7 +242,7 @@ unassigned scans. `--no-ms2` explicitly turns this bookkeeping off.
 
 For reverse lookup, use `(input file, ms2_spectrum_index)` as the unique key;
 scan numbers can repeat or be absent. Search `ms2_spectrum_indices` in the
-feature TSV, then `unassigned_ms2` if no row matches. A valid usable
+feature table, then `unassigned_ms2` if no row matches. A valid usable
 single-precursor MS2 maps to exactly one detected or seeded feature under the
 default settings. This is a deterministic association, not proof of a unique
 biological precursor. DIA classification and fragment deconvolution are not implemented. Profile/unknown-mode MS2 can
@@ -245,12 +268,16 @@ traces and gap filling. Missing MS2 polarity can be resolved by an explicit
 parent reference; unresolved mixed-polarity cases keep MS2 references with blank
 quantification. See [all algorithms and controls](AUTO_TUNING.md).
 
-## TSV schema
+## Feature-table schema
 
 Detected rows are emitted in trace-completion order, followed by MS2-seeded
 rows in seed-creation order. IDs are local to each file. Retention times are
-always **seconds**. Scalar floats use 17 significant digits for exact binary64
-round trips; non-finite feature output fails the file. Sidecar schema version is 4.
+always **seconds**. Parquet stores float64 values, nullable int64 scan IDs, native
+lists and relationship structs, using Zstd level 3 compression. Row groups contain
+at most 8,192 features. No rounding or lossy compression is applied. TSV scalar
+floats use 17 significant digits for exact binary64 round trips; non-finite
+feature output fails the file. Sidecar schema version is 5.
+Missing scalars are null in Parquet and blank cells in TSV.
 
 | Column | Meaning |
 | --- | --- |
@@ -271,18 +298,20 @@ round trips; non-finite feature output fails the file. Sidecar schema version is
 | `gapfill_status` | `fixed_window`, `peak_bounds`, `single_observation`, or a refinement failure status; blank for detected rows |
 | `gapfill_mz_radius_da` | Actual narrow EIC radius when measured; blank if unavailable |
 | `ms2_count` | Number of associated MS2 scans |
-| `ms2_scan_numbers` | JSON array of native scan numbers; `null` where the format has no numeric scan number |
-| `ms2_native_ids` | JSON array of original spectrum identifiers |
-| `ms2_spectrum_indices` | JSON array of zero-based positions among all source spectra |
+| `ms2_scan_numbers` | List of native scan numbers; `null` where the format has no numeric scan number |
+| `ms2_native_ids` | List of original spectrum identifiers |
+| `ms2_spectrum_indices` | List of zero-based positions among all source spectra |
 | `best_ms2_scan_number`, `best_ms2_native_id`, `best_ms2_spectrum_index` | Identifiers of the selected scan; empty if unavailable |
 | `best_ms2_selection_method`, `best_ms2_score` | Ranking method and its score; apex methods use absolute time distance in seconds |
 | `best_ms2_fragment_intensity` | Sum of exported MS2 intensities, when decoded |
 | `best_ms2_precursor_intensity`, `best_ms2_precursor_intensity_source` | Precursor intensity and `metadata`, `preceding_ms1`, or `unavailable` |
-| `ion_relations` | JSON array of optional adduct, neutral-loss and in-source-fragment candidates |
+| `ion_relations` | List of optional adduct, neutral-loss and in-source-fragment candidates |
 
 MS2 arrays are ordered by acquisition and correspond position by position.
-A native number is never invented from a spectrum index. Read the TSV with a
-TSV/CSV parser, then JSON-decode the array fields. `[]` means no associated scans
+A native number is never invented from a spectrum index. Parquet lists are
+already typed; relationship structs have null fields for evidence absent from
+that relationship kind. Read TSV with a TSV/CSV parser, then JSON-decode its
+list fields. `[]` means no associated scans
 or no proposed relationships. A best native ID may exist even when its native
 scan number is unavailable.
 
@@ -300,8 +329,14 @@ The JSON sidecar records requested configuration, per-polarity effective
 configuration, calibration evidence/fallbacks, version, implementation/dependency
 fingerprint, input identity, scan/point counts, MS2 assignments, unresolved
 IDs/reasons, polarity inferences, seeded-feature and relationship counts,
-profile-scan count, memory-pool diagnostics, elapsed time and TSV SHA-256.
-A valid MS1 run with no detected or seeded features writes a header-only TSV.
+profile-scan count, memory-pool diagnostics, elapsed time and output SHA-256.
+`output_format`, `output_bytes` and `output_sha256` identify either format;
+TSV also retains the compatibility keys `tsv_bytes` and `tsv_sha256`.
+`timings_seconds` records calibration, feature extraction (including reading),
+MS2 association, raw-MS1 gap filling, ion grouping and table writing. Metadata
+publication, checksums and other overhead are outside these stage timers.
+A valid MS1 run with no detected or seeded features writes an empty table with
+the complete schema (or a header-only TSV).
 MS2-only files with usable precursors produce seeded rows with blank MS1
 quantification. Inputs with neither MS1 nor usable MS2 seeds are errors.
 These tables provide m/z, RT, polarity and quantitative
@@ -326,7 +361,7 @@ retention-time correction are not implemented here.
   published last as the completion marker. `--resume` checks version, implementation/dependencies, settings,
   input path/size/mtime, and the output checksum; stale/corrupt results are
   recomputed. Inputs are not content-hashed, so keep input files immutable.
-- Existing outputs require `--resume` or `--overwrite`. Exclusive `.tsv.lock`
+- Existing outputs require `--resume` or `--overwrite`. Exclusive `.parquet.lock` / `.tsv.lock`
   files prevent simultaneous writes. After a killed worker, inspect the lock's
   PID/host and remove it only once that worker has stopped. Interrupted
   `.partial` files can then be removed. Rename/lock semantics require a

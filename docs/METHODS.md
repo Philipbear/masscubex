@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.5.1 processing path,
+This document describes the implemented MassCubeX 0.6.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -27,7 +27,7 @@ the old `masscube` package. The comparisons below refer to that exact commit.
 | MS/MS | Retained summed MS2 intensity as the default best-spectrum criterion. Added all associated native identifiers, best-scan identifier/score, optional ranking methods, MS2-seeded features with forced MS1 quantification, and per-scan unresolved reasons. Isolation-width exclusion is off by default (§7). |
 | Automatic settings | Added broad-search pilot fitting with at least 20 qualified representatives per polarity, independent MS1/MS2 tolerance estimates, physical-time smoothing and local gap-fill boundaries ([details](AUTO_TUNING.md)). |
 | Ion relationships | Replaced greedy forced group membership with default-on, evidence-labelled pairwise hypotheses; corrected signed-charge mass arithmetic and undersupported correlation; added user-selected forms and water losses (§8). |
-| Repository execution | Added lazy discovery, bounded independent file workers, atomic TSV/JSON publication, checksum-verified resume, persistent error reports, and targeted retries (§9–10). |
+| Repository execution | Added lazy discovery, bounded independent file workers, compressed Parquet by default (optional TSV), atomic table/JSON publication, checksum-verified resume, persistent error reports, and targeted retries (§9–10). |
 | Removed scope | No vendor SDKs, raw cache formats, spectral-library annotation, isotope assignment, normalization, statistics, plotting, retention-time correction, or integrated dataset alignment. Alignment is a separate future process. |
 
 In the audited [upstream parameters](https://github.com/Philipbear/masscube/blob/356748ede691862b9a87f67812db5e728a703b9d/src/masscube/params.py),
@@ -62,7 +62,7 @@ The default sequence starts with a separate streaming calibration pass
 MS1 background → retain centroids or detect profile masses → extend ion traces
 → split and quantify completed traces → associate MS2 → create unmatched
 MS2 seeds and, when needed, stream MS1 again for targeted gap filling → propose
-ion relationships → publish one TSV and one JSON sidecar.
+ion relationships → publish one Parquet/TSV table and one JSON sidecar.
 
 ### Formats and streaming
 
@@ -316,7 +316,7 @@ changed it to 50 Da, 1%, minimum 5. Version 0.3.2 uses 50 Da, 10%, minimum 5
 and enforces a detection multiplier of 3. These changes update extraction
 behavior and provenance; old output
 sidecars fail the configuration/implementation match and are not resumed as
-current results. The feature TSV schema itself is unchanged.
+current results. Those noise-setting revisions did not change the feature-table columns.
 
 ## 4. New profile MS1 mass detector and centroiding
 
@@ -432,10 +432,20 @@ Gaussian smoothing and minimum peak distance; map valleys back to original
 observations. Calibration sets physical-time parameters by default. Otherwise
 use legacy `smoothing_sigma=0.6` and `peak_distance=3` samples.
 
-Pad the intensity vector with one zero at each end and apply SciPy's
-`gaussian_filter1d` with reflected boundaries. Find maxima with prominence
+Pad the intensity vector with one zero at each end and apply the order-zero
+Gaussian filter with reflected boundaries, equivalent to SciPy's
+`gaussian_filter1d`. Find maxima with prominence
 `peak_prominence × maximum_smoothed_intensity` (default 0.1). Resampling and
 smoothing affect segmentation only, never original-sample quantification.
+
+Version 0.6.0 caches up to 512 Gaussian kernels (radius `int(4*sigma + 0.5)`)
+and applies them through SciPy's public `correlate1d`. It replaces repeated
+padding setup with a direct allocation. A compiled plateau-aware scan skips
+prominence/distance calculations only when the smoothed trace has at most one
+local maximum, where splitting cannot occur. Multiple-maxima traces still use
+the original SciPy peak selection. A compiled median-spacing helper supports
+strided trace columns. These changes preserve the segmentation rules and the
+original NumPy arithmetic for quantification; they do not change thresholds.
 
 Between consecutive detected maxima, cut at the first minimum of the smoothed
 signal. Add the trace's first and last points as outer boundaries. Adjacent
@@ -700,6 +710,13 @@ larger of 10 ppm and 0.002 Da by default. Known associated precursor-charge
 magnitudes restrict allowed forms; if several magnitudes are recorded, a form
 must match at least one. Unknown charge permits hypotheses, not confirmation.
 
+Mass bounds are searched in vectorized batches. Version 0.6.0 rejects self-pairs,
+empty traces and incompatible apex times in a compiled loop before creating
+Python correlation/evidence objects. It reuses per-feature apex/count/charge
+data and vectorizes MS2 product-mass searches. Candidate ordering, inclusive
+tolerance boundaries, correlation calculations and evidence ranking remain
+unchanged.
+
 Every relationship also requires:
 
 - Apex time difference ≤ `group_rt_tolerance` (3 s).
@@ -750,26 +767,47 @@ SHA-256 of the resolved absolute source path, and shards them by the first two
 hex characters. Up to 100 UTF-8 bytes of the source basename are included for
 readability. Repeated basenames in different paths therefore do not overwrite
 one another; moving a source changes its output ID. The Python single-file
-API also accepts an exact TSV path.
+API also accepts an exact `.parquet` or `.tsv` path; the extension selects the
+format. Without a path, Parquet is the default. The CLI selects formats with
+`--format parquet|tsv`.
 
-An exclusive `.tsv.lock` records PID, hostname and creation time. Write data and
+Parquet uses an explicit, stable Arrow schema: float64 quantitative values,
+nullable int64 identifiers, native MS2 lists and a list of typed structs for
+ion evidence. Absent relationship-kind fields are null, not fabricated evidence.
+Unknown evidence fields are rejected instead of silently discarded. Zstd level 3
+compression is lossless. At most 8,192 feature dictionaries are buffered per row
+group; flat categorical string columns use dictionary encoding. TSV retains its
+17-digit floats and compact JSON arrays. `iter_feature_rows` streams typed rows
+from either format and normalizes absent relationship fields for comparison.
+
+An exclusive `.parquet.lock` or `.tsv.lock` records PID, hostname and creation time. Write data and
 metadata into temporary `.partial` files in the output directory; flush and
-fsync them before atomic replacement. Publish the TSV first and its JSON
+fsync them before atomic replacement. Publish the table first and its JSON
 sidecar last as the completion marker. Ordinary exceptions remove temporary
 files and release the lock. Parsing errors leave pre-existing outputs intact.
 A failure between the two final renames can leave mismatched files, which
 cannot pass resume validation. A hard-killed process can leave locks/partials;
 inspect its recorded owner and remove a lock only after that worker has stopped.
 
-The per-file sidecar uses schema version 4 and stores all processing settings, source
-path/size/nanosecond mtime, counts and memory diagnostics, TSV size/SHA-256 and
+The per-file sidecar uses schema version 5 and stores all processing settings, source
+path/size/nanosecond mtime, counts and memory diagnostics, output format/size/SHA-256 and
 an implementation/dependency fingerprint. The fingerprint hashes the numerical
 and per-file processing source modules and versions of NumPy, Numba, SciPy,
-lxml and optional pynumpress. CLI/report-only edits do not change that numerical
+lxml, PyArrow and optional pynumpress. CLI/report-only edits do not change that numerical
 fingerprint. Resume also checks the configured software/schema version.
+`output_bytes` and `output_sha256` apply to both formats; TSV keeps its legacy
+`tsv_bytes` and `tsv_sha256` aliases. Old sidecars do not pass the new resume
+validation. A different format uses a separate output path.
+
+`timings_seconds` measures calibration, feature extraction, MS2 association,
+MS2 gap filling, ion grouping and table writing. Feature extraction includes
+decoding, adaptive noise, centroiding, trace tracking and peak summarization;
+calibration and gap filling include their own source passes. Generator timing
+excludes the consumer's work, including for the lazy MS1-only writer. Checksums,
+locks, metadata publication and other setup are outside these stage timers.
 
 `--resume` skips only when source identity, configuration, implementation,
-version, output size and checksum all match and the completion metadata is
+version, output format, size and checksum all match and the completion metadata is
 valid. Otherwise it recomputes. `--overwrite` always recomputes; without either,
 existing outputs become a reported file error. Source identity is rechecked
 after reading, but the entire input is not content-hashed. Same-size content
@@ -777,7 +815,8 @@ changes with restored timestamps are not detectable by this identity scheme;
 keep inputs immutable. CSV/TSV quoting and JSON array encoding preserve IDs
 and relationships without flattening or silently dropping missing values.
 
-A valid MS1 run with zero retained features writes a header-only TSV. Files
+A valid MS1 run with zero retained features writes an empty Parquet table with
+the complete schema, or a header-only TSV. Files
 without MS1 may instead produce usable MS2-seeded rows with blank quantitative
 values; without either MS1 or usable MS2 seeds they are errors. Scalar results
 and sidecar statistics provide m/z,

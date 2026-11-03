@@ -1,7 +1,7 @@
 <!-- Modified for MassCubeX; replaces the upstream MassCube README. -->
 # MassCubeX
 
-**One mzML or mzXML file → one feature TSV, with MS/MS scan references.**
+**One mzML or mzXML file → one compressed Parquet feature table, with MS/MS scan references.**
 MassCubeX rewrites [MassCube](https://github.com/Philipbear/masscube) for public
 LC-MS repositories: streaming input, Numba-accelerated extraction, profile MS1
 centroiding, adaptive noise filtering, and independent file workers.
@@ -36,6 +36,7 @@ masscubex extract /data/study -o features --workers 8 --resume
 masscubex extract --manifest files.txt -o features --workers 8 --resume
 
 # Important options
+masscubex extract sample.mzML -o features --format tsv
 masscubex extract sample.mzML -o features --quant-method peak_area
 masscubex extract sample.mzML -o features --no-auto-tune
 masscubex extract sample.mzML -o features --no-group-ions
@@ -65,9 +66,11 @@ default; `--executor thread` is also available.
 - **Ion grouping:** on by default; selected adducts and water-loss candidates are
   listed by `masscubex adducts`.
 
-Each input produces a feature TSV and a JSON sidecar with settings, provenance,
-counts and unresolved MS/MS scans. Output names include an input-path hash to
-avoid basename collisions. `--resume` verifies completed outputs before skipping.
+Each input produces a **Parquet table by default** (Zstd compression), with
+full-precision values and native lists for MS/MS scan references. Use
+`--format tsv` for text output. A JSON sidecar records settings, provenance,
+stage timings, counts and unresolved MS/MS scans. Output names include an
+input-path hash to avoid basename collisions. `--resume` verifies completed outputs before skipping.
 See the [usage and output reference](docs/USAGE.md) for columns, scan lookup,
 Python usage and configuration options.
 
@@ -90,6 +93,7 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Commands, output columns, MS/MS lookup and restart behavior](docs/USAGE.md)
 - [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
 - [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
+- [Extraction speed and output-size measurements](benchmarks/results/PERFORMANCE.md)
 
 DIA classification/deconvolution, mobility-resolved feature extraction, library
 annotation and dataset alignment are not implemented.

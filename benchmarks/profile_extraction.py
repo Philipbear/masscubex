@@ -58,7 +58,8 @@ def instrument():
     patch(pipeline, "iter_scans", "extraction.reading", True)
     patch(pipeline, "estimate_noise", "extraction.noise")
     patch(pipeline, "summarize_trace", "extraction.peak_summarization", True)
-    patch(pipeline.TraceTracker, "add", "extraction.trace_tracking")
+    # This class is shared with calibration, so its timer overlaps both stages.
+    patch(pipeline.TraceTracker, "add", "shared.trace_tracking")
     try:
         yield timers
     finally:
@@ -88,7 +89,9 @@ def main():
         for repeat in range(args.repeats):
             with instrument() as timers:
                 result = pipeline.process_file(source, out, overwrite=True)
-            stages = {k: v for k, v in timers.items() if not k.startswith("extraction.")}
+            stages = {
+                k: v for k, v in timers.items() if not k.startswith(("extraction.", "shared."))
+            }
             stages["output_and_provenance"] = result.elapsed_seconds - sum(stages.values())
             rows.append(
                 {
@@ -99,6 +102,9 @@ def main():
                     "stages": stages,
                     "extraction_substeps": {
                         k.split(".")[1]: v for k, v in timers.items() if k.startswith("extraction.")
+                    },
+                    "shared_substeps": {
+                        k.split(".")[1]: v for k, v in timers.items() if k.startswith("shared.")
                     },
                 }
             )
@@ -112,6 +118,7 @@ def main():
             "Lightweight timers, not cProfile; one file per sample group.",
             "Extraction includes reader, noise, tracking and peak summarization.",
             "Substeps are inclusive and must not be added to top-level stages.",
+            "Shared trace tracking includes calibration and extraction; it is not exclusive to either stage.",
         ],
     }
     args.report.write_text(json.dumps(report, indent=2) + "\n")

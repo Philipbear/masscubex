@@ -1,4 +1,51 @@
-# MassCubeX validation — 2026-11-03
+# MassCubeX validation
+
+## Version 0.6.0: Parquet and faster extraction
+
+Parquet with lossless Zstd compression is now the default; TSV remains available
+through `--format tsv`. The schema preserves float64 values, nullable native scan
+numbers, acquisition indices, full MS2 lists and typed ion-relationship evidence.
+Tests cover empty tables, multiple row groups, exact float bits, Unicode IDs,
+missing values, invalid evidence, format selection, checksum-verified resume,
+failed writes and process/thread equivalence. Scientific defaults are unchanged.
+
+The suite passes **344 tests**. All **12 Linux/macOS/Windows × Python 3.10–3.13
+CI jobs** pass those 344 tests against both source and installed wheels; see the
+[CI record](ci-v0.6.0.json) and
+[successful run](https://github.com/Philipbear/masscubex/actions/runs/41672208061).
+Local installed-wheel testing passes 338 core tests plus all six optional
+Numpress tests after installing the decoder. **106 numerical tests also pass
+with Numba disabled**. CI caught a Windows-only flush-descriptor issue; Parquet
+now uses a writable handle for `fsync` on Windows, preserving atomic publication.
+
+The [complete 50-file comparison](extraction-equivalence-v0.6.0.json) confirms:
+
+- All optimized TSVs are byte-identical to 0.5.1.
+- All **1,540,612 rows**, **125,266 associated MS2 scans**, **5,143 seeded rows**
+  and **205,868 relationship entries** survive exact typed Parquet/TSV comparison.
+- Calibration decisions and all other scientific sidecar fields are unchanged.
+- Four-worker Parquet outputs are byte-identical to single-worker outputs.
+
+This retains the independently checked MS2 coverage and seeded quantification
+from the [0.5.1 raw-data audit](MSV000086989-ms2-v0.5.1.json); the new comparison
+checks output equivalence rather than claiming a new independent decoding audit.
+
+Both [four-process](batch-errors-process-parquet-v0.6.0.json) and
+[four-thread](batch-errors-thread-parquet-v0.6.0.json) CLI audits interleaved the
+50 public files with five corrupt/missing inputs. Both completed all 50 valid
+files, reported exactly the five errors, preserved all reference values, removed
+temporary outputs and skipped every completed table on resume. These correctness
+audits ran concurrently and their elapsed times are not performance benchmarks.
+The [release summary](release-v0.6.0.json) records the final implementation fingerprint.
+
+On the same 50 public centroid-mzXML files, the median of three passes fell from
+**253.23 s** to **163.75 s with TSV**, or **145.60 s with Parquet**. Four process
+workers took **42.19 s**. Tables shrank from **431.85 MB to 85.72 MB**. Grouping
+was accelerated by compiled candidate rejection; peak summarization reuses
+Gaussian kernels and avoids unnecessary peak-property work. For stage timings,
+hardware, peak memory, reproducible commands and limitations, see
+[the performance report](PERFORMANCE.md). Timings are from isolated benchmarks,
+not from corruption checks or CI.
 
 ## Version 0.5.1: publication audit
 

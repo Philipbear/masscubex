@@ -1,4 +1,7 @@
-# Per-file calibration and polarity switching (0.5.1)
+# Per-file calibration and polarity switching
+
+The calibration policy introduced in 0.5 is unchanged in 0.6. Output tables now
+default to Parquet; the calculations below apply to both Parquet and TSV.
 
 Automatic calibration and ion grouping are **on by default**. Calibration is a
 new MassCubeX implementation. It estimates repeatability and chromatography from

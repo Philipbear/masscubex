@@ -153,4 +153,4 @@ is the **total ionic shift**, not a per-charge m/z offset. Optional `kind` is
 `adduct` or `neutral_loss`; a loss also needs `parent`, naming an enabled ordinary
 ion of the same charge and molecule count with a higher mass shift. No formula
 parser silently infers custom masses. The exact selected definitions and all
-settings are saved in each TSV's JSON sidecar and participate in resume validation.
+settings are saved in each table's JSON sidecar and participate in resume validation.
