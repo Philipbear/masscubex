@@ -1,5 +1,52 @@
 # MassCubeX validation
 
+## Version 0.7.0: compiled extraction, bounded replay and readability
+
+**532 source tests and 532 installed-wheel tests passed locally.** An additional
+**288 numerical tests passed with Numba JIT disabled**. The package was rebuilt
+and its new numerical modules and third-party notice verified inside the wheel.
+
+All **12 CI configurations** (Linux, macOS, Windows × Python 3.10–3.13) passed
+**532 tests against both source and installed wheel**, including Numpress.
+[CI run](https://github.com/Philipbear/masscubex/actions/runs/41682999046),
+[record](ci-v0.7.0.json), [release summary](release-v0.7.0.json).
+The tested numerical code is commit `7564ce9`; subsequent report-only changes
+retain its implementation fingerprint.
+
+New checks cover compiled/SciPy segmentation and calibration equivalence,
+exhaustive short plateau/distance cases, inclusive mass windows, cache disable,
+overflow, partial reads, late corruption, independent MS2 replay and metadata-only
+calibration when the cache overflows. Existing profile, polarity-switching,
+raw gap-fill, failure-continuation and atomic-output checks remain enabled.
+
+The [full 50-file comparison](extraction-equivalence-v0.7.0.json) has zero failures:
+1,540,612 features, 5,143 seeds, 125,266 associated MS2 scans and 205,868 relationship
+entries. Feature identities/order, heights, bounds, counts, scan mappings,
+relationship partners/types and calibration values are exact. Some mass, area,
+noise and derived mass-error values differ in their final float64 bits; the
+[performance report](PERFORMANCE.md) states tolerances and observed errors.
+The outputs are not claimed byte-identical across versions.
+
+A fresh [independent Pyteomics audit](MSV000086989-ms2-v0.7.0.json) verifies every
+MS2 ID/representative choice and all 5,143 seeded features against the raw MS1.
+All 125,266 source MS2 scans are accounted for, with no unassigned scans in this
+cohort. This validates bookkeeping and quantification, not biological identity
+or DIA deconvolution.
+
+Both [four-process](batch-errors-process-parquet-v0.7.0.json) and
+[four-thread](batch-errors-thread-parquet-v0.7.0.json) CLI audits completed 50
+valid files mixed with five corrupt/missing inputs. They reported all five
+errors, left no temporary outputs/locks, and skipped all 50 valid outputs on
+checksum-verified resume. Every valid table was byte-identical to the audited
+serial 0.7.0 table; the separate four-worker benchmark also matched all 50 tables
+byte-for-byte.
+
+The fresh matched benchmark measures **2.46× single-worker acceleration**;
+**the further 10× target is not achieved**. All scientific defaults remain on.
+See [timings and bottlenecks](PERFORMANCE.md). The real-data cohort is still
+positive-mode centroid mzXML; profile/mzML/polarity-switching throughput cannot
+be inferred from it.
+
 ## Version 0.6.0: Parquet and faster extraction
 
 Parquet with lossless Zstd compression is now the default; TSV remains available

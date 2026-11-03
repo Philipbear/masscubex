@@ -1,0 +1,219 @@
+{
+  "version": "0.7.0",
+  "implementation_sha256": "a205ae91e589f77e48d41bf3bf9a1b1fe0fbf758dceba1b568207a2e2d0cbe92",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pyarrow": "17.0.0",
+    "pynumpress": "0.0.9"
+  },
+  "format": "parquet",
+  "rows": [
+    {
+      "name": "NIST_POS_Samp_01-01.mzXML",
+      "group": "biological",
+      "repeat": 1,
+      "seconds": 1.0768143339082599,
+      "stages": {
+        "calibration": 0.2638878752477467,
+        "feature_extraction": 0.36227526841685176,
+        "ms2_association": 0.05313387466594577,
+        "ms2_gapfill": 0.0857942090369761,
+        "ion_grouping": 0.1405077911913395,
+        "output_and_provenance": 0.17121531534940004
+      },
+      "extraction_substeps": {
+        "noise": 0.10820561507716775,
+        "peak_summarization": 0.13785577192902565
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.19700628984719515,
+        "trace_tracking": 0.09333228273317218
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_01-01.mzXML",
+      "group": "biological",
+      "repeat": 2,
+      "seconds": 1.07525962498039,
+      "stages": {
+        "calibration": 0.2605331656523049,
+        "feature_extraction": 0.36277364008128643,
+        "ms2_association": 0.05444279173389077,
+        "ms2_gapfill": 0.0853312499821186,
+        "ion_grouping": 0.139766083098948,
+        "output_and_provenance": 0.17241269443184137
+      },
+      "extraction_substeps": {
+        "noise": 0.10832937015220523,
+        "peak_summarization": 0.13772606570273638
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.19431093847379088,
+        "trace_tracking": 0.09316257713362575
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_01-01.mzXML",
+      "group": "biological",
+      "repeat": 3,
+      "seconds": 1.0936698750592768,
+      "stages": {
+        "calibration": 0.2621389590203762,
+        "feature_extraction": 0.37214004434645176,
+        "ms2_association": 0.02644499996677041,
+        "ms2_gapfill": 0.11083233403041959,
+        "ion_grouping": 0.1498888749629259,
+        "output_and_provenance": 0.17222466273233294
+      },
+      "extraction_substeps": {
+        "noise": 0.10979796154424548,
+        "peak_summarization": 0.1409732550382614
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.19547152379527688,
+        "trace_tracking": 0.09605361986905336
+      }
+    },
+    {
+      "name": "Blank_00.mzXML",
+      "group": "blank",
+      "repeat": 1,
+      "seconds": 1.3136822497472167,
+      "stages": {
+        "calibration": 0.28511637495830655,
+        "feature_extraction": 0.48653102573007345,
+        "ms2_association": 0.05733954207971692,
+        "ms2_gapfill": 0.05540800001472235,
+        "ion_grouping": 0.20173370884731412,
+        "output_and_provenance": 0.2275535981170833
+      },
+      "extraction_substeps": {
+        "noise": 0.15822957130149007,
+        "peak_summarization": 0.1808756128884852
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.19868433754891157,
+        "trace_tracking": 0.12552207428961992
+      }
+    },
+    {
+      "name": "Blank_00.mzXML",
+      "group": "blank",
+      "repeat": 2,
+      "seconds": 1.3052727091126144,
+      "stages": {
+        "calibration": 0.2881900421343744,
+        "feature_extraction": 0.5011600195430219,
+        "ms2_association": 0.027859709225594997,
+        "ms2_gapfill": 0.08870337484404445,
+        "ion_grouping": 0.1735589997842908,
+        "output_and_provenance": 0.22580056358128786
+      },
+      "extraction_substeps": {
+        "noise": 0.1630498208105564,
+        "peak_summarization": 0.18689302960410714
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.20102538214996457,
+        "trace_tracking": 0.1285796188749373
+      }
+    },
+    {
+      "name": "Blank_00.mzXML",
+      "group": "blank",
+      "repeat": 3,
+      "seconds": 1.2710713748820126,
+      "stages": {
+        "calibration": 0.2841176246292889,
+        "feature_extraction": 0.4786399840377271,
+        "ms2_association": 0.05571579094976187,
+        "ms2_gapfill": 0.05441829236224294,
+        "ion_grouping": 0.1708409166894853,
+        "output_and_provenance": 0.22733876621350646
+      },
+      "extraction_substeps": {
+        "noise": 0.1560903093777597,
+        "peak_summarization": 0.17835174640640616
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.1979288812726736,
+        "trace_tracking": 0.12338404357433319
+      }
+    },
+    {
+      "name": "QC_Mix_01.mzXML",
+      "group": "QC",
+      "repeat": 1,
+      "seconds": 1.3491587908938527,
+      "stages": {
+        "calibration": 0.2937678750604391,
+        "feature_extraction": 0.4845128352753818,
+        "ms2_association": 0.06685562524944544,
+        "ms2_gapfill": 0.04732912499457598,
+        "ion_grouping": 0.1995042497292161,
+        "output_and_provenance": 0.2571890805847943
+      },
+      "extraction_substeps": {
+        "noise": 0.15266160760074854,
+        "peak_summarization": 0.19040358811616898
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.19442263152450323,
+        "trace_tracking": 0.1197867807932198
+      }
+    },
+    {
+      "name": "QC_Mix_01.mzXML",
+      "group": "QC",
+      "repeat": 2,
+      "seconds": 1.3384770415723324,
+      "stages": {
+        "calibration": 0.3021868336945772,
+        "feature_extraction": 0.4895539050921798,
+        "ms2_association": 0.06840391596779227,
+        "ms2_gapfill": 0.048160874750465155,
+        "ion_grouping": 0.16741041606292129,
+        "output_and_provenance": 0.2627610960043967
+      },
+      "extraction_substeps": {
+        "noise": 0.15326060680672526,
+        "peak_summarization": 0.19512459309771657
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.199047664180398,
+        "trace_tracking": 0.12191815441474319
+      }
+    },
+    {
+      "name": "QC_Mix_01.mzXML",
+      "group": "QC",
+      "repeat": 3,
+      "seconds": 1.3482307917438447,
+      "stages": {
+        "calibration": 0.3119098339229822,
+        "feature_extraction": 0.49022300681099296,
+        "ms2_association": 0.0675807916559279,
+        "ms2_gapfill": 0.04751083301380277,
+        "ion_grouping": 0.1712609576061368,
+        "output_and_provenance": 0.2597453687340021
+      },
+      "extraction_substeps": {
+        "noise": 0.15316713089123368,
+        "peak_summarization": 0.19533498911187053
+      },
+      "shared_substeps": {
+        "scan_reading_and_replay": 0.21226889872923493,
+        "trace_tracking": 0.12158511904999614
+      }
+    }
+  ],
+  "notes": [
+    "Lightweight timers, not cProfile; one file per sample group.",
+    "Extraction includes reader, noise, tracking and peak summarization.",
+    "Substeps are inclusive and must not be added to top-level stages.",
+    "Shared trace tracking includes calibration and extraction; it is not exclusive to either stage."
+  ]
+}
