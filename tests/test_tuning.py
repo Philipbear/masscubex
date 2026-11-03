@@ -1,0 +1,119 @@
+from dataclasses import replace
+
+import numpy as np
+import pytest
+
+from masscubex import Config
+from masscubex.cli import main
+from masscubex.tuning import Representative, derive_settings, representative
+from test_ms2 import ms2
+
+
+def peaks(count=24):
+    return [
+        Representative(
+            100 + 20 * i,
+            30 + 4 * i,
+            27 + 4 * i,
+            33 + 4 * i,
+            1e5 + i,
+            6,
+            12,
+            (100 + 20 * i) * 3e-6,
+            3,
+            13,
+        )
+        for i in range(count)
+    ]
+
+
+def test_independent_minimum_evidence_and_outliers():
+    base = Config()
+    anchors = peaks()
+    # One extreme high-intensity and mass-error outlier must not broaden every EIC.
+    anchors += [
+        replace(
+            anchors[0], mz=800, rt=140, height=1e12, fwhm=80, mass_error_da=0.04, mass_error_ppm=50
+        )
+    ]
+    spectra = [
+        ms2(i, rt=p.rt, mz=p.mz * (1 + 14e-6), precursor_mz_source="selected_ion")
+        for i, p in enumerate(anchors[:24])
+    ]
+    tuned, info = derive_settings(anchors, [0.5] * 100 + [60], spectra, base, "positive")
+    assert info["representative_count"] == 24
+    assert info["status"] == info["ms2_status"] == "tuned"
+    assert tuned.mz_tolerance_ppm == pytest.approx(6)
+    assert tuned.ms2_mz_tolerance_ppm == pytest.approx(21)
+    assert tuned.precursor_max_age_seconds == 1
+    assert tuned.noise_sigma == 3 and tuned.noise_fraction == 0.1
+    _, few = derive_settings(peaks(19), [0.5] * 100, spectra, base, "positive")
+    assert few["status"] == "insufficient_representatives"
+    partial, info = derive_settings(peaks(), [0.5] * 100, spectra[:19], base, "positive")
+    assert info["status"] == "tuned" and info["ms2_status"] != "tuned"
+    assert partial.ms2_mz_tolerance_da == base.ms2_mz_tolerance_da
+    assert partial.ms2_mz_tolerance_ppm == base.ms2_mz_tolerance_ppm
+
+
+def test_quantized_masses_do_not_reject_every_nonzero_error():
+    anchors = [
+        replace(p, mass_error_da=0, mass_error_ppm=0)
+        if i < 20
+        else replace(p, mass_error_da=p.mz * 1e-6, mass_error_ppm=1)
+        for i, p in enumerate(peaks())
+    ]
+    _, info = derive_settings(anchors, [1] * 20, [], Config(), "positive")
+    assert info["representative_count"] == 24
+
+
+def test_overrides_and_unknown_polarity_are_protected():
+    base = Config(mz_tolerance_ppm=50, tuning_locked=("ms2_rt_tolerance",))
+    tuned, info = derive_settings(peaks(), [0.5] * 20, [], base, "positive")
+    assert tuned.mz_tolerance_ppm == 50 and tuned.ms2_rt_tolerance == 2
+    assert "mz_tolerance_ppm" in info["protected_parameters"]
+    unknown, info = derive_settings(peaks(), [0.5] * 20, [], Config(), "unknown")
+    assert info["status"] == "unknown_polarity"
+    assert unknown.mz_tolerance_ppm == 10
+
+
+@pytest.mark.parametrize("defect", ["flat", "edge", "competitor", "undersampled", "plateau"])
+def test_strong_bad_traces_are_not_representatives(defect):
+    t = np.linspace(0, 20, 81)
+    y = 1e6 * np.exp(-0.5 * ((t - 10) / 2) ** 2)
+    competing = np.zeros(len(t))
+    if defect == "flat":
+        y[:] = 1e9
+    elif defect == "edge":
+        y = 1e6 * np.exp(-0.5 * (t / 2) ** 2)
+    elif defect == "competitor":
+        competing[40] = 1
+    elif defect == "undersampled":
+        y = 1e6 * np.exp(-0.5 * ((t - 10) / 0.1) ** 2)
+    else:
+        y = np.minimum(y, 3e5)
+    peak, reason = representative(
+        np.column_stack((np.full(len(t), 100), y, t, competing)), Config()
+    )
+    assert peak is None and reason
+
+
+def test_valid_representative_and_deterministic_learning():
+    t = np.linspace(0, 20, 81)
+    y = 1e6 * np.exp(-0.5 * ((t - 10) / 2) ** 2)
+    peak, reason = representative(
+        np.column_stack((100 + 0.0002 * np.sin(t), y, t, np.zeros(len(t)))), Config()
+    )
+    assert reason is None and peak.fwhm == pytest.approx(4.71, abs=0.1)
+    a, ai = derive_settings(peaks(120), [0.5] * 100, [], Config(), "positive")
+    b, bi = derive_settings(list(reversed(peaks(120))), [0.5] * 100, [], Config(), "positive")
+    assert a == b and ai == bi
+
+
+def test_cli_defaults_and_explicit_default_value_lock(capsys):
+    import json
+
+    main(["extract", "--print-config", "--mz-ppm", "10", "--no-ms2"])
+    config = json.loads(capsys.readouterr().out)
+    assert config["auto_tune"] and config["group_ions"]
+    assert config["tuning_min_peaks"] == 20
+    assert config["tuning_locked"] == ["mz_tolerance_ppm"]

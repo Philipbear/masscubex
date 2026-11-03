@@ -1,0 +1,2103 @@
+{
+  "dataset": "MSV000086989",
+  "version": "0.4.0",
+  "config": {
+    "mz_tolerance_ppm": 10.0,
+    "mz_tolerance_da": 0.002,
+    "noise_mode": "adaptive",
+    "noise_estimator": "low_tail",
+    "noise_fraction": 0.1,
+    "noise_window_da": 50.0,
+    "noise_sigma": 3.0,
+    "noise_clip_sigma": 2.0,
+    "noise_iterations": 2,
+    "noise_min_neighbors": 5,
+    "min_intensity": 0.0,
+    "min_scans": 5,
+    "max_gap_scans": 2,
+    "max_gap_seconds": 15.0,
+    "segment": true,
+    "smoothing_sigma": 0.6,
+    "peak_prominence": 0.1,
+    "peak_distance": 3,
+    "assume_centroid": false,
+    "profile_mode": "centroid",
+    "profile_min_points": 3,
+    "profile_gap_factor": 4.0,
+    "quant_method": "peak_height",
+    "associate_ms2": true,
+    "ms2_mz_tolerance_ppm": 20.0,
+    "ms2_mz_tolerance_da": 0.01,
+    "ms2_rt_tolerance": 2.0,
+    "ms2_max_isolation_width": 0.0,
+    "ms2_seeded_features": true,
+    "ms2_gapfill_rt_window": 5.0,
+    "best_ms2": "fragment_intensity",
+    "group_ions": false,
+    "group_isf": true,
+    "adduct_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      22,
+      23
+    ],
+    "custom_adducts": [],
+    "group_mz_tolerance_ppm": 10.0,
+    "group_mz_tolerance_da": 0.002,
+    "group_rt_tolerance": 3.0,
+    "group_min_scans": 5,
+    "group_min_correlation": 0.9,
+    "group_min_overlap": 0.5,
+    "isf_min_relative_intensity": 0.05,
+    "isf_max_peaks": 100
+  },
+  "implementation_sha256": "981263f86b8fe4db149686db53ae44a0521b06a442539d29fc52a88d36ee376e",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pynumpress": "0.0.9"
+  },
+  "python": "3.10.12",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "files": 50,
+  "wall_seconds_including_reference_checks": 59.51066991686821,
+  "totals": {
+    "features": 1714388,
+    "ms2_scans": 125266,
+    "ms2_matched_detected": 122032,
+    "ms2_seeded_features": 3234,
+    "ms2_seeded_scans": 3234,
+    "ms2_assigned": 125266,
+    "ms2_unassigned": 0,
+    "ms2_gapfill_sample_points": 46151
+  },
+  "initial_unassigned_reasons": {
+    "no_feature_mz": 1187,
+    "no_feature_rt": 2047
+  },
+  "gapfill_status_counts": {
+    "gap_filled": 3234
+  },
+  "rows": [
+    {
+      "name": "Blank_00.mzXML",
+      "input_sha256": "5deeb04515087f05ede3260b5ad7b2a7697be9d65cc3ff05e11e98df97c15864",
+      "group": "blank",
+      "features": 37925,
+      "extraction_seconds": 2.5865955408662558,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2268,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 814,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 56
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 38,
+        "no_feature_rt": 18
+      },
+      "ms2_initially_unassigned": 56,
+      "ms2_matched_detected": 2212,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2268,
+      "ms2_seeded_features": 56,
+      "ms2_seeded_scans": 56,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "d006a462c06dc82a0cb2cc8036c0b0a3d88f3e991f07c6f0aa7e9ba7acc6a4c2",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2268,
+        "assigned_ms2": 2268,
+        "features_with_ms2": 1423,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 56,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "Blank_Post_01-02.mzXML",
+      "input_sha256": "206b93641c3f979092e99c70c4441b1d01f415fb9f556097fef55c352c59f7fe",
+      "group": "blank",
+      "features": 45509,
+      "extraction_seconds": 3.053048458416015,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1903,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 484,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 27
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 11,
+        "no_feature_rt": 16
+      },
+      "ms2_initially_unassigned": 27,
+      "ms2_matched_detected": 1876,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1903,
+      "ms2_seeded_features": 27,
+      "ms2_seeded_scans": 27,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "2db2d2aea1921f7a29240ff9e8064e5d30fc7d9b404a0dbc69bf414e26865f65",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1903,
+        "assigned_ms2": 1903,
+        "features_with_ms2": 1085,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 27,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "Blank_Post_05-03.mzXML",
+      "input_sha256": "c0787aedc064c89871daac0a583cf0f872f1a7029b1dabbcb2633cfd9c21e055",
+      "group": "blank",
+      "features": 53415,
+      "extraction_seconds": 3.450511374976486,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1787,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 366,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 19
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 10,
+        "no_feature_rt": 9
+      },
+      "ms2_initially_unassigned": 19,
+      "ms2_matched_detected": 1768,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1787,
+      "ms2_seeded_features": 19,
+      "ms2_seeded_scans": 19,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "7dffaa97af704d5e8a849c45521442a4eddea9159d7d87b7df8387165ee7a714",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1787,
+        "assigned_ms2": 1787,
+        "features_with_ms2": 951,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 19,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "Blank_Post_10-02.mzXML",
+      "input_sha256": "02751930edb7f3e196384b95a6281a4d9e7458aa28964491e95b6f0c43e286e9",
+      "group": "blank",
+      "features": 46289,
+      "extraction_seconds": 3.0689032091759145,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1889,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 529,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 31
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 10,
+        "no_feature_rt": 21
+      },
+      "ms2_initially_unassigned": 31,
+      "ms2_matched_detected": 1858,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1889,
+      "ms2_seeded_features": 31,
+      "ms2_seeded_scans": 31,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "294db43d0481ddf1a7b06a7a413cce4dd0c4b0ec38d6c9c96c2fbe59e9a5bb2b",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1889,
+        "assigned_ms2": 1889,
+        "features_with_ms2": 1073,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 31,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "Blank_Post_14-03.mzXML",
+      "input_sha256": "20efca9168b21fd99094e4afe5bcc57980b00385737a22745765d1e7a9593a6c",
+      "group": "blank",
+      "features": 56482,
+      "extraction_seconds": 3.604125375393778,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1738,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 241,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 13
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 9,
+        "no_feature_rt": 4
+      },
+      "ms2_initially_unassigned": 13,
+      "ms2_matched_detected": 1725,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1738,
+      "ms2_seeded_features": 13,
+      "ms2_seeded_scans": 13,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "fb4a31e99b5c37e6b081654851749a628bf8f6bd19396a583b0317664603d33e",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1738,
+        "assigned_ms2": 1738,
+        "features_with_ms2": 924,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 13,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "Blank_Post_18.mzXML",
+      "input_sha256": "3d2d50104c7913a7f055b058291d0868baf45779921b899f1c2e4dbbf993867e",
+      "group": "blank",
+      "features": 45630,
+      "extraction_seconds": 3.1815288746729493,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1888,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 287,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 15
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 5,
+        "no_feature_rt": 10
+      },
+      "ms2_initially_unassigned": 15,
+      "ms2_matched_detected": 1873,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1888,
+      "ms2_seeded_features": 15,
+      "ms2_seeded_scans": 15,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "a628f54fd8a61a90efe5aa5556b49b4fc8218a6a07bbc4ae2363c26110d2b0d2",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1888,
+        "assigned_ms2": 1888,
+        "features_with_ms2": 1051,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 15,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_01-01.mzXML",
+      "input_sha256": "c2dfef00ba4aafec3155af44e1082e73ac9dba3c8b2ac49cf663498ffc9c7935",
+      "group": "biological",
+      "features": 27965,
+      "extraction_seconds": 3.531016333028674,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2700,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1230,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 102
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 30,
+        "no_feature_rt": 72
+      },
+      "ms2_initially_unassigned": 102,
+      "ms2_matched_detected": 2598,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2700,
+      "ms2_seeded_features": 102,
+      "ms2_seeded_scans": 102,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "07e65f274650842d4de7680f617f398cf608b34a4225caea45cd56fc57b23018",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2700,
+        "assigned_ms2": 2700,
+        "features_with_ms2": 2101,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 102,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_01-02.mzXML",
+      "input_sha256": "ac15dc04652197ae96f60373625f8d2278c711ab44db0caf370b1878f03b7420",
+      "group": "biological",
+      "features": 30326,
+      "extraction_seconds": 3.616630374919623,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2655,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 917,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 73
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 31,
+        "no_feature_rt": 42
+      },
+      "ms2_initially_unassigned": 73,
+      "ms2_matched_detected": 2582,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2655,
+      "ms2_seeded_features": 73,
+      "ms2_seeded_scans": 73,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "9de77c3ce471bf979d6a796ae3191171633f8694607ffb05f1af4560be1d4603",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2655,
+        "assigned_ms2": 2655,
+        "features_with_ms2": 2083,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 73,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_02-01.mzXML",
+      "input_sha256": "5d0dff8b033106a9cd4a0c18a6d22f45d49ee992a7c2e8d87ab57cb952c3a1ce",
+      "group": "biological",
+      "features": 27352,
+      "extraction_seconds": 3.392532791942358,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2699,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1321,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 108
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 40,
+        "no_feature_rt": 68
+      },
+      "ms2_initially_unassigned": 108,
+      "ms2_matched_detected": 2591,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2699,
+      "ms2_seeded_features": 108,
+      "ms2_seeded_scans": 108,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "95d37ea9acedf0e962b5daceb5dfdb6634182e155a71c641f0ef16a48d8b9b5c",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2699,
+        "assigned_ms2": 2699,
+        "features_with_ms2": 2093,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 108,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_02-02.mzXML",
+      "input_sha256": "4ffce33ff1cfabb15dc67567eb6a79cf1a767e211d88f91ebbdc94c0b01a7f99",
+      "group": "biological",
+      "features": 30419,
+      "extraction_seconds": 3.648684957996011,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2634,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 829,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 62
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 20,
+        "no_feature_rt": 42
+      },
+      "ms2_initially_unassigned": 62,
+      "ms2_matched_detected": 2572,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2634,
+      "ms2_seeded_features": 62,
+      "ms2_seeded_scans": 62,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "d5448abe5bdc8ff307ba70d3db7ca8fbc5aecd91c95e11d62cf613d875e03f6a",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2634,
+        "assigned_ms2": 2634,
+        "features_with_ms2": 2073,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 62,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_02-03.mzXML",
+      "input_sha256": "71a3556753cb34dad914fe3d04ee3e99e81e615f6beb29b3af87e5739c0a88d5",
+      "group": "biological",
+      "features": 32866,
+      "extraction_seconds": 3.4514077911153436,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2633,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 648,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 44
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 23,
+        "no_feature_rt": 21
+      },
+      "ms2_initially_unassigned": 44,
+      "ms2_matched_detected": 2589,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2633,
+      "ms2_seeded_features": 44,
+      "ms2_seeded_scans": 44,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "4cf5b5eb293efb4192ad85003e20350880eab1f1ce86ccfba2d4a4cb4aa11446",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2633,
+        "assigned_ms2": 2633,
+        "features_with_ms2": 2049,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 44,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_03-02.mzXML",
+      "input_sha256": "97bdd138c4b60865ca47b3c69e12121f14e782ea4159ce8b9d9e6945cbc59a99",
+      "group": "biological",
+      "features": 30307,
+      "extraction_seconds": 3.3382621249184012,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2645,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 774,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 57
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 24,
+        "no_feature_rt": 33
+      },
+      "ms2_initially_unassigned": 57,
+      "ms2_matched_detected": 2588,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2645,
+      "ms2_seeded_features": 57,
+      "ms2_seeded_scans": 57,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "4c06c76a687f5d24e94f0d26eb90ddf201177229ca6a89a5d2cf4f6f115832ee",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2645,
+        "assigned_ms2": 2645,
+        "features_with_ms2": 2094,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 57,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_03-03.mzXML",
+      "input_sha256": "2abdebaaff09067713e5fac7f0f0b965ab39e88f6987d0b4fc59e78edd1286d1",
+      "group": "biological",
+      "features": 30856,
+      "extraction_seconds": 3.353347333148122,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2678,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 520,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 41
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 15,
+        "no_feature_rt": 26
+      },
+      "ms2_initially_unassigned": 41,
+      "ms2_matched_detected": 2637,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2678,
+      "ms2_seeded_features": 41,
+      "ms2_seeded_scans": 41,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "6b354cd780644823706067fd5837e74d4292e7faef1b5804181309bd9e1dae6a",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2678,
+        "assigned_ms2": 2678,
+        "features_with_ms2": 2021,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 41,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_04-02.mzXML",
+      "input_sha256": "d6deede3f2507af95da3b58da11c65675cfefedc6572e9df8a648b0c7910b700",
+      "group": "biological",
+      "features": 30822,
+      "extraction_seconds": 3.3762923339381814,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2617,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1011,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 64
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 16,
+        "no_feature_rt": 48
+      },
+      "ms2_initially_unassigned": 64,
+      "ms2_matched_detected": 2553,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2617,
+      "ms2_seeded_features": 64,
+      "ms2_seeded_scans": 64,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "4a9186fd0e067da7de7ba0dd54ea0d1270385c3ce5ab9a09d08be802e6fa5368",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2617,
+        "assigned_ms2": 2617,
+        "features_with_ms2": 2048,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 64,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_04-03.mzXML",
+      "input_sha256": "9d5bbf05de7fbdc048bd1a7383e5cb0f9648cd3120f4f45818a02c6492668e75",
+      "group": "biological",
+      "features": 33336,
+      "extraction_seconds": 3.4772884575650096,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2609,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 949,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 61
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 20,
+        "no_feature_rt": 41
+      },
+      "ms2_initially_unassigned": 61,
+      "ms2_matched_detected": 2548,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2609,
+      "ms2_seeded_features": 61,
+      "ms2_seeded_scans": 61,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "cf138af85b37d92f8ad313cc60185d070e061f82c26da1a677742565beedd7f0",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2609,
+        "assigned_ms2": 2609,
+        "features_with_ms2": 2054,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 61,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_05-01.mzXML",
+      "input_sha256": "31600380a654dc724aa4da5f9792ca806f7c591f9a74ed2b1dbbbacd12dd4105",
+      "group": "biological",
+      "features": 28104,
+      "extraction_seconds": 3.120221666060388,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2672,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1689,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 126
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 35,
+        "no_feature_rt": 91
+      },
+      "ms2_initially_unassigned": 126,
+      "ms2_matched_detected": 2546,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2672,
+      "ms2_seeded_features": 126,
+      "ms2_seeded_scans": 126,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "642556be65a9cb3a5d45b8b997f86350338c1e51eac71fb6db958ff354b0f2d6",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2672,
+        "assigned_ms2": 2672,
+        "features_with_ms2": 2100,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 126,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_05-03.mzXML",
+      "input_sha256": "22b77416f0caccde5ab4a31627254862e1085398d27f350706db8f630ae1ec0a",
+      "group": "biological",
+      "features": 34967,
+      "extraction_seconds": 3.5557789159938693,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2615,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 954,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 61
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 25,
+        "no_feature_rt": 36
+      },
+      "ms2_initially_unassigned": 61,
+      "ms2_matched_detected": 2554,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2615,
+      "ms2_seeded_features": 61,
+      "ms2_seeded_scans": 61,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "51844347be2a1bc03cdd534786e314fcd4f0c21761348ca88297d4e8482e1030",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2615,
+        "assigned_ms2": 2615,
+        "features_with_ms2": 1995,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 61,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_06-01.mzXML",
+      "input_sha256": "e65bc6960735c44cb58c38780a62a72afb189a371d3b84a35ae746cf49e437ed",
+      "group": "biological",
+      "features": 27488,
+      "extraction_seconds": 3.2361537916585803,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2667,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1892,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 143
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 52,
+        "no_feature_rt": 91
+      },
+      "ms2_initially_unassigned": 143,
+      "ms2_matched_detected": 2524,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2667,
+      "ms2_seeded_features": 143,
+      "ms2_seeded_scans": 143,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "47ca54c460b806ccbf6a76b28206f83dac44ff57da7bc4946deec342d0e77f87",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2667,
+        "assigned_ms2": 2667,
+        "features_with_ms2": 2064,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 143,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_06-02.mzXML",
+      "input_sha256": "d970a184868be3d0b01cc576552cf7614a3efab4b6b09614f5a67cb430243784",
+      "group": "biological",
+      "features": 30855,
+      "extraction_seconds": 3.3490039580501616,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2632,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1012,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 73
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 19,
+        "no_feature_rt": 54
+      },
+      "ms2_initially_unassigned": 73,
+      "ms2_matched_detected": 2559,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2632,
+      "ms2_seeded_features": 73,
+      "ms2_seeded_scans": 73,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "943c7872e0e0ed135a7e3b198c4acc3b0eaa479569c707860161b793a5e22906",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2632,
+        "assigned_ms2": 2632,
+        "features_with_ms2": 2080,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 73,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_07-01.mzXML",
+      "input_sha256": "6463c526df8259359357ab9e58a2650c3e9886885568d0e5ba42871c98070270",
+      "group": "biological",
+      "features": 26674,
+      "extraction_seconds": 3.1937682079151273,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2727,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1655,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 137
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 49,
+        "no_feature_rt": 88
+      },
+      "ms2_initially_unassigned": 137,
+      "ms2_matched_detected": 2590,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2727,
+      "ms2_seeded_features": 137,
+      "ms2_seeded_scans": 137,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "af1ef6453064646bed95b5ab658876502d25931991c2115a549a28bfe5c4bdd0",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2727,
+        "assigned_ms2": 2727,
+        "features_with_ms2": 2252,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 137,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_07-02.mzXML",
+      "input_sha256": "f17e9ad8b51d21c5a028e96c9c7215b6eb9af8359f73ae126c7398baed7c3f5e",
+      "group": "biological",
+      "features": 29145,
+      "extraction_seconds": 3.435430542100221,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2696,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 846,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 63
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 25,
+        "no_feature_rt": 38
+      },
+      "ms2_initially_unassigned": 63,
+      "ms2_matched_detected": 2633,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2696,
+      "ms2_seeded_features": 63,
+      "ms2_seeded_scans": 63,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "37b743f9f6dc817c2260296c644752c921e539af48c3b081372adc73e138d3c0",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2696,
+        "assigned_ms2": 2696,
+        "features_with_ms2": 2190,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 63,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_07-03.mzXML",
+      "input_sha256": "0cdf07d060d27d57ae5913a488fa8160dba0cddb16f54344b88a7731c972586f",
+      "group": "biological",
+      "features": 30739,
+      "extraction_seconds": 3.505404583644122,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2670,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 675,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 46
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 18,
+        "no_feature_rt": 28
+      },
+      "ms2_initially_unassigned": 46,
+      "ms2_matched_detected": 2624,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2670,
+      "ms2_seeded_features": 46,
+      "ms2_seeded_scans": 46,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "67459a24a4ddd9cebf14ad9f86789093581b6d12d44c04e81844388c2f42099a",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2670,
+        "assigned_ms2": 2670,
+        "features_with_ms2": 2115,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 46,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_08-02.mzXML",
+      "input_sha256": "7f416f00501ab8634e7c8b5f125669ff7d9d148fec27cdd58d0fa74afbe75a61",
+      "group": "biological",
+      "features": 28779,
+      "extraction_seconds": 2.2133700838312507,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2703,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 965,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 69
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 28,
+        "no_feature_rt": 41
+      },
+      "ms2_initially_unassigned": 69,
+      "ms2_matched_detected": 2634,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2703,
+      "ms2_seeded_features": 69,
+      "ms2_seeded_scans": 69,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "a95b8259dbba6e89e92795a671f3cd7adf293b774b7830459d15ba4817255694",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2703,
+        "assigned_ms2": 2703,
+        "features_with_ms2": 2167,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 69,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_08-03.mzXML",
+      "input_sha256": "c625fdaaa5a7db1b4b3e8f66d83ddf8bcf867a15be228d3a1a34159a27ba300f",
+      "group": "biological",
+      "features": 31481,
+      "extraction_seconds": 2.3840231667272747,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2684,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 779,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 55
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 27,
+        "no_feature_rt": 28
+      },
+      "ms2_initially_unassigned": 55,
+      "ms2_matched_detected": 2629,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2684,
+      "ms2_seeded_features": 55,
+      "ms2_seeded_scans": 55,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "f542512ebc785c00861e7f34d6350d568c87e49eb45da549dd89b22737f31e16",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2684,
+        "assigned_ms2": 2684,
+        "features_with_ms2": 2121,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 55,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_09-01.mzXML",
+      "input_sha256": "8569ab4f56809daf603d33c23226d4dfd89ac7cf0214ab1de52fb0740ce599b3",
+      "group": "biological",
+      "features": 26983,
+      "extraction_seconds": 2.1318866666406393,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2729,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1404,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 116
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 49,
+        "no_feature_rt": 67
+      },
+      "ms2_initially_unassigned": 116,
+      "ms2_matched_detected": 2613,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2729,
+      "ms2_seeded_features": 116,
+      "ms2_seeded_scans": 116,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "f69175848f7fcabdf317bb5877b79774a7af0a0b822fd81f5887da119ee60b88",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2729,
+        "assigned_ms2": 2729,
+        "features_with_ms2": 2229,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 116,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_09-03.mzXML",
+      "input_sha256": "0fcf4099f16d6bd8a3da8af617203e720f46154c2ce1585f9ca980524ad5615c",
+      "group": "biological",
+      "features": 31977,
+      "extraction_seconds": 2.323419750202447,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2681,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 694,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 49
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 22,
+        "no_feature_rt": 27
+      },
+      "ms2_initially_unassigned": 49,
+      "ms2_matched_detected": 2632,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2681,
+      "ms2_seeded_features": 49,
+      "ms2_seeded_scans": 49,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "e2aa0d9305d1d471a837cdd8ef59cf3e34a200dd98cd6b0b03af6213ea840dcc",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2681,
+        "assigned_ms2": 2681,
+        "features_with_ms2": 2131,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 49,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_10-01.mzXML",
+      "input_sha256": "5f66032b40a4281dc8eacf9206dee23e6578c74adfc99923408510bca11a7932",
+      "group": "biological",
+      "features": 27752,
+      "extraction_seconds": 2.160482875071466,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2711,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1686,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 124
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 38,
+        "no_feature_rt": 86
+      },
+      "ms2_initially_unassigned": 124,
+      "ms2_matched_detected": 2587,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2711,
+      "ms2_seeded_features": 124,
+      "ms2_seeded_scans": 124,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "06296995d9c94877d4f8f8d84c00c5c05a40680a724669a79b24332c4638cec1",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2711,
+        "assigned_ms2": 2711,
+        "features_with_ms2": 2197,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 124,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_10-03.mzXML",
+      "input_sha256": "f52c111621fee4d297b4ad82d84e03d4ea19533864034b9bb6a5fbbcaff4bc4f",
+      "group": "biological",
+      "features": 32977,
+      "extraction_seconds": 2.4233593326061964,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2657,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 778,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 53
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 14,
+        "no_feature_rt": 39
+      },
+      "ms2_initially_unassigned": 53,
+      "ms2_matched_detected": 2604,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2657,
+      "ms2_seeded_features": 53,
+      "ms2_seeded_scans": 53,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "b15120ad3534d704dd15596789ec264631ce0ad9d377b6d44243a9441e8f8074",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2657,
+        "assigned_ms2": 2657,
+        "features_with_ms2": 2122,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 53,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_11-01.mzXML",
+      "input_sha256": "a4541d9c3a0460a971b5716f9c93b82606378f8ab775618605964b34b9f26fc5",
+      "group": "biological",
+      "features": 27961,
+      "extraction_seconds": 2.213191458955407,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2678,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1534,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 115
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 41,
+        "no_feature_rt": 74
+      },
+      "ms2_initially_unassigned": 115,
+      "ms2_matched_detected": 2563,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2678,
+      "ms2_seeded_features": 115,
+      "ms2_seeded_scans": 115,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "c767eab5e9550de8bf01de22e95a9c67f19160fc7460f35d45ba786824974799",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2678,
+        "assigned_ms2": 2678,
+        "features_with_ms2": 2191,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 115,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_11-02.mzXML",
+      "input_sha256": "d4deb4094064c6d383486272a3000b2225f2260e0d7ad0a1283359e23dbebea9",
+      "group": "biological",
+      "features": 30832,
+      "extraction_seconds": 2.2869612076319754,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2662,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1238,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 82
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 27,
+        "no_feature_rt": 55
+      },
+      "ms2_initially_unassigned": 82,
+      "ms2_matched_detected": 2580,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2662,
+      "ms2_seeded_features": 82,
+      "ms2_seeded_scans": 82,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "71e22ddd63618c56a144e4c87eb7fc015cf7edd86e0b543017ed09a96f138d8e",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2662,
+        "assigned_ms2": 2662,
+        "features_with_ms2": 2131,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 82,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_12-01.mzXML",
+      "input_sha256": "7d150b8fd7dba10fd87f0ed4a1098a060238202c98553a67ed04d4215f381975",
+      "group": "biological",
+      "features": 28025,
+      "extraction_seconds": 2.7300686659291387,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2690,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1905,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 145
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 47,
+        "no_feature_rt": 98
+      },
+      "ms2_initially_unassigned": 145,
+      "ms2_matched_detected": 2545,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2690,
+      "ms2_seeded_features": 145,
+      "ms2_seeded_scans": 145,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "d62d06479d5ef0e0ef3b5dfdfee54773ae56c211dadf6c5b351e0d3fa4ceb734",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2690,
+        "assigned_ms2": 2690,
+        "features_with_ms2": 2177,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 145,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_12-02.mzXML",
+      "input_sha256": "8ff9d5ab0a8a8bcd47b488dcdd13b21c54b5fc9f70507ed945a4c6f6bdd8a5a7",
+      "group": "biological",
+      "features": 31538,
+      "extraction_seconds": 3.008771459106356,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2648,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1051,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 67
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 21,
+        "no_feature_rt": 46
+      },
+      "ms2_initially_unassigned": 67,
+      "ms2_matched_detected": 2581,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2648,
+      "ms2_seeded_features": 67,
+      "ms2_seeded_scans": 67,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "7c9752eceba05f23644fd57bbaafd64ac0a4e24e334d5dd9ee2aaa0cdcd5de3a",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2648,
+        "assigned_ms2": 2648,
+        "features_with_ms2": 2132,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 67,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_12-03.mzXML",
+      "input_sha256": "c1c0b1315157cc1c02ddfe025eff5bfef8f04eb786044e71d87a39fc0b997aca",
+      "group": "biological",
+      "features": 32314,
+      "extraction_seconds": 2.9779578330926597,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2647,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 964,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 65
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 25,
+        "no_feature_rt": 40
+      },
+      "ms2_initially_unassigned": 65,
+      "ms2_matched_detected": 2582,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2647,
+      "ms2_seeded_features": 65,
+      "ms2_seeded_scans": 65,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "4b6ca040b857b3b5f999409c410fefed115e38a13057addc972bbacc1772b347",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2647,
+        "assigned_ms2": 2647,
+        "features_with_ms2": 2116,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 65,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_13-02.mzXML",
+      "input_sha256": "2cecc1a61f2810f060e7bad0b63521a9e93e2d6a81181cfaa4874504ef5b56f6",
+      "group": "biological",
+      "features": 31798,
+      "extraction_seconds": 2.8247573752887547,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2618,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 694,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 52
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 18,
+        "no_feature_rt": 34
+      },
+      "ms2_initially_unassigned": 52,
+      "ms2_matched_detected": 2566,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2618,
+      "ms2_seeded_features": 52,
+      "ms2_seeded_scans": 52,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "ca4e6994c91e0203ab51ed295456c290ecc8f7c343ce368d46772cdee1fd449b",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2618,
+        "assigned_ms2": 2618,
+        "features_with_ms2": 1996,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 52,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_13-03.mzXML",
+      "input_sha256": "24163d7da8b59d727d0770787fda016d265beaffe440f670ecf899fa3b3f636e",
+      "group": "biological",
+      "features": 33939,
+      "extraction_seconds": 2.7922958750277758,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2613,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 467,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 33
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 12,
+        "no_feature_rt": 21
+      },
+      "ms2_initially_unassigned": 33,
+      "ms2_matched_detected": 2580,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2613,
+      "ms2_seeded_features": 33,
+      "ms2_seeded_scans": 33,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "35a05072acd7934358be0fe95cc9fc390fb3e5de71386a00a5ac3181a6a5a957",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2613,
+        "assigned_ms2": 2613,
+        "features_with_ms2": 1976,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 33,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_14-01.mzXML",
+      "input_sha256": "b6fc8122bc290fddf57f0c3b9dbcfee4e380195db0d728f7b6be97b65f8e269d",
+      "group": "biological",
+      "features": 29368,
+      "extraction_seconds": 2.560263582970947,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2653,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1054,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 83
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 37,
+        "no_feature_rt": 46
+      },
+      "ms2_initially_unassigned": 83,
+      "ms2_matched_detected": 2570,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2653,
+      "ms2_seeded_features": 83,
+      "ms2_seeded_scans": 83,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "f320132086952a650fec3ec56f226e8420356ed47ed38859285b06ada1310067",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2653,
+        "assigned_ms2": 2653,
+        "features_with_ms2": 2040,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 83,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_14-03.mzXML",
+      "input_sha256": "458edf67e81118f19c9beb4335b80bf6927fa5a8871ba2ae9475e3321537a128",
+      "group": "biological",
+      "features": 36595,
+      "extraction_seconds": 2.902091583237052,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2596,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 696,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 43
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 22,
+        "no_feature_rt": 21
+      },
+      "ms2_initially_unassigned": 43,
+      "ms2_matched_detected": 2553,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2596,
+      "ms2_seeded_features": 43,
+      "ms2_seeded_scans": 43,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "e1b986b9ae742847d3fbb1818eb3065d28477823f4aa9dc49725bf08f7b170e5",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2596,
+        "assigned_ms2": 2596,
+        "features_with_ms2": 1965,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 43,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_15-01.mzXML",
+      "input_sha256": "67d5a5445d1962c5675f0e5d9d9ae9e2804ff32b8cf07f23f98f2570ff89a63e",
+      "group": "biological",
+      "features": 29341,
+      "extraction_seconds": 2.477253417018801,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2656,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 963,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 74
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 33,
+        "no_feature_rt": 41
+      },
+      "ms2_initially_unassigned": 74,
+      "ms2_matched_detected": 2582,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2656,
+      "ms2_seeded_features": 74,
+      "ms2_seeded_scans": 74,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "6a4858ee46e6e5c4cccd570578422f538406e6fa7580152b1ed5d934aea72006",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2656,
+        "assigned_ms2": 2656,
+        "features_with_ms2": 2042,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 74,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_15-02.mzXML",
+      "input_sha256": "5a0204e86559ed9884854e0457b5f5c92caca1809224218699deaae68f283f89",
+      "group": "biological",
+      "features": 33115,
+      "extraction_seconds": 2.510725666768849,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2617,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 671,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 47
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 19,
+        "no_feature_rt": 28
+      },
+      "ms2_initially_unassigned": 47,
+      "ms2_matched_detected": 2570,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2617,
+      "ms2_seeded_features": 47,
+      "ms2_seeded_scans": 47,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "da52aa4bc564e6928320afaede07897e5136adb242e4d9428aea3244e794cc2a",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2617,
+        "assigned_ms2": 2617,
+        "features_with_ms2": 1993,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 47,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_16-01.mzXML",
+      "input_sha256": "fe55a75e799bc16b8c2246f731cf8ced521ce0973df0001aebd0fdfa13b78a31",
+      "group": "biological",
+      "features": 29377,
+      "extraction_seconds": 2.3591952081769705,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2645,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1362,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 98
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 38,
+        "no_feature_rt": 60
+      },
+      "ms2_initially_unassigned": 98,
+      "ms2_matched_detected": 2547,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2645,
+      "ms2_seeded_features": 98,
+      "ms2_seeded_scans": 98,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "e64eb72e5ec7f8c5b950fa1eda3fa1247a1c3d6295af84a55668f240bdcdd1d5",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2645,
+        "assigned_ms2": 2645,
+        "features_with_ms2": 2042,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 98,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_16-02.mzXML",
+      "input_sha256": "c6030a719a42b1ccbab41197dcbdc0bacea0038b1d47bb0ea26dddb5b1faec9c",
+      "group": "biological",
+      "features": 33570,
+      "extraction_seconds": 2.4996990840882063,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2606,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 814,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 52
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 14,
+        "no_feature_rt": 38
+      },
+      "ms2_initially_unassigned": 52,
+      "ms2_matched_detected": 2554,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2606,
+      "ms2_seeded_features": 52,
+      "ms2_seeded_scans": 52,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "d8f267ccc3c6fc2c6dd934805f359d1039e8539f938aa59f2569143f76ddfe2b",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2606,
+        "assigned_ms2": 2606,
+        "features_with_ms2": 1986,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 52,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_17-01.mzXML",
+      "input_sha256": "fda868cee4244ebb02d1cc4c97a73c119078ea4467afce5c78d08b3d1893775c",
+      "group": "biological",
+      "features": 29024,
+      "extraction_seconds": 2.296089167241007,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2658,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 1091,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 76
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 17,
+        "no_feature_rt": 59
+      },
+      "ms2_initially_unassigned": 76,
+      "ms2_matched_detected": 2582,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2658,
+      "ms2_seeded_features": 76,
+      "ms2_seeded_scans": 76,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "7d919dcded091d2169930738a94fe0b218defd2246cca22a120948fb8599a2ae",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2658,
+        "assigned_ms2": 2658,
+        "features_with_ms2": 1999,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 76,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_17-02.mzXML",
+      "input_sha256": "c8568f63ae001fb76c5093f49a65047fc97b5fba825fe92292433d9eb4478ecc",
+      "group": "biological",
+      "features": 32208,
+      "extraction_seconds": 2.4324261667206883,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2589,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 747,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 48
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 10,
+        "no_feature_rt": 38
+      },
+      "ms2_initially_unassigned": 48,
+      "ms2_matched_detected": 2541,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2589,
+      "ms2_seeded_features": 48,
+      "ms2_seeded_scans": 48,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "5884e5676d3d1ed283b3a16802c949c3da87dd0fbe27c36c41c29b49ad4081c5",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2589,
+        "assigned_ms2": 2589,
+        "features_with_ms2": 1990,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 48,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_17-03.mzXML",
+      "input_sha256": "6a02d46efe87e03fbdaba55c560ce9d7c0111ad438b51ac94d982f7d612d2ccd",
+      "group": "biological",
+      "features": 36404,
+      "extraction_seconds": 2.6886115828529,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2560,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 890,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 54
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 19,
+        "no_feature_rt": 35
+      },
+      "ms2_initially_unassigned": 54,
+      "ms2_matched_detected": 2506,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2560,
+      "ms2_seeded_features": 54,
+      "ms2_seeded_scans": 54,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "fad3bb1dd5524390d83a8039b17a7d97b58812e6de20d745ede47d49e053fb5a",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2560,
+        "assigned_ms2": 2560,
+        "features_with_ms2": 1985,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 54,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_18-02.mzXML",
+      "input_sha256": "acc82d702f9d9324dd6e493518acda735558492683c82f618ea2cf5e84bc8731",
+      "group": "biological",
+      "features": 33912,
+      "extraction_seconds": 2.493754875380546,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2569,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 916,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 57
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 15,
+        "no_feature_rt": 42
+      },
+      "ms2_initially_unassigned": 57,
+      "ms2_matched_detected": 2512,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2569,
+      "ms2_seeded_features": 57,
+      "ms2_seeded_scans": 57,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "28bc328fe3c30ed23880da6bd6d6e06f077859ae2d61f94206ca07ba2507c104",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2569,
+        "assigned_ms2": 2569,
+        "features_with_ms2": 1961,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 57,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "NIST_POS_Samp_18-03.mzXML",
+      "input_sha256": "2c8b56498614dcec78cb923fa02740d559be8b9421492826dec87fdbc7a5a165",
+      "group": "biological",
+      "features": 35886,
+      "extraction_seconds": 2.63711225008592,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2561,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 681,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 42
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 15,
+        "no_feature_rt": 27
+      },
+      "ms2_initially_unassigned": 42,
+      "ms2_matched_detected": 2519,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2561,
+      "ms2_seeded_features": 42,
+      "ms2_seeded_scans": 42,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "6fc00c4d6db2565f3667def6a960bc6b60ce08072a34329065e44e5be13d5e42",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2561,
+        "assigned_ms2": 2561,
+        "features_with_ms2": 1978,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 42,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "QC_Mix_01.mzXML",
+      "input_sha256": "43cf20f3c0269ea1c40d7790596579ca1e1d888c46e55ffbfcb26afb27958912",
+      "group": "QC",
+      "features": 41874,
+      "extraction_seconds": 2.8338857502676547,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 2058,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 775,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 39
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 20,
+        "no_feature_rt": 19
+      },
+      "ms2_initially_unassigned": 39,
+      "ms2_matched_detected": 2019,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 2058,
+      "ms2_seeded_features": 39,
+      "ms2_seeded_scans": 39,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "4e73b9a5f01020c4fe243d6cebd71b841a6abd82e5e80b342bcd8f438e4ce146",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 2058,
+        "assigned_ms2": 2058,
+        "features_with_ms2": 1333,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 39,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "QC_Mix_02.mzXML",
+      "input_sha256": "e922cb12feda5914509b2240be5ad399fd122bcd0891a530d3b8695aeb965620",
+      "group": "QC",
+      "features": 45677,
+      "extraction_seconds": 2.9624347500503063,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1990,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 551,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 26
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 13,
+        "no_feature_rt": 13
+      },
+      "ms2_initially_unassigned": 26,
+      "ms2_matched_detected": 1964,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1990,
+      "ms2_seeded_features": 26,
+      "ms2_seeded_scans": 26,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "23c0a3a4fc9eaca366fab6f471580cad6d03e778a42945b2f92d30e314ada5f2",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1990,
+        "assigned_ms2": 1990,
+        "features_with_ms2": 1307,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 26,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "QC_Mix_03.mzXML",
+      "input_sha256": "4bc4fc10527387c9fd9faad0c8087323fb12543748bd95c564683b4617f53263",
+      "group": "QC",
+      "features": 52343,
+      "extraction_seconds": 3.1446449169889092,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1876,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 538,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 23
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 11,
+        "no_feature_rt": 12
+      },
+      "ms2_initially_unassigned": 23,
+      "ms2_matched_detected": 1853,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1876,
+      "ms2_seeded_features": 23,
+      "ms2_seeded_scans": 23,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "7ab4fdc769fa0d963f8c51b53af9b24ff83227c6f14b60be4e979be93ad1071b",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1876,
+        "assigned_ms2": 1876,
+        "features_with_ms2": 1266,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 23,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    },
+    {
+      "name": "QC_Mix_04.mzXML",
+      "input_sha256": "606100539e427775ca15e23d63543e05e56b20095a2fba858886ff55b54b9ab8",
+      "group": "QC",
+      "features": 51867,
+      "extraction_seconds": 3.1917287497781217,
+      "ms2_ambiguous_polarity": 0,
+      "ms2_assigned": 1889,
+      "ms2_gapfill_passes": 1,
+      "ms2_gapfill_sample_points": 600,
+      "ms2_gapfill_status_counts": {
+        "gap_filled": 25
+      },
+      "ms2_initial_unassigned_reasons": {
+        "no_feature_mz": 10,
+        "no_feature_rt": 15
+      },
+      "ms2_initially_unassigned": 25,
+      "ms2_matched_detected": 1864,
+      "ms2_missing_metadata": 0,
+      "ms2_scans": 1889,
+      "ms2_seeded_features": 25,
+      "ms2_seeded_scans": 25,
+      "ms2_skipped_multiprecursor": 0,
+      "ms2_skipped_wide_isolation": 0,
+      "ms2_unassigned": 0,
+      "ms2_unassigned_reasons": {},
+      "tsv_sha256": "257a5c781945ec567e97aac0a009f5d7c842b6181222405c4f9508410b91b882",
+      "reference": {
+        "ms1_spectra": 5,
+        "ms2_spectra": 1889,
+        "assigned_ms2": 1889,
+        "features_with_ms2": 1196,
+        "all_source_ms2_accounted_for": true,
+        "unique_feature_per_assigned_ms2": true,
+        "seeded_quantification_independently_verified": 25,
+        "known_isolation_width_above_4": 0,
+        "missing_isolation_width": 0
+      }
+    }
+  ],
+  "limitations": [
+    "One centroid-mzXML dataset; this is bookkeeping/quantification validation, not proof of biological precursor identity.",
+    "Profile mzML/mzXML, missing metadata and broad isolation windows are covered by synthetic tests.",
+    "No claim of DIA classification or DIA fragment deconvolution."
+  ]
+}

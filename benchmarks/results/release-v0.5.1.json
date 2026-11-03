@@ -1,0 +1,86 @@
+{
+  "version": "0.5.1",
+  "date": "2026-11-03",
+  "python": "3.10.12",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "implementation_sha256": "131acbc9e3f004604d483c59f870ec29aebd015d7b4973b9bb2339e67a1eeac5",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pynumpress": "0.0.9"
+  },
+  "source_tests": {
+    "tests": 302,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "installed_wheel_tests": {
+    "tests": 302,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "numba_disabled_numerical_tests": {
+    "tests": 59,
+    "failures": 0
+  },
+  "ruff": "passed",
+  "real_corpus_files": 50,
+  "real_corpus_totals": {
+    "features": 1540612,
+    "ms2_scans": 125266,
+    "ms2_matched_detected": 120123,
+    "ms2_seeded_features": 5143,
+    "ms2_seeded_scans": 5143,
+    "ms2_assigned": 125266,
+    "ms2_unassigned": 0,
+    "ms2_gapfill_sample_points": 231899
+  },
+  "batch_validation": {
+    "process": {
+      "counts": {
+        "total": 55,
+        "succeeded": 50,
+        "skipped": 0,
+        "failed": 5
+      },
+      "all_valid_tsvs_match_reference": true,
+      "resume_skipped_all_50_completed_files": true
+    },
+    "thread": {
+      "counts": {
+        "total": 55,
+        "succeeded": 50,
+        "skipped": 0,
+        "failed": 5
+      },
+      "all_valid_tsvs_match_reference": true,
+      "resume_skipped_all_50_completed_files": true
+    }
+  },
+  "ci_matrix": {
+    "os": [
+      "ubuntu-latest",
+      "macos-latest",
+      "windows-latest"
+    ],
+    "python": [
+      "3.10",
+      "3.11",
+      "3.12",
+      "3.13"
+    ],
+    "suites": [
+      "source",
+      "installed wheel"
+    ]
+  },
+  "limitations": [
+    "Real corpus is positive-mode centroid mzXML; profile and polarity-switching cases use known-truth fixtures.",
+    "Complete MS2 bookkeeping is not biological precursor validation or DIA deconvolution.",
+    "The CI matrix is configured here; its outcomes are recorded by GitHub Actions, not inferred from local results."
+  ]
+}

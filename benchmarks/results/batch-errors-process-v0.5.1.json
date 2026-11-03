@@ -1,0 +1,45 @@
+{
+  "version": "0.5.1",
+  "counts": {
+    "total": 55,
+    "succeeded": 50,
+    "skipped": 0,
+    "failed": 5
+  },
+  "exit_code": 1,
+  "workers": 4,
+  "executor": "process",
+  "resume_skipped_all_50_completed_files": true,
+  "wall_seconds_including_cli_startup": 75.39472108287737,
+  "all_valid_tsvs_match_reference": true,
+  "error_types": {
+    "ValueError": 3,
+    "EOFError": 1,
+    "FileNotFoundError": 1
+  },
+  "error_files": [
+    {
+      "name": "truncated.mzML",
+      "error_type": "ValueError"
+    },
+    {
+      "name": "truncated.mzXML",
+      "error_type": "ValueError"
+    },
+    {
+      "name": "bad_binary.mzXML",
+      "error_type": "ValueError"
+    },
+    {
+      "name": "truncated.mzML.gz",
+      "error_type": "EOFError"
+    },
+    {
+      "name": "deliberately_missing.mzML",
+      "error_type": "FileNotFoundError"
+    }
+  ],
+  "run_report": "validation/corruption_check/v0.5.1-process/features/reports/20261103T142729Z-962b9451b2d8/summary.json",
+  "temporary_outputs_cleaned": true,
+  "scope": "50 real centroid mzXML files plus five corrupt/missing fixtures. Error continuation/retry is also tested in sequential and thread modes by the test suite."
+}

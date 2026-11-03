@@ -2,3 +2,17 @@ MassCube
 Copyright 2024-2026 Huaxu Yu
 
 This product is licensed under the Apache License, Version 2.0.
+
+MassCubeX
+Copyright 2026 MassCubeX contributors
+
+Derived from Philipbear/masscube, commit
+356748ede691862b9a87f67812db5e728a703b9d (upstream MassCube by Huaxu Yu).
+MassCubeX replaces the processing implementation with streaming mzML/mzXML
+MS1 extraction, profile mass detection, compiled numerical kernels, adaptive
+local noise estimation, MS/MS provenance, MS2-seeded features with raw-MS1
+gap filling, robust per-polarity parameter estimation, physical-time segmentation,
+and default-on candidate ion relationships,
+and a configurable per-file TSV command-line workflow. Packaging and documentation have been rewritten;
+vendor readers, alignment, annotation, statistics, and plotting are removed.
+The original Apache License 2.0 and attribution above are retained.

@@ -1,101 +1,104 @@
-# MassCube
+<!-- Modified for MassCubeX; replaces the upstream MassCube README. -->
+# MassCubeX
 
-[![PyPI Downloads](https://img.shields.io/pypi/dm/bago.svg?label=PyPI%20downloads)](https://pypi.org/project/masscube/)
+**One mzML or mzXML file → one feature TSV, with MS/MS scan references.**
+MassCubeX rewrites [MassCube](https://github.com/Philipbear/masscube) for public
+LC-MS repositories: streaming input, Numba-accelerated extraction, profile MS1
+centroiding, adaptive noise filtering, and independent file workers.
+Dataset alignment remains a separate downstream task.
 
-**masscube** is an integrated Python package for liquid chromatography-mass spectrometry (LC-MS) data processing.
+## Install
 
-- **Documentation:** https://huaxuyu.github.io/masscubedocs/
-- **Source code:** https://github.com/huaxuyu/masscube/
-- **Bug reports:** https://github.com/huaxuyu/masscube/issues/
-
-It provides:
-
-- Highly accurate nontargeted peak detection and segmentation.
-- Comprehensive feature quality evaluation.
-- Confident annotation of feature groups including isotopes, adducts and in-source fragments.
-- Annotation of MS/MS spectra via identity search and fuzzy search (i.e. analog search).
-
-## Installation
-
-To install **masscube**, open a terminal and run:
+Python 3.10 or newer, with a Python/NumPy combination supported by Numba:
 
 ```bash
-pip install masscube
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+masscubex warmup
 ```
 
-To upgrade **masscube** to the latest version, run:
+For MS-Numpress-encoded mzML, install `python -m pip install -e '.[numpress]'`.
+Processing runs offline. The package, import and command are named `masscubex`;
+this fork is not API-compatible with `masscube`.
+
+## Extract features
 
 ```bash
-pip install masscube --upgrade
+# One file
+masscubex extract sample.mzML -o features
+
+# A directory tree, or a manifest with one path per line
+masscubex extract /data/study -o features --workers 8 --resume
+masscubex extract --manifest files.txt -o features --workers 8 --resume
+
+# Important options
+masscubex extract sample.mzML -o features --quant-method peak_area
+masscubex extract sample.mzML -o features --no-auto-tune
+masscubex extract sample.mzML -o features --no-group-ions
+masscubex defaults > params.json
+masscubex extract /data/study -o features --config params.json --workers 8
+masscubex extract --help
 ```
 
-## Quick start
+Both `.mzML` and `.mzXML`, including `.gz`, are supported. Manifest paths are
+relative to the manifest directory unless absolute. Workers use processes by
+default; `--executor thread` is also available.
 
-Start your nontargeted metabolomics data processing from [here](https://huaxuyu.github.io/masscubedocs/docs/quickstart/)
+## Defaults and outputs
 
-### Bruker timsTOF `.d` input
+- **Quantification:** peak height; both height and area are always included.
+- **Automatic calibration:** broad initial mass search, then at least 20 qualified
+  peaks per polarity to learn mass and time settings; explicit fallbacks when
+  evidence is insufficient. Polarity-switching files use separate streams.
+- **MS1 noise:** 50 Da window, lowest 10% of positive neighbors, minimum 5,
+  threshold μ + 3σ. Profile MS1 is centroided automatically.
+- **MS/MS:** all associated scan IDs and the best scan, selected by summed
+  fragment intensity. The isolation-width cutoff is disabled.
+- **Unmatched MS/MS:** create a marked precursor feature and gap-fill raw MS1
+  height and area using local peak boundaries when calibration is supported.
+  The fallback search is ±5 seconds. Ambiguous measurements remain labelled. Unusable
+  precursor metadata is reported with scan IDs and reasons in the JSON sidecar.
+- **Ion grouping:** on by default; selected adducts and water-loss candidates are
+  listed by `masscubex adducts`.
 
-MassCube can read DDA-PASEF TDF2 directories directly, including calibrated
-m/z and inverse reduced ion mobility (`1/K0`):
+Each input produces a feature TSV and a JSON sidecar with settings, provenance,
+counts and unresolved MS/MS scans. Output names include an input-path hash to
+avoid basename collisions. `--resume` verifies completed outputs before skipping.
+See the [usage and output reference](docs/USAGE.md) for columns, scan lookup,
+Python usage and configuration options.
 
-```python
-from masscube import read_raw_file_to_obj
+Corrupted or missing input files **do not stop the remaining files**. Each run saves:
 
-data = read_raw_file_to_obj("sample.d")
-scan = data.scans[data.ms1_idx_arr[0]]
-print(scan.signals)             # columns: m/z, intensity
-print(scan.inv_mobility)        # aligned intensity-weighted 1/K0
-print(scan.inv_mobility_range)  # aligned observed [min, max] 1/K0
+```text
+features/reports/<run-id>/summary.json
+features/reports/<run-id>/errors.tsv
+features/reports/<run-id>/files.jsonl
 ```
 
-The reader does not use OpenTIMS, AlphaTims, or Bruker's TDF-SDK. Its binary
-decoder uses the Python standard library and loads the system `libzstd`
-runtime through `ctypes`; on macOS it can be installed with `brew install
-zstd`. Set `MASSCUBE_ZSTD_LIBRARY` when the library is in a nonstandard
-location.
+Retry repaired inputs using `--retry-errors path/to/errors.tsv` with the original
+processing settings. A batch with file failures returns a nonzero exit code after
+processing the other files. Global setup/storage failures can still abort a run.
 
-Currently supported Bruker data are TDF2 (`TimsCompressionType=2`), DDA-PASEF
-(`MsMsType=8`), m/z calibration model 1 with `dC2=0` and `C3=C4=0`, and static
-TIMS calibration model 2. The complete model-1 quadratic (`C0`, `C1`, and
-`C2`) m/z calibration stored in each frame is applied.
-The reported `1/K0` applies the stored static mobility calibration but not the
-vendor's proprietary per-frame pressure compensation; this is recorded as
-`data.metadata.mobility_pressure_compensated == False`.
+## Documentation
 
-For development-time verification against an installed official TDF-SDK, run:
+- [Implemented methods and changes from MassCube](docs/METHODS.md)
+- [Automatic calibration, gap filling and polarity switching](docs/AUTO_TUNING.md)
+- [Commands, output columns, MS/MS lookup and restart behavior](docs/USAGE.md)
+- [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
+- [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
+
+DIA classification/deconvolution, mobility-resolved feature extraction, library
+annotation and dataset alignment are not implemented.
+
+## Development and license
 
 ```bash
-python tools/validate_tdf_sdk.py sample.d /path/to/libtimsdata.so \
-  --output tdf_sdk_validation.json
+python -m pip install -e '.[dev,numpress]'
+pytest -q
+ruff check src tests benchmarks
+python -m build
 ```
 
-The validation tool compares exact scan/TOF/intensity coordinates before
-mobility collapse, calibrated m/z, and all three SDK pressure-compensation
-strategies. It is not imported by MassCube and does not make TDF-SDK a runtime
-dependency.
-
-### Native `.mcraw` workflow cache
-
-The untargeted workflow decodes each mzML or supported Bruker `.d` source once
-and stores a versioned `.mcraw` cache under the project `tmp` directory.
-Feature detection, gap filling, and aligned feature grouping then reload this
-cache instead of reparsing the source. Shared MS1/MS2 metadata are stored once;
-only scan-varying values and concatenated peak arrays are written as NumPy
-columns. The original vendor data should still be retained as the archival
-source.
-
-Single-file TXT output keeps the `peak_shape` column for compatibility but
-does not embed full chromatographic traces by default. Set
-`Params.output_peak_shape = True` when those traces are explicitly needed.
-
-## Contribute to masscube
-
-The **masscube** project is excited to have your expertise and passion on board!
-
-We value all enhancements or corrections. For those thinking about making significant contributions to the codebase, we encourage you to get in touch with us!
-
-- Huaxu Yu, huaxuyu@zju.edu.cn; yhxchem@outlook.com
-
-## License
-
-MassCube is licensed under the [Apache License 2.0](LICENSE).
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Original MassCube
+attribution and Git history are retained.

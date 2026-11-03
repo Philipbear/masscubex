@@ -1,6 +1,13 @@
+# Modified for MassCubeX: omit environments, caches, and downloaded validation data.
 .DS_Store
 __pycache__/
 *.py[cod]
 build/
 dist/
 *.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.nbc
+*.nbi
+validation/

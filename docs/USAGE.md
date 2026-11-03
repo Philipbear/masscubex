@@ -1,0 +1,310 @@
+# MassCubeX usage and output reference
+
+For installation and a short introduction, see the [README](../README.md).
+For algorithm details, see [METHODS.md](METHODS.md).
+
+## Extract features
+
+```bash
+# One file, or all supported files in a directory tree
+masscubex extract sample.mzML -o features
+masscubex extract /data/MSV000086989 -o features --workers 8 --resume
+
+# Millions of paths without a giant shell argument list
+masscubex extract --manifest files.txt -o features --workers 8 --resume > jobs.jsonl
+
+# Threads are also supported; benchmark against processes on your storage
+masscubex extract /data/study -o features --workers 8 --executor thread --resume
+
+# Default quantification is peak height; both height and area are always written
+masscubex extract sample.mzML -o features --quant-method peak_area
+
+# Adduct / in-source-fragment candidates run by default; opt out when needed
+masscubex extract sample.mzML -o ungrouped --no-group-ions
+```
+
+Manifest paths are UTF-8, one per line, relative to the manifest's directory
+unless absolute. Empty lines and lines starting with `#` are ignored. Directory
+input is recursive. Symlinked directories are not followed. Avoid duplicate
+inputs in the same job.
+
+Each input produces a TSV and a `.tsv.json` sidecar. CLI outputs are sharded as
+`features/<hash-prefix>/<input-name>.<path-hash>.features.tsv`. The hash uses the
+resolved absolute input path, preventing collisions between repeated basenames
+or mzML/mzXML exports. Moving inputs changes their output IDs. A JSON-lines job
+report on stdout maps every input to its output; stderr carries the summary.
+Corrupted or missing files do not stop other inputs. Every run automatically
+saves a summary and an error-file list, as described below. A batch with file
+failures returns a nonzero exit code **after processing the remaining files**.
+
+## Corrupted files and batch reports
+
+No extra flag is needed to continue after malformed XML, broken binary arrays,
+truncated gzip data, missing files or invalid file metadata. The failed file is
+reported, its partial result is discarded, and other files continue. The CLI
+automatically creates a unique report directory for each invocation:
+
+```text
+features/reports/<run-id>/summary.json   # counts, run status, settings and timing
+features/reports/<run-id>/errors.tsv     # failed paths, exception types and messages
+features/reports/<run-id>/files.jsonl    # every success, verified skip and error
+```
+
+The report location is printed to stderr. `--report-dir /path/to/reports`
+changes the parent folder. Logs are streamed during processing; the summary
+is periodically checkpointed and finalized at the end. Previous reports are
+preserved, including when resuming or retrying. Reports do not require holding
+millions of filenames or errors in memory.
+
+After fixing or redownloading failed inputs, retry only that report's sources:
+
+```bash
+masscubex extract --retry-errors features/reports/RUN_ID/errors.tsv \
+  -o features --config params.json --workers 8 --resume
+```
+
+Replace `RUN_ID` with the run folder printed by the CLI. Use the same processing
+settings as the original run; `--retry-errors` reads
+paths, not settings. A new report records the retry. Omit `--config params.json`
+if the original run used defaults. Use a TSV parser to read error messages or
+paths containing tabs/newlines.
+
+`summary.json` distinguishes `completed`, `completed_with_errors`, `interrupted`
+and `aborted`. Exit code 1 can mean a completed batch with file errors; it does
+not imply that later files were skipped. Directory/manifest discovery failures
+are recorded too, with `stage=discovery`; their unseen contents are not counted
+as an exhaustive failed-file list. Unexpected worker losses use `stage=worker`
+and a new process pool handles undispatched files. An affected file is not
+automatically known to be corrupt. Global setup/report-storage failures and
+user interruptions can still abort the run; see the
+[failure and restart details](METHODS.md#10-millions-of-files-scheduling-failures-and-reports).
+
+## Python API
+
+For an exact output path or your own scheduler:
+
+```python
+from masscubex import Config, process_file
+
+result = process_file(
+    "sample.mzXML",
+    "features/sample.tsv",
+    config=Config(noise_window_da=50, noise_sigma=3, min_scans=5),
+    resume=True,
+)
+print(result.features, result.elapsed_seconds)
+```
+
+Settings are immutable and file state is independent, so the API can be called
+from separate threads or processes. The default CLI uses one worker; multiple
+workers use processes unless `--executor thread` is selected.
+
+## Parameters and ion selection
+
+```bash
+masscubex extract --help
+masscubex defaults > params.json
+masscubex extract --config params.json --print-config
+masscubex extract /data/study -o features --config params.json --workers 8 --resume
+
+masscubex adducts                       # numbered catalog and enabled state
+masscubex adducts --json                # exact ionic masses and definitions
+masscubex extract sample.mzML -o grouped --group-ions --adducts 1-15,22,23
+```
+
+Every processing parameter is available in JSON; explicit CLI flags override
+that file. The resolved configuration is saved beside each TSV. Custom ion
+definitions can be supplied through `--adduct-file ions.json`; see the
+[ion-grouping reference](ION_GROUPING.md).
+
+The selected defaults are **1–15**: H, Na, K, NH4, deprotonation, Cl, Br,
+formate, acetate, acetonitrile, methanol, and the four listed dimers.
+**16–21 are disabled** (multiple charges and trimers). **22 and 23** add
+`[M+H-H2O]+` and `[M+H-2H2O]+` as neutral-loss candidates, separately from
+ordinary adducts. Grouping is on by default; `--no-group-ions` disables it.
+
+Grouping requires compatible polarity, mass, apex time and correlated
+chromatographic traces: defaults are 10 ppm / 0.002 Da, a calibrated apex-time
+tolerance (3 seconds when calibration is unsupported), at least
+five shared scans, Pearson correlation ≥ 0.9, and ≥ 50% overlap relative to
+the longer feature. Water losses can be proposed from this evidence alone;
+`ms2_supported` distinguishes those also observed in an associated parent
+MS/MS spectrum. Generic in-source-fragment candidates require MS/MS support.
+These are competing **candidate relationships**, not confirmed identities or
+forced compound groups. `--no-isf` disables both neutral-loss and fragment
+analysis while keeping ordinary adduct hypotheses.
+
+## MS/MS scans and representative selection
+
+MS2 association is enabled by default. Each accepted single-precursor MS2 scan
+is assigned to at most one feature using precursor m/z, polarity and the
+feature's time interval. Calibration estimates these settings independently
+per polarity; fallback values are 20 ppm / 0.01 Da and a 2-second boundary
+extension. Tolerance uses the larger of the ppm and Da limits.
+Overlapping candidates are ranked by containment in the actual interval,
+mass error, apex-time distance, peak height, then feature ID.
+
+**The best scan defaults to the largest sum of exported MS2 peak intensities**,
+preserving upstream MassCube's ranking criterion. It sums the actual arrays,
+including any residual precursor peak, before optional fragment-evidence
+pruning. Vendor TIC metadata can describe different pre-export samples, so it
+does not replace this sum. Ties prefer proximity to the feature apex, then
+earlier acquisition. MS1 adaptive noise filtering is never applied to MS2.
+
+```bash
+# Explicit default; alternatives remain available
+masscubex extract sample.mzML -o features --best-ms2 fragment_intensity
+masscubex extract sample.mzML -o features --best-ms2 precursor_intensity
+masscubex extract sample.mzML -o features --best-ms2 apex
+
+# MS1-only throughput comparison
+masscubex extract sample.mzML -o ms1_only --no-ms2
+```
+
+Precursor ranking uses recorded precursor intensity, then a matching preceding
+MS1 measurement if metadata is absent or zero. The fallback checks polarity,
+parent reference when supplied, m/z and scan age. It uses the nearest centroid
+or the profile apex within the tolerance. If all associated scans lack that
+intensity, selection falls back to apex proximity and records `apex_fallback`.
+The method, score, precursor intensity and its source are explicit TSV columns.
+
+The isolation-width cutoff is **disabled by default** (`ms2_max_isolation_width=0`).
+A positive `--ms2-max-isolation-width` opts into excluding wider MS2 scans; this
+is a full precursor isolation width, not a matching tolerance or DIA classifier.
+Old configuration files containing `4` retain that explicit value; override
+with `--ms2-max-isolation-width 0` or update the JSON.
+
+By default, an unmatched single-precursor MS2 with usable m/z and time creates
+an **MS2-seeded feature**. With supported calibration, a broad search finds a
+candidate ion, a narrow raw EIC supplies height/area, and local peak boundaries
+define integration. Repeated scans merge only after recovering the same MS1
+apex. Insufficient evidence uses a fixed ±5-second window and separate
+±max(0.002 Da, 10 ppm) mass radius. Both modes bypass the MS1 detection threshold
+and minimum scan count. Existing detected-feature assignments are preserved.
+
+Use `--ms2-gapfill-rt-window SECONDS` to change that half-window, or
+`--no-ms2-seeded-features` to keep only independently detected MS1 features.
+`feature_origin` and `ms1_quant_status` identify the added rows. Zero means
+MS1 scans were available but no signal was found; blank quantification means
+MS1 was unavailable, ambiguous, outside local peak support, or exceeded the
+bounded query limits. Unusable precursor metadata,
+multiprecursor spectra, and an explicitly enabled width cutoff are recorded
+per scan in the JSON sidecar's `unassigned_ms2`, with native IDs, source indices
+and reasons. The sidecar counts partition all parsed MS2 into assigned and
+unassigned scans. `--no-ms2` explicitly turns this bookkeeping off.
+
+For reverse lookup, use `(input file, ms2_spectrum_index)` as the unique key;
+scan numbers can repeat or be absent. Search `ms2_spectrum_indices` in the
+feature TSV, then `unassigned_ms2` if no row matches. A valid usable
+single-precursor MS2 maps to exactly one detected or seeded feature under the
+default settings. This is a deterministic association, not proof of a unique
+biological precursor. DIA classification and fragment deconvolution are not implemented. Profile/unknown-mode MS2 can
+still be associated and scored; profile scores sum nonnegative exported samples.
+Only explicitly centroided MS2 supplies fragment-mass evidence for grouping.
+
+## Automatic settings and polarity switching
+
+Calibration and ion grouping run by default. The pilot starts at
+±max(0.05 Da, 100 ppm), then requires at least 20 qualified strong peaks per
+polarity; precursor mass matching needs evidence from at least 20 distinct
+MS1 representatives with MS2. Unsupported estimates retain configured fallback
+values and report the reason. Noise remains fixed at μ + 3σ.
+
+Use `--no-auto-tune` for static settings, or explicit flags to protect individual
+settings, for example `--mz-ppm 10 --ms2-mz-ppm 20`. Non-default JSON/Python
+values are protected too; include default-valued names in `tuning_locked` to
+protect them. `masscubex defaults` prints fallback settings;
+`parameter_tuning.effective_configs` in each result's JSON shows actual values.
+
+Positive and negative MS1 streams use their own cadence, learned tolerances,
+traces and gap filling. Missing MS2 polarity can be resolved by an explicit
+parent reference; unresolved mixed-polarity cases keep MS2 references with blank
+quantification. See [all algorithms and controls](AUTO_TUNING.md).
+
+## TSV schema
+
+Detected rows are emitted in trace-completion order, followed by MS2-seeded
+rows in seed-creation order. IDs are local to each file. Retention times are
+always **seconds**. Scalar floats use 17 significant digits for exact binary64
+round trips; non-finite feature output fails the file. Sidecar schema version is 4.
+
+| Column | Meaning |
+| --- | --- |
+| `feature_id` | Sequential identifier within this file |
+| `mz` | Intensity-weighted mean for detected features; refined MS1 center or fallback precursor m/z for seeded features |
+| `rt_apex_seconds` | Time of its highest original intensity |
+| `rt_start_seconds`, `rt_end_seconds` | Integration boundaries |
+| `peak_height` | Detected peak height or maximum raw MS1 intensity in the seed window; blank if unavailable |
+| `peak_area` | Trapezoidal integral, intensity × seconds; seeded rows integrate refined local bounds or the fallback window |
+| `intensity`, `quant_method` | Selected quantitative value and method; default `peak_height` |
+| `scan_count` | Number of observed nonzero MS1 samples |
+| `apex_noise_threshold` | Local MS1 threshold at the feature apex |
+| `apex_threshold_ratio` | Height / threshold; empty when threshold is zero |
+| `polarity` | `positive`, `negative`, or `unknown` |
+| `feature_origin` | `ms1_detected` or `ms2_seeded` |
+| `ms1_quant_status` | `detected`, `gap_filled`, `no_ms1_signal`, `no_ms1_scans`, `ambiguous_polarity`, `ambiguous_mass`, `no_local_ms1_signal`, `no_local_peak`, or `sampling_limit` |
+| `seed_precursor_mz`, `seed_rt_seconds` | Original first MS2 anchor for seeded rows; blank for detected rows |
+| `gapfill_status` | `fixed_window`, `peak_bounds`, `single_observation`, or a refinement failure status; blank for detected rows |
+| `gapfill_mz_radius_da` | Actual narrow EIC radius when measured; blank if unavailable |
+| `ms2_count` | Number of associated MS2 scans |
+| `ms2_scan_numbers` | JSON array of native scan numbers; `null` where the format has no numeric scan number |
+| `ms2_native_ids` | JSON array of original spectrum identifiers |
+| `ms2_spectrum_indices` | JSON array of zero-based positions among all source spectra |
+| `best_ms2_scan_number`, `best_ms2_native_id`, `best_ms2_spectrum_index` | Identifiers of the selected scan; empty if unavailable |
+| `best_ms2_selection_method`, `best_ms2_score` | Ranking method and its score; apex methods use absolute time distance in seconds |
+| `best_ms2_fragment_intensity` | Sum of exported MS2 intensities, when decoded |
+| `best_ms2_precursor_intensity`, `best_ms2_precursor_intensity_source` | Precursor intensity and `metadata`, `preceding_ms1`, or `unavailable` |
+| `ion_relations` | JSON array of optional adduct, neutral-loss and in-source-fragment candidates |
+
+MS2 arrays are ordered by acquisition and correspond position by position.
+A native number is never invented from a spectrum index. Read the TSV with a
+TSV/CSV parser, then JSON-decode the array fields. `[]` means no associated scans
+or no proposed relationships. A best native ID may exist even when its native
+scan number is unavailable.
+
+A threshold ratio is not a statistical S/N estimate. Missing scans within a
+trace contribute zero intensity at their actual acquisition times. Integration
+trims trailing missing scans. Segments share a valley point but never count a
+trapezoid interval twice. `--no-segment` retains entire ion traces. Five nonzero
+scans are required per independently detected MS1 feature by default;
+MS2-seeded rows bypass this detection requirement. Their apex is the first
+maximum raw MS1 measurement, falling back to the seed time if unavailable.
+Their noise-threshold fields are blank. `gapfill_status` and the preserved
+seed coordinates distinguish refinement from fixed-window fallback.
+
+The JSON sidecar records requested configuration, per-polarity effective
+configuration, calibration evidence/fallbacks, version, implementation/dependency
+fingerprint, input identity, scan/point counts, MS2 assignments, unresolved
+IDs/reasons, polarity inferences, seeded-feature and relationship counts,
+profile-scan count, memory-pool diagnostics, elapsed time and TSV SHA-256.
+A valid MS1 run with no detected or seeded features writes a header-only TSV.
+MS2-only files with usable precursors produce seeded rows with blank MS1
+quantification. Inputs with neither MS1 nor usable MS2 seeds are errors.
+These tables provide m/z, RT, polarity and quantitative
+values for a future independent dataset-level alignment process; alignment and
+retention-time correction are not implemented here.
+
+## Input integrity and restarting
+
+- mzML supports indexed wrappers, referenceable parameter groups, little-endian
+  float32/float64, uncompressed/zlib arrays, and optional MS-Numpress (including
+  zlib combinations). mzXML supports nested scans, 32/64-bit pairs, big/little
+  endian and zlib. Other encodings fail explicitly.
+- Metadata must identify profile or centroid mode. `--assume-centroid` permits
+  **missing** mode metadata only; it never overrides explicit profile metadata.
+- MS1 times must increase strictly within each polarity. Ion-mobility-resolved
+  frames must be collapsed first. MS2 references and scores are exported;
+  complete fragment spectra remain in the source files.
+- Arrays, time units and counts are validated. Unsorted masses are sorted and
+  duplicate masses summed. Invalid arrays abort that file rather than creating
+  a successful but incomplete table.
+- Outputs use temporary files and atomic replacements. The JSON sidecar is
+  published last as the completion marker. `--resume` checks version, implementation/dependencies, settings,
+  input path/size/mtime, and the output checksum; stale/corrupt results are
+  recomputed. Inputs are not content-hashed, so keep input files immutable.
+- Existing outputs require `--resume` or `--overwrite`. Exclusive `.tsv.lock`
+  files prevent simultaneous writes. After a killed worker, inspect the lock's
+  PID/host and remove it only once that worker has stopped. Interrupted
+  `.partial` files can then be removed. Rename/lock semantics require a
+  filesystem with atomic local-style operations.
+
