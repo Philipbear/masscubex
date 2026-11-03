@@ -12,6 +12,8 @@ Dataset alignment remains a separate downstream task.
 Python 3.10 or newer, with a Python/NumPy combination supported by Numba:
 
 ```bash
+git clone https://github.com/Philipbear/masscubex.git
+cd masscubex
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .

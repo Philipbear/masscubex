@@ -21,6 +21,9 @@ dev = ["pytest>=8", "build", "ruff"]
 masscubex = "masscubex.cli:main"
 
 [project.urls]
+Repository = "https://github.com/Philipbear/masscubex"
+Documentation = "https://github.com/Philipbear/masscubex/tree/main/docs"
+Issues = "https://github.com/Philipbear/masscubex/issues"
 Upstream = "https://github.com/Philipbear/masscube"
 
 [tool.setuptools.packages.find]
