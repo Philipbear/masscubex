@@ -60,9 +60,9 @@ def test_weak_ms1_gapfill_all_ids_widths_and_quantification(tmp_path, format_, p
     assert row["feature_origin"] == "ms2_seeded"
     assert row["ms1_quant_status"] == "gap_filled"
     assert float(row["peak_height"]) == 4
-    assert float(row["peak_area"]) == float(row["intensity"]) == 15
+    assert float(row["peak_area"]) == 15
     assert row["scan_count"] == "7"
-    assert row["apex_noise_threshold"] == row["apex_threshold_ratio"] == ""
+    assert row["apex_noise_threshold"] == ""
     assert json.loads(row["ms2_scan_numbers"]) == [102, 103]
     assert row["best_ms2_scan_number"] == "103"
     assert metadata["ms2_matched_detected"] == 0
@@ -91,9 +91,9 @@ def test_absent_ms1_signal_is_zero_but_unavailable_ms1_is_blank(tmp_path):
     rows, metadata = outputs(path, tmp_path / "out.tsv", Config(group_ions=True))
     assert len(rows) == 2
     assert rows[0]["ms1_quant_status"] == "no_ms1_signal"
-    assert rows[0]["peak_height"] == rows[0]["peak_area"] == "0"
+    assert rows[0]["peak_height"] == rows[0]["peak_area"] == "0.00"
     assert rows[1]["ms1_quant_status"] == "no_ms1_scans"
-    assert rows[1]["peak_height"] == rows[1]["peak_area"] == rows[1]["intensity"] == ""
+    assert rows[1]["peak_height"] == rows[1]["peak_area"] == ""
     assert metadata["ms2_assigned"] == 2
 
 
@@ -116,7 +116,7 @@ def test_mixed_polarities_never_share_ms1_evidence(tmp_path):
     path = write_mzml(tmp_path / "polarity.mzML", spectra)
     rows, metadata = outputs(path, tmp_path / "out.tsv")
     assert len(rows) == 3
-    assert [r["peak_height"] for r in rows] == ["10", "1000", ""]
+    assert [r["peak_height"] for r in rows] == ["10.00", "1000.00", ""]
     assert rows[2]["ms1_quant_status"] == "ambiguous_polarity"
     assert metadata["ms2_assigned"] == 3
 
@@ -198,7 +198,7 @@ def test_gapfill_uses_actual_times_and_does_not_integrate_across_long_acquisitio
     spectra.append(mzml_spectrum(3, 30, [50], [5], level=2, precursor=precursor_mzml()))
     path = write_mzml(tmp_path / "gaps.mzML", spectra)
     (row,), _ = outputs(path, tmp_path / "out.tsv", Config(ms2_gapfill_rt_window=30))
-    assert row["peak_height"] == "2" and row["peak_area"] == "0"
+    assert row["peak_height"] == "2.00" and row["peak_area"] == "0.00"
 
 
 def test_gapfill_window_controls_actual_measurement_and_resume(tmp_path):
@@ -257,7 +257,7 @@ def test_float32_mass_boundary_and_duplicate_centroids_use_normalized_raw_ms1(tm
     spectra.append(mzxml_scan(2, 0.1, [50], [5], level=2, precursor=precursor))
     path = write_mzxml(tmp_path / "precision.mzXML", spectra)
     (row,), _ = outputs(path, tmp_path / "out.tsv", Config(gapfill_mz_tolerance_da=0.01))
-    assert row["peak_height"] == "30" and row["peak_area"] == "0"
+    assert row["peak_height"] == "30.00" and row["peak_area"] == "0.00"
 
 
 @pytest.mark.parametrize("executor", ["thread", "process"])
@@ -306,7 +306,7 @@ def test_ms2_only_files_preserve_features_without_inventing_ms1_quantification(t
     output = tmp_path / "out.tsv"
     (row,), metadata = outputs(path, output, Config(group_ions=True))
     assert row["ms1_quant_status"] == "no_ms1_scans"
-    assert row["peak_height"] == row["peak_area"] == row["intensity"] == ""
+    assert row["peak_height"] == row["peak_area"] == ""
     assert json.loads(row["ms2_scan_numbers"]) == [0, 1, 2]
     assert metadata["ms1_scans"] == 0 and metadata["ms2_assigned"] == 3
     assert metadata["ms2_gapfill_passes"] == 0

@@ -20,7 +20,10 @@ per-file failure reporting. Neither contains per-mass numerical loops.
 | `output.py` | Separate TSV and columnar Parquet writers, shared output schema and typed readers. |
 
 Python handles policies and labelled records; Numba handles repeated numerical
-work. All measurements remain float64 and kernels avoid fast-math. Helpers
+work. All calculations remain float64 and kernels avoid fast-math. Round only
+at the output boundary according to `output.DECIMAL_PLACES`; table values are
+not full-precision interval coordinates. Keep exact pre-export coordinates for
+independent raw-data audits. Helpers
 called only from a compiled kernel inherit that caller's GIL-free execution;
 public heavy kernels use `nogil=True`. Avoid nested numerical thread pools
 when distributing files across workers.

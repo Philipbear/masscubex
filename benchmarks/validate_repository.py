@@ -14,6 +14,7 @@ import platform
 import resource
 import sys
 import time
+from unittest.mock import patch
 
 import numpy as np
 
@@ -21,9 +22,42 @@ from masscubex import Config, __version__, process_file
 from masscubex.cli import run_batch
 from masscubex.features import warmup
 from masscubex.readers import MS2Scan, iter_scans
+from masscubex.output import FEATURE_COLUMNS, FLOAT_COLUMNS, NESTED_COLUMNS, write_features
 
 
-def reference_check(path, output):
+def process_for_audit(path, output, **options):
+    """Keep unrounded rows in this audit process, never in production outputs.
+
+    Rounded coordinates cannot reproduce exact EIC interval membership. Capture
+    the writer's input so independent raw-data audits keep their original tight
+    tolerances. This wrapper is for serial/process workers, not shared threads.
+    """
+    rows = []
+
+    def capture(destination, features, output_format):
+        features = list(features)
+        for index, feature in enumerate(features, 1):
+            row = {"feature_id": str(index)}
+            for name in FEATURE_COLUMNS[1:]:
+                value = getattr(feature, name)
+                row[name] = (
+                    ""
+                    if value is None
+                    else format(value, ".17g")
+                    if name in FLOAT_COLUMNS
+                    else json.dumps(value)
+                    if name in NESTED_COLUMNS
+                    else str(value)
+                )
+            rows.append(row)
+        return write_features(destination, features, output_format)
+
+    with patch("masscubex.pipeline.write_features", capture):
+        result = process_file(path, output, **options)
+    return result, rows
+
+
+def reference_check(path, output, full_precision_rows=None):
     """Check MS1 arrays and every MS2 ID/score against independent Pyteomics decoding.
 
     Audit all TSV associations and representative choices against those reference
@@ -70,10 +104,16 @@ def reference_check(path, output):
     assigned = set()
     features_with_ms2 = 0
     metadata = json.loads(Path(str(output) + ".json").read_text())
+    if metadata.get("schema_version", 0) >= 6 and full_precision_rows is None:
+        raise ValueError("Rounded tables need unrounded audit coordinates; use process_for_audit")
     configured = metadata.get("config", Config().to_dict())
     resolved = metadata.get("parameter_tuning", {}).get("effective_configs", {})
     with output.open() as stream:
-        for feature in csv.DictReader(stream, delimiter="\t"):
+        for feature in (
+            full_precision_rows
+            if full_precision_rows is not None
+            else csv.DictReader(stream, delimiter="\t")
+        ):
             native_ids = json.loads(feature["ms2_native_ids"])
             numbers = json.loads(feature["ms2_scan_numbers"])
             indices = json.loads(feature["ms2_spectrum_indices"])
@@ -133,9 +173,9 @@ def reference_check(path, output):
             assert feature["best_ms2_native_id"] == expected
             assert int(feature["best_ms2_scan_number"]) == int(expected)
             assert int(feature["best_ms2_spectrum_index"]) == ms2[expected]["index"]
-            assert feature["best_ms2_selection_method"] == "fragment_intensity"
+            assert configured["best_ms2"] == "fragment_intensity"
             np.testing.assert_allclose(
-                float(feature["best_ms2_score"]), ms2[expected]["score"], rtol=1e-10
+                float(feature["best_ms2_fragment_intensity"]), ms2[expected]["score"], rtol=1e-10
             )
     return {
         "ms1_spectra": checked,
@@ -162,9 +202,15 @@ def main():
             raise ValueError(f"Input checksum mismatch: {path}")
     warmup()
     rows = []
+    checked = []
     started = time.perf_counter()
     for download, path in zip(downloads, paths):
-        result = process_file(path, result_dir / "features" / (path.name + ".tsv"), overwrite=True)
+        output = result_dir / "features" / (path.name + ".tsv")
+        if args.reference_check:
+            result, audit_rows = process_for_audit(path, output, overwrite=True)
+            checked.append(reference_check(path, output, audit_rows))
+        else:
+            result = process_file(path, output, overwrite=True)
         metadata = json.loads(Path(result.output + ".json").read_text())
         row = {
             **download,
@@ -229,11 +275,6 @@ def main():
     )
     assert all(r["status"] == "skipped" for r in resumed)
     resume_seconds = time.perf_counter() - started
-    checked = (
-        [reference_check(path, result_dir / "features" / (path.name + ".tsv")) for path in paths]
-        if args.reference_check
-        else []
-    )
     comparisons = []
     for group in ("biological", "blank", "QC"):
         row = next(r for r in rows if r["group"] == group)

@@ -1,4 +1,6 @@
+from copy import deepcopy
 from dataclasses import replace
+import csv
 import json
 from pathlib import Path
 import struct
@@ -10,7 +12,15 @@ import pytest
 from masscubex import Config, iter_feature_rows, process_file
 from masscubex.cli import main
 from masscubex.features import Feature
-from masscubex.output import ROW_GROUP_SIZE, parquet_schema, write_features
+from masscubex.output import (
+    DECIMAL_PLACES,
+    FEATURE_COLUMNS,
+    FLOAT_COLUMNS,
+    OUTPUT_PRECISION,
+    ROW_GROUP_SIZE,
+    parquet_schema,
+    write_features,
+)
 
 
 def example():
@@ -56,7 +66,7 @@ def example():
     )
 
 
-def test_parquet_preserves_exact_values_nested_lists_nulls_and_unicode(tmp_path):
+def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_path):
     features = [example(), replace(example(), ion_relations=(), ms2_scan_numbers=())]
     a, b = tmp_path / "table.tsv", tmp_path / "table.parquet"
     assert write_features(a, features, "tsv") == write_features(b, features, "parquet") == 2
@@ -65,10 +75,51 @@ def test_parquet_preserves_exact_values_nested_lists_nulls_and_unicode(tmp_path)
     assert table.schema.field("mz").type == pa.float64()
     assert pa.types.is_list(table.schema.field("ms2_scan_numbers").type)
     assert pa.types.is_struct(table.schema.field("ion_relations").type.value_type)
-    assert table["mz"][0].as_py() == features[0].mz
+    assert table["mz"][0].as_py() == 100.12346
     assert table["peak_height"][0].as_py() is None
     assert table["ms2_scan_numbers"][0].as_py() == [None, 9223372036854775807]
     assert pq.read_metadata(b).row_group(0).column(0).compression == "ZSTD"
+    assert table.schema.metadata[b"masscubex.table_schema"] == b"6"
+    assert json.loads(table.schema.metadata[b"masscubex.output_precision"]) == OUTPUT_PRECISION
+    assert set(FEATURE_COLUMNS).isdisjoint(
+        {
+            "intensity",
+            "quant_method",
+            "best_ms2_selection_method",
+            "best_ms2_score",
+            "apex_threshold_ratio",
+        }
+    )
+    assert len(FEATURE_COLUMNS) == 27
+
+
+def test_rounding_is_output_only_and_tsv_has_fixed_decimal_places(tmp_path):
+    feature = replace(
+        example(),
+        rt_apex_seconds=12.3456789,
+        peak_height=2.675,  # Decimal-looking halfway case; Python rounds this to 2.67.
+        peak_area=123456789012.3456,
+        seed_precursor_mz=999.999996,
+        best_ms2_fragment_intensity=123.4567,
+        best_ms2_precursor_intensity=5.125,
+        gapfill_mz_radius_da=0.001234567,
+    )
+    before = deepcopy(feature)
+    tsv, parquet = tmp_path / "sample.tsv", tmp_path / "sample.parquet"
+    write_features(tsv, [feature], "tsv")
+    write_features(parquet, [feature], "parquet")
+    assert feature == before
+    assert FLOAT_COLUMNS == DECIMAL_PLACES.keys()
+    with tsv.open() as stream:
+        (row,) = csv.DictReader(stream, delimiter="\t")
+    for name, digits in DECIMAL_PLACES.items():
+        if row[name]:
+            assert len(row[name].split(".")[1]) == digits
+    assert row["mz"] == "100.12346"
+    assert row["rt_apex_seconds"] == "12.35"
+    assert row["peak_height"] == "2.67"
+    assert row["seed_precursor_mz"] == "1000.00000"
+    assert list(iter_feature_rows(tsv)) == list(iter_feature_rows(parquet))
 
 
 def test_empty_and_multiple_row_groups_have_identical_explicit_schema(tmp_path):
@@ -87,6 +138,8 @@ def test_default_parquet_explicit_tsv_and_format_mismatch(sample_file, tmp_path)
     assert result.output.endswith(".features.parquet")
     metadata = json.loads(Path(result.output + ".json").read_text())
     assert metadata["output_format"] == "parquet"
+    assert metadata["schema_version"] == 6
+    assert metadata["output_precision"] == OUTPUT_PRECISION
     assert metadata["output_bytes"] == Path(result.output).stat().st_size
     assert len(metadata["output_sha256"]) == 64
     tsv = tmp_path / "explicit.tsv"
@@ -167,9 +220,28 @@ def test_unknown_evidence_cannot_be_silently_dropped(tmp_path):
         write_features(tmp_path / "unknown.parquet", [feature], "parquet")
 
 
-def test_parquet_preserves_extreme_finite_float_bits(tmp_path):
+def test_rounding_handles_tiny_and_extreme_finite_floats_without_overflow(tmp_path):
     values = [-0.0, 5e-324, 1.7976931348623157e308]
     output = tmp_path / "precision.parquet"
     write_features(output, [replace(example(), peak_area=v) for v in values], "parquet")
     actual = pq.read_table(output, columns=["peak_area"])["peak_area"].to_pylist()
-    assert [struct.pack("d", v) for v in actual] == [struct.pack("d", v) for v in values]
+    expected = [-0.0, 0.0, values[-1]]
+    assert [struct.pack("d", v) for v in actual] == [struct.pack("d", v) for v in expected]
+    tsv = tmp_path / "precision.tsv"
+    write_features(tsv, [replace(example(), peak_area=v) for v in values], "tsv")
+    assert list(iter_feature_rows(tsv)) == list(iter_feature_rows(output))
+
+
+def test_legacy_tsv_reader_keeps_removed_measurements_typed(tmp_path):
+    path = tmp_path / "legacy.tsv"
+    path.write_text(
+        "mz\tintensity\tbest_ms2_score\tquant_method\n100.123456789\t1.2345\t6.789\tpeak_height\n"
+    )
+    assert list(iter_feature_rows(path)) == [
+        {
+            "mz": 100.123456789,
+            "intensity": 1.2345,
+            "best_ms2_score": 6.789,
+            "quant_method": "peak_height",
+        }
+    ]

@@ -12,13 +12,13 @@ from conftest import mzml_spectrum, write_mzml
 from test_ms2 import precursor_mzml
 
 
-def test_exported_coordinates_reconstruct_inclusive_mass_boundary(tmp_path):
+def test_output_rounding_does_not_change_raw_inclusive_mass_boundary(tmp_path):
     center = 100.123456789123
     radius = 0.002
     source = write_mzml(
         tmp_path / "boundary.mzML",
         [
-            mzml_spectrum(1, 1, [center + radius], [10]),
+            mzml_spectrum(1, 1, [center - radius], [10]),
             mzml_spectrum(2, 1.1, [50], [1], level=2, precursor=precursor_mzml(center)),
         ],
     )
@@ -26,11 +26,12 @@ def test_exported_coordinates_reconstruct_inclusive_mass_boundary(tmp_path):
     process_file(source, output, config=Config(auto_tune=False, min_intensity=100))
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
-    # Raw EIC interval membership must survive TSV serialization exactly.
-    assert float(row["mz"]) == center
-    assert float(row["seed_precursor_mz"]) == center
-    assert center + radius <= float(row["mz"]) + float(row["gapfill_mz_radius_da"])
+    # Rounding this seed before measuring would incorrectly exclude the raw
+    # peak. Preserve the measurement; round only the exported coordinate.
+    assert row["mz"] == row["seed_precursor_mz"] == "100.12346"
+    assert center - radius < float(row["mz"]) - float(row["gapfill_mz_radius_da"])
     assert float(row["peak_height"]) == 10
+    assert json.loads(row["ms2_scan_numbers"]) == [2]
 
 
 @pytest.mark.parametrize("level", [1, 2])
@@ -77,9 +78,10 @@ def test_ambiguous_ms1_polarity_never_supplies_precursor_intensity(tmp_path):
     for row in seeds:
         assert row["ms1_quant_status"] == "ambiguous_polarity"
         assert row["best_ms2_precursor_intensity"] == ""
-        assert row["best_ms2_selection_method"] == "apex_fallback"
+        assert "best_ms2_selection_method" not in row
     meta = json.loads(Path(str(output) + ".json").read_text())
     assert meta["ms2_assigned"] == 2
+    assert meta["best_ms2_apex_fallback_feature_ids"] == [int(row["feature_id"]) for row in seeds]
 
 
 @pytest.mark.parametrize("dense", [False, True])

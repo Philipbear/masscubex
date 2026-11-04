@@ -234,7 +234,11 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
             if s.polarity_source == "precursor_reference"
         ],
     )
-    for feature, indices in zip(features, assigned):
+    # Configuration is recorded once per file. Record only exceptional rows
+    # whose missing intensity required the documented nearest-apex fallback.
+    fallback_ids = []
+    stats["best_ms2_apex_fallback_feature_ids"] = fallback_ids
+    for feature_id, (feature, indices) in enumerate(zip(features, assigned), 1):
         if not indices and feature.ms2_count == 0:
             # Fresh unassigned features already have empty provenance. Avoid
             # rebuilding three empty tuples and resetting eight fields twice.
@@ -281,6 +285,7 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
         method = config.best_ms2
         if method != "apex" and value(best) is None:
             method = "apex_fallback"
+            fallback_ids.append(feature_id)
         feature.best_ms2_selection_method = method
         feature.best_ms2_score = (
             abs(best.rt - feature.rt_apex_seconds)

@@ -1,5 +1,20 @@
 # MassCubeX validation
 
+## Version 0.9.0: compact output and original-MassCube count audit
+
+**551 source tests and 551 installed-wheel tests pass.** The
+[output/count audit](OUTPUT_AND_COUNTS.md) verifies all 1,540,612 rows against
+the v0.8 full-precision baseline after the requested rounding and removal of
+five redundant columns. All 125,266 source MS2 scans remain accounted for;
+4,252 numeric seeded measurements pass independent raw-MS1 checks.
+
+TSV storage falls 41.8% and Parquet storage 35.9%. Original MassCube produces
+1,446,350 rows on the same inputs through a metadata-only mzXML adapter;
+the comparison exposes substantially more supported weak/background features
+in MassCubeX, especially in blanks and QCs. Fixed-floor and no-segmentation
+controls separate filtering, tracing and splitting effects. See the linked
+report for the counts, limitations and recommended algorithm review.
+
 ## Version 0.8.0: faster MS1 noise and batched extraction
 
 **549 source tests and 549 installed-wheel tests passed locally; 305 selected

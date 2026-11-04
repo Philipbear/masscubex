@@ -341,12 +341,12 @@ def test_end_to_end_ms2_and_quantification_tsv_resume(tmp_path):
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
     assert float(row["peak_height"]) == 100
-    assert float(row["peak_area"]) == float(row["intensity"]) == 330
-    assert row["quant_method"] == "peak_area"
+    assert float(row["peak_area"]) == 330
+    assert "intensity" not in row and "quant_method" not in row
     assert json.loads(row["ms2_scan_numbers"]) == [101, None, 103]
     assert json.loads(row["ms2_spectrum_indices"]) == [2, 4, 6]
     assert row["best_ms2_scan_number"] == "101"
-    assert row["best_ms2_precursor_intensity"] == "900"
+    assert row["best_ms2_precursor_intensity"] == "900.00"
     assert row["best_ms2_precursor_intensity_source"] == "metadata"
     assert "trace" not in row and "_ms2_records" not in row
     assert process_file(path, output, config=config, resume=True).status == "skipped"
@@ -358,5 +358,5 @@ def test_end_to_end_ms2_and_quantification_tsv_resume(tmp_path):
     )
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
-    assert row["intensity"] == "100" and row["peak_area"] == "330"
+    assert row["peak_height"] == "100.00" and row["peak_area"] == "330.00"
     assert row["ms2_count"] == "0" and row["best_ms2_scan_number"] == ""

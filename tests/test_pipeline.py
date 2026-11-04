@@ -19,7 +19,7 @@ def test_tsv_and_provenance(sample_file, tmp_path):
     assert result.ms1_scans == 9
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
-    assert float(row["mz"]) == pytest.approx(100.123456789, abs=1e-9)
+    assert row["mz"] == "100.12346"
     assert float(row["peak_area"]) == 780
     metadata = json.loads(Path(str(output) + ".json").read_text())
     assert metadata["config"]["noise_mode"] == "adaptive"
@@ -40,6 +40,10 @@ def test_resume_validates_config_input_and_table(sample_file, tmp_path):
     assert process_file(sample_file, output, resume=True, config=config).features == 0
     metadata = Path(str(output) + ".json")
     metadata.write_text("broken json")
+    assert process_file(sample_file, output, resume=True).status == "ok"
+    provenance = json.loads(metadata.read_text())
+    provenance["schema_version"] = 5
+    metadata.write_text(json.dumps(provenance))
     assert process_file(sample_file, output, resume=True).status == "ok"
     provenance = json.loads(metadata.read_text())
     provenance["implementation_sha256"] = "old implementation"

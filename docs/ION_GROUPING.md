@@ -13,7 +13,7 @@ These observations describe that commit, not necessarily later upstream versions
 
 | Area | Audited behavior | MassCubeX behavior |
 | --- | --- | --- |
-| Quantification | `Params.quant_method = "peak_height"` | Same default; `--quant-method peak_area` selects area. Both columns always survive. |
+| Quantification | `Params.quant_method = "peak_height"` | Same preferred measurement; `--quant-method peak_area` records area as the preference in the sidecar. Both height and area columns are always written. |
 | Best MS2 | `find_best_ms2` maximizes the sum of its MS2 signal intensities | Same ranking criterion by default; records all associated identifiers and the best scan's score/method. Ties use apex proximity then acquisition order. |
 | Adduct candidates | Hardcoded positive/negative dictionaries; descending feature height; an unassigned anchor is assumed to be protonated/deprotonated | User-selected catalog, optional custom ions, and pairwise hypotheses without forcing an anchor identity |
 | Negative/charged masses | Enumeration uses signed charge in neutral-mass recovery and in the m/z denominator | Signed charge describes polarity; absolute charge sets the m/z divisor. Ionic mass shifts include electron correction. |

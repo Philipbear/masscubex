@@ -40,7 +40,7 @@ masscubex extract --manifest files.txt -o features --workers 8 --resume > jobs.j
 # Threads are also supported; benchmark against processes on your storage
 masscubex extract /data/study -o features --workers 8 --executor thread --resume
 
-# Default quantification is peak height; both height and area are always written
+# Record area as the preferred measurement; both height and area are written
 masscubex extract sample.mzML -o features --quant-method peak_area
 
 # Compressed Parquet is the default; TSV remains available
@@ -223,8 +223,10 @@ Precursor ranking uses recorded precursor intensity, then a matching preceding
 MS1 measurement if metadata is absent or zero. The fallback checks polarity,
 parent reference when supplied, m/z and scan age. It uses the nearest centroid
 or the profile apex within the tolerance. If all associated scans lack that
-intensity, selection falls back to apex proximity and records `apex_fallback`.
-The method, score, precursor intensity and its source are explicit table columns.
+intensity, selection falls back to apex proximity. The sidecar records
+`config.best_ms2` and the exceptional `best_ms2_apex_fallback_feature_ids`.
+The table retains best-scan identifiers, fragment/precursor intensities and the
+precursor-intensity source.
 
 The isolation-width cutoff is **disabled by default** (`ms2_max_isolation_width=0`).
 A positive `--ms2-max-isolation-width` opts into excluding wider MS2 scans; this
@@ -285,9 +287,19 @@ Detected rows are emitted in trace-completion order, followed by MS2-seeded
 rows in seed-creation order. IDs are local to each file. Retention times are
 always **seconds**. Parquet stores float64 values, nullable int64 scan IDs, native
 lists and relationship structs, using Zstd level 3 compression. Row groups contain
-at most 8,192 features. No rounding or lossy compression is applied. TSV scalar
-floats use 17 significant digits for exact binary64 round trips; non-finite
-feature output fails the file. Sidecar schema version is 5.
+at most 8,192 features. Output schema 6 has **27 columns**. Both formats round
+m/z, seed m/z and mass radii to **5 decimal places**, all retention times in
+seconds to **2**, and every intensity/area/threshold to **2**. TSV writes trailing
+zeros; Parquet stores the same rounded numbers without text formatting. Nested
+ion evidence uses 5 decimals for masses, 2 for ppm errors and relative
+intensities, and 6 for correlation. The sidecar and Parquet metadata specify
+this policy in `output_precision`. Non-finite feature output fails the file.
+
+Computations stay float64; rounding does not affect extraction, grouping,
+scan associations or representative selection. Keep scan IDs when retrieving
+raw data: rounded coordinates may fall on a different side of a matching or
+integration boundary. Do not treat the displayed mass radius as the exact
+processing tolerance; full settings remain in the sidecar.
 Missing scalars are null in Parquet and blank cells in TSV.
 
 | Column | Meaning |
@@ -298,10 +310,8 @@ Missing scalars are null in Parquet and blank cells in TSV.
 | `rt_start_seconds`, `rt_end_seconds` | Integration boundaries |
 | `peak_height` | Detected peak height or maximum raw MS1 intensity in the seed window; blank if unavailable |
 | `peak_area` | Trapezoidal integral, intensity × seconds; seeded rows integrate refined local bounds or the fallback window |
-| `intensity`, `quant_method` | Selected quantitative value and method; default `peak_height` |
 | `scan_count` | Number of observed nonzero MS1 samples |
 | `apex_noise_threshold` | Local MS1 threshold at the feature apex |
-| `apex_threshold_ratio` | Height / threshold; empty when threshold is zero |
 | `polarity` | `positive`, `negative`, or `unknown` |
 | `feature_origin` | `ms1_detected` or `ms2_seeded` |
 | `ms1_quant_status` | `detected`, `gap_filled`, `no_ms1_signal`, `no_ms1_scans`, `ambiguous_polarity`, `ambiguous_mass`, `no_local_ms1_signal`, `no_local_peak`, or `sampling_limit` |
@@ -313,10 +323,22 @@ Missing scalars are null in Parquet and blank cells in TSV.
 | `ms2_native_ids` | List of original spectrum identifiers |
 | `ms2_spectrum_indices` | List of zero-based positions among all source spectra |
 | `best_ms2_scan_number`, `best_ms2_native_id`, `best_ms2_spectrum_index` | Identifiers of the selected scan; empty if unavailable |
-| `best_ms2_selection_method`, `best_ms2_score` | Ranking method and its score; apex methods use absolute time distance in seconds |
 | `best_ms2_fragment_intensity` | Sum of exported MS2 intensities, when decoded |
 | `best_ms2_precursor_intensity`, `best_ms2_precursor_intensity_source` | Precursor intensity and `metadata`, `preceding_ms1`, or `unavailable` |
 | `ion_relations` | List of optional adduct, neutral-loss and in-source-fragment candidates |
+
+`intensity`, `quant_method`, `best_ms2_selection_method`, `best_ms2_score` and
+`apex_threshold_ratio` are omitted from schema 6. Height and area are both
+available; `--quant-method` records the preferred measurement once in
+`config.quant_method` (default `peak_height`) without changing the table's
+measurements. Best-spectrum ranking is in `config.best_ms2`. A height/threshold
+ratio can be calculated when the threshold is nonzero; it is not a statistical S/N.
+
+`ambiguous_mass` means a seeded MS2 feature has multiple eligible nearby MS1
+mass candidates, and the strongest candidate's local height is less than
+three times the next candidate's. The precursor alone cannot distinguish them
+confidently. Keep the MS2 references but leave MS1 height/area blank instead of
+quantifying a possibly different ion. See [refinement details](AUTO_TUNING.md).
 
 MS2 arrays are ordered by acquisition and correspond position by position.
 A native number is never invented from a spectrum index. Parquet lists are

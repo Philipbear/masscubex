@@ -1,4 +1,4 @@
-"""Bounded, lossless feature-table writers with a stable typed Parquet schema."""
+"""Bounded feature-table writers; round measurements only at serialization."""
 
 import csv
 from dataclasses import fields
@@ -12,11 +12,45 @@ from typing import get_args
 from .features import Feature
 
 
-FEATURE_FIELDS = [f for f in fields(Feature) if f.metadata.get("tsv", True)]
+ALL_FIELDS = fields(Feature)
+FEATURE_FIELDS = [f for f in ALL_FIELDS if f.metadata.get("tsv", True)]
 FEATURE_COLUMNS = ["feature_id"] + [f.name for f in FEATURE_FIELDS]
 FLOAT_COLUMNS = {f.name for f in FEATURE_FIELDS if float in (get_args(f.type) or (f.type,))}
+# Historical TSVs must still parse as typed values, including removed columns.
+LEGACY_FLOAT_COLUMNS = {f.name for f in ALL_FIELDS if float in (get_args(f.type) or (f.type,))}
 NESTED_COLUMNS = {"ms2_scan_numbers", "ms2_native_ids", "ms2_spectrum_indices", "ion_relations"}
 ROW_GROUP_SIZE = 8192
+TABLE_SCHEMA_VERSION = 6
+# Named policies avoid accidentally rounding an identifier or a new measurement
+# as though it were an intensity. Both writers use Python binary64 half-even
+# rounding, including halfway cases; the in-memory Feature is never modified.
+DECIMAL_PLACES = {
+    "mz": 5,
+    "rt_apex_seconds": 2,
+    "rt_start_seconds": 2,
+    "rt_end_seconds": 2,
+    "peak_height": 2,
+    "peak_area": 2,
+    "apex_noise_threshold": 2,
+    "best_ms2_fragment_intensity": 2,
+    "best_ms2_precursor_intensity": 2,
+    "seed_precursor_mz": 5,
+    "seed_rt_seconds": 2,
+    "gapfill_mz_radius_da": 5,
+}
+RELATION_DECIMAL_PLACES = {
+    "neutral_mass": 5,
+    "mass_error_ppm": 2,
+    "correlation": 6,
+    "fragment_mz": 5,
+    "fragment_relative_intensity": 2,
+}
+OUTPUT_PRECISION = {
+    "columns": DECIMAL_PLACES,
+    "ion_relations": RELATION_DECIMAL_PLACES,
+    "retention_time_unit": "second",
+    "rounding": "half_even",
+}
 RELATION_COLUMNS = frozenset(
     {
         "relation",
@@ -102,12 +136,30 @@ def parquet_schema():
     return pa.schema(
         schema,
         metadata={
-            b"masscubex.table_schema": b"5",
+            b"masscubex.table_schema": str(TABLE_SCHEMA_VERSION).encode(),
             b"masscubex.retention_time_unit": b"second",
             b"masscubex.peak_area_unit": b"intensity * second",
             b"masscubex.feature_id": b"one-based row id within this input file",
+            b"masscubex.output_precision": json.dumps(OUTPUT_PRECISION, sort_keys=True).encode(),
         },
     )
+
+
+def _rounded_relations(relations, feature_id):
+    """Copy sparse evidence dictionaries; never mutate scientific results."""
+    result = []
+    for relation in relations:
+        if not RELATION_COLUMNS.issuperset(relation):
+            raise ValueError(f"Unknown ion evidence fields in feature {feature_id}")
+        rounded = dict(relation)
+        for name, digits in RELATION_DECIMAL_PLACES.items():
+            value = relation.get(name)
+            if value is not None:
+                if not math.isfinite(value):
+                    raise ValueError(f"Non-finite ion evidence in feature {feature_id}")
+                rounded[name] = round(float(value), digits)
+        result.append(rounded)
+    return result
 
 
 def feature_rows(features):
@@ -116,13 +168,7 @@ def feature_rows(features):
         row = {name: getattr(feature, name) for name in FEATURE_COLUMNS[1:]}
         if any(row[name] is not None and not math.isfinite(row[name]) for name in FLOAT_COLUMNS):
             raise ValueError(f"Non-finite feature value (numerical overflow) in feature {index}")
-        for relation in feature.ion_relations:
-            if not RELATION_COLUMNS.issuperset(relation):
-                raise ValueError(f"Unknown ion evidence fields in feature {index}")
-            if any(
-                isinstance(value, float) and not math.isfinite(value) for value in relation.values()
-            ):
-                raise ValueError(f"Non-finite ion evidence in feature {index}")
+        row["ion_relations"] = _rounded_relations(feature.ion_relations, index)
         yield {"feature_id": index, **row}
 
 
@@ -136,7 +182,7 @@ def _write_tsv(path, features):
                 [
                     ""
                     if row[name] is None
-                    else format(row[name], ".17g")
+                    else format(float(row[name]), f".{DECIMAL_PLACES[name]}f")
                     if name in FLOAT_COLUMNS
                     else json.dumps(row[name], separators=(",", ":"), allow_nan=False)
                     if name in NESTED_COLUMNS
@@ -153,19 +199,26 @@ def _parquet_batch(features, first_id, schema):
     import pyarrow as pa
     import pyarrow.compute as pc
 
-    for index, feature in enumerate(features, first_id):
-        for relation in feature.ion_relations:
-            if not RELATION_COLUMNS.issuperset(relation):
-                raise ValueError(f"Unknown ion evidence fields in feature {index}")
-            if any(
-                isinstance(value, float) and not math.isfinite(value) for value in relation.values()
-            ):
-                raise ValueError(f"Non-finite ion evidence in feature {index}")
     columns = [pa.array(range(first_id, first_id + len(features)), type=pa.int64())]
     for field in schema:
         if field.name == "feature_id":
             continue
-        column = pa.array([getattr(feature, field.name) for feature in features], type=field.type)
+        if field.name == "ion_relations":
+            values = [
+                _rounded_relations(feature.ion_relations, index)
+                for index, feature in enumerate(features, first_id)
+            ]
+        elif field.name in FLOAT_COLUMNS:
+            digits = DECIMAL_PLACES[field.name]
+            values = [
+                None
+                if (value := getattr(feature, field.name)) is None
+                else round(float(value), digits)
+                for feature in features
+            ]
+        else:
+            values = [getattr(feature, field.name) for feature in features]
+        column = pa.array(values, type=field.type)
         if field.name in FLOAT_COLUMNS and pc.all(pc.is_finite(column)).as_py() is False:
             raise ValueError(f"Non-finite feature value (numerical overflow) in {field.name}")
         columns.append(column)
@@ -245,7 +298,7 @@ def iter_feature_rows(path):
                         None
                         if value == ""
                         else float(value)
-                        if name in FLOAT_COLUMNS
+                        if name in LEGACY_FLOAT_COLUMNS
                         else int(value)
                         if name in integer_columns
                         else json.loads(value)

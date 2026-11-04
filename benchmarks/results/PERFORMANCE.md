@@ -1,5 +1,10 @@
 # Extraction performance: MassCubeX 0.8.0
 
+These repeated throughput measurements describe **0.8.0**. Version 0.9.0 rounds
+output and removes five columns; its [storage and validation timing](OUTPUT_AND_COUNTS.md)
+are reported separately. The capacity projections below have not been rerun
+with that output policy.
+
 **MS1 extraction time falls 12.0%; median complete single-worker processing falls 2.8%.**
 The same 50 public files, scientific defaults and Parquet output were measured
 three times per configuration. The previous version was freshly re-run from

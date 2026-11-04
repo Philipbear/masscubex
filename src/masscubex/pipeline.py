@@ -17,7 +17,13 @@ from . import __version__
 from .config import Config
 from .centroid import centroid_profile
 from .features import TraceTracker
-from .output import FEATURE_COLUMNS, resolve_output, write_features
+from .output import (
+    FEATURE_COLUMNS,
+    OUTPUT_PRECISION,
+    TABLE_SCHEMA_VERSION,
+    resolve_output,
+    write_features,
+)
 from .noise import estimate_noise
 from .readers import file_format
 from .scan_cache import ScanSource
@@ -25,7 +31,7 @@ from .ms2 import MS2Collector, associate_ms2
 from .tuning import calibrate_file, config_for
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = TABLE_SCHEMA_VERSION
 TSV_COLUMNS = FEATURE_COLUMNS  # Compatibility for table readers and existing audits.
 
 
@@ -308,6 +314,7 @@ def process_file(
             **stats,
             "elapsed_seconds": elapsed,
             "output_format": output_format,
+            "output_precision": OUTPUT_PRECISION,
             "output_bytes": temp_table.stat().st_size,
             "output_sha256": _sha256(temp_table),
         }

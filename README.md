@@ -67,7 +67,8 @@ default; `--executor thread` is also available.
   listed by `masscubex adducts`.
 
 Each input produces a **Parquet table by default** (Zstd compression), with
-full-precision values and native lists for MS/MS scan references. Use
+compact measurements (m/z: 5 decimals; RT in seconds and intensities: 2 decimals)
+and native lists for MS/MS scan references. Calculations remain float64. Use
 `--format tsv` for text output. A JSON sidecar records settings, provenance,
 stage timings, counts and unresolved MS/MS scans. Output names include an
 input-path hash to avoid basename collisions. `--resume` verifies completed outputs before skipping.
@@ -93,6 +94,7 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Commands, output columns, MS/MS lookup and restart behavior](docs/USAGE.md)
 - [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
 - [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
+- [Compact output and feature-count comparison with original MassCube](benchmarks/results/OUTPUT_AND_COUNTS.md)
 - [Processing times, worker scaling and two-million-file estimates](benchmarks/results/PERFORMANCE.md)
 - [Code structure and numerical development checks](docs/DEVELOPMENT.md)
 

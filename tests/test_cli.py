@@ -151,10 +151,11 @@ def test_cli_area_selection_reaches_output(sample_file, tmp_path, capsys):
     result = json.loads(capsys.readouterr().out)
     with Path(result["output"]).open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
-    assert row["quant_method"] == "peak_area"
-    assert row["intensity"] == row["peak_area"] == "780"
-    assert row["peak_height"] == "100"
+    assert "quant_method" not in row and "intensity" not in row
+    assert row["peak_area"] == "780.00"
+    assert row["peak_height"] == "100.00"
     metadata = json.loads(Path(result["output"] + ".json").read_text())
+    assert metadata["config"]["quant_method"] == "peak_area"
     assert metadata["config"]["best_ms2"] == "apex"
     assert metadata["config"]["segment"] is False
 

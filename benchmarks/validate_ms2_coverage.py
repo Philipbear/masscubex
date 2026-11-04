@@ -16,16 +16,22 @@ import time
 
 import numpy as np
 
-from masscubex import Config, __version__, process_file
-from validate_repository import reference_check
+from masscubex import Config, __version__
+from validate_repository import process_for_audit, reference_check
 
 
-def audit_seeded_quantification(path, output, config):
+def audit_seeded_quantification(path, output, config, full_precision_rows=None):
     from pyteomics import mzxml
 
     with output.open() as stream:
-        rows = list(csv.DictReader(stream, delimiter="\t"))
+        rows = (
+            full_precision_rows
+            if full_precision_rows is not None
+            else list(csv.DictReader(stream, delimiter="\t"))
+        )
     metadata = json.loads(Path(str(output) + ".json").read_text())
+    if metadata.get("schema_version", 0) >= 6 and full_precision_rows is None:
+        raise ValueError("Rounded tables need unrounded audit coordinates; use process_for_audit")
     resolved = metadata.get("parameter_tuning", {}).get("effective_configs", {})
     seeded = [r for r in rows if r["feature_origin"] == "ms2_seeded"]
     masses = np.array([float(r["mz"]) for r in seeded])
@@ -121,10 +127,10 @@ def check_file(arguments):
     source = directory / row["name"]
     assert hashlib.sha256(source.read_bytes()).hexdigest() == row["sha256"]
     output = directory / f"v{__version__}-ms2" / (source.name + ".tsv")
-    result = process_file(source, output, overwrite=True)
+    result, audit_rows = process_for_audit(source, output, overwrite=True)
     metadata = json.loads(Path(str(output) + ".json").read_text())
-    original = reference_check(source, output)
-    seeded = audit_seeded_quantification(source, output, Config())
+    original = reference_check(source, output, audit_rows)
+    seeded = audit_seeded_quantification(source, output, Config(), audit_rows)
     return {
         "name": source.name,
         "input_sha256": row["sha256"],
@@ -195,6 +201,7 @@ def main():
         ),
         "rows": rows,
         "limitations": [
+            "Raw-data interval/quantification audits use captured unrounded writer inputs; compact table rounding is checked separately.",
             "One centroid-mzXML dataset; this is bookkeeping/quantification validation, not proof of biological precursor identity.",
             "Profile mzML/mzXML, missing metadata and broad isolation windows are covered by synthetic tests.",
             "No claim of DIA classification or DIA fragment deconvolution.",

@@ -378,10 +378,12 @@ class Feature:
     peak_area: float | None
     scan_count: int
     apex_noise_threshold: float | None
-    apex_threshold_ratio: float | None
+    apex_threshold_ratio: float | None = field(metadata={"tsv": False})
     polarity: str
-    intensity: float | None = 0.0
-    quant_method: str = "peak_height"
+    # Retain the Python API's convenience values without repeating them in
+    # every output row. Quantification settings live in the file sidecar.
+    intensity: float | None = field(default=0.0, metadata={"tsv": False})
+    quant_method: str = field(default="peak_height", metadata={"tsv": False})
     ms2_count: int = 0
     ms2_scan_numbers: tuple = ()
     ms2_native_ids: tuple = ()
@@ -389,8 +391,8 @@ class Feature:
     best_ms2_scan_number: int | None = None
     best_ms2_native_id: str | None = None
     best_ms2_spectrum_index: int | None = None
-    best_ms2_selection_method: str | None = None
-    best_ms2_score: float | None = None
+    best_ms2_selection_method: str | None = field(default=None, metadata={"tsv": False})
+    best_ms2_score: float | None = field(default=None, metadata={"tsv": False})
     best_ms2_fragment_intensity: float | None = None
     best_ms2_precursor_intensity: float | None = None
     best_ms2_precursor_intensity_source: str | None = None

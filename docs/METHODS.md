@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.8.0 processing path,
+This document describes the implemented MassCubeX 0.9.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -24,7 +24,7 @@ the old `masscube` package. The comparisons below refer to that exact commit.
 | Trace building | Retained the concept of matching successive MS1 peaks into ion traces; replaced Python per-centroid objects/list updates with compiled array pools, changed matching to a running intensity-weighted mass, and added a time-gap limit (§5). |
 | Chromatographic splitting | Retained Gaussian smoothing plus peak prominence as a concept; reimplemented splitting and area boundaries. The default relative prominence is 0.1 rather than upstream's 0.03. The old shape/noise-score gate and above-median peak requirement are not retained (§6). |
 | Quantification | Retained peak height as the default and trapezoidal area in intensity × seconds. Added explicit selection and kept both measurements without integer truncation; detected-feature m/z is intensity-weighted rather than the upstream apex mass (§6). MS2 seeds record the original precursor and may refine their mass from raw MS1 (§7). |
-| MS/MS | Retained summed MS2 intensity as the default best-spectrum criterion. Added all associated native identifiers, best-scan identifier/score, optional ranking methods, MS2-seeded features with forced MS1 quantification, and per-scan unresolved reasons. Isolation-width exclusion is off by default (§7). |
+| MS/MS | Retained summed MS2 intensity as the default best-spectrum criterion. Added all associated native identifiers, best-scan identifiers and fragment/precursor intensities, optional ranking methods, MS2-seeded features with forced MS1 quantification, and per-scan unresolved reasons. Isolation-width exclusion is off by default (§7). |
 | Automatic settings | Added broad-search pilot fitting with at least 20 qualified representatives per polarity, independent MS1/MS2 tolerance estimates, physical-time smoothing and local gap-fill boundaries ([details](AUTO_TUNING.md)). |
 | Ion relationships | Replaced greedy forced group membership with default-on, evidence-labelled pairwise hypotheses; corrected signed-charge mass arithmetic and undersupported correlation; added user-selected forms and water losses (§8). |
 | Repository execution | Added lazy discovery, bounded independent file workers, compressed Parquet by default (optional TSV), atomic table/JSON publication, checksum-verified resume, persistent error reports, and targeted retries (§9–10). |
@@ -520,13 +520,16 @@ Reported area and height receive no chromatographic baseline subtraction.
 Filtering still affects which observations and boundaries survive, so this
 does not imply unbiased recovery of signal below the detection threshold.
 
-`quant_method` selects which existing measurement populates `intensity`, with
-`peak_height` the default and `peak_area` the alternative. Both original
-measurement columns always remain. `apex_noise_threshold` is the retained
-MS1 threshold at the chromatographic apex. `apex_threshold_ratio` is height
-divided by that threshold, or missing if the threshold is zero; it is not
-a statistical S/N estimate. Scalar floating-point TSV fields use 17 significant
-digits so binary64 coordinates round-trip without changing interval membership.
+`quant_method` records the preferred measurement (`peak_height` by default,
+or `peak_area`) once in the JSON sidecar. Both measurement columns remain;
+schema 6 omits the redundant `intensity` and `quant_method` columns.
+`apex_noise_threshold` is the retained MS1 threshold at the chromatographic
+apex. The derived `apex_threshold_ratio` is also omitted; dividing height by
+threshold is not a statistical S/N estimate. Measurements are rounded only
+at serialization: mass coordinates/radii to 5 decimal places, all RTs in
+seconds and intensities/areas/thresholds to 2. Rounding can change interval
+membership if downstream code reconstructs a query from table coordinates;
+use source scan identifiers and full-precision settings for exact provenance.
 Non-finite feature values fail the file instead of publishing invalid quantification.
 Calculations remain float64. Feature IDs follow trace-completion and
 segment order, starting at 1 separately in each file, rather than mass order.
@@ -680,7 +683,7 @@ MS1 observations. Noise threshold/ratio are blank for seeds.
 | --- | --- |
 | `detected` | Normal MS1 detection |
 | `gap_filled` | Raw MS1 measurement; height/area populated |
-| `no_ms1_signal` | Compatible scans but no signal; height/area/intensity zero |
+| `no_ms1_signal` | Compatible scans but no signal; height/area zero |
 | `no_ms1_scans` | No compatible MS1 scans; quantitative fields blank |
 | `ambiguous_polarity` | No defensible MS1 polarity; blank |
 | `ambiguous_mass` | Competing local candidate ions; blank |
@@ -725,10 +728,11 @@ missing numeric scan numbers are JSON `null`, not removed entries.
 A missing intensity ranks below a known zero. When an intensity-based method
 has no available score in any associated scan, selection becomes
 `apex_fallback`. Default pipeline MS2 summation normally supplies a score even
-for an empty MS2 array (zero). Best-scan columns identify the method, numeric
-score, full fragment sum when decoded, and precursor intensity/source.
-For apex methods the score is an absolute time distance in seconds, where
-smaller is better; for intensity methods larger is better.
+for an empty MS2 array (zero). The sidecar records `config.best_ms2` and a sparse
+list `best_ms2_apex_fallback_feature_ids` identifying these exceptional rows.
+Best-scan columns retain the identifiers, full fragment sum when decoded, and
+precursor intensity/source. Schema 6 omits the repeated method and derived
+score columns. Selection still uses full-precision values before rounding.
 
 Choosing precursor/apex ranking while fragment grouping is off avoids MS2
 binary decoding. `--no-ms2` disables both association and those metadata
@@ -826,9 +830,16 @@ Parquet uses an explicit, stable Arrow schema: float64 quantitative values,
 nullable int64 identifiers, native MS2 lists and a list of typed structs for
 ion evidence. Absent relationship-kind fields are null, not fabricated evidence.
 Unknown evidence fields are rejected instead of silently discarded. Zstd level 3
-compression is lossless. At most 8,192 feature dictionaries are buffered per row
-group; flat categorical string columns use dictionary encoding. TSV retains its
-17-digit floats and compact JSON arrays. `iter_feature_rows` streams typed rows
+compression is lossless **after output rounding**. At most 8,192 features are
+buffered per row group; flat categorical strings use dictionary encoding.
+TSV uses fixed decimal places and compact JSON arrays. The 27-column schema
+omits five redundant fields listed in [USAGE.md](USAGE.md#feature-table-schema).
+Both writers round binary64 values with Python's half-even rule and never
+mutate the feature objects. Nested relationship masses have 5 decimals,
+ppm errors and relative intensities have 2, and correlation has 6. Parquet
+retains float64 storage because float32 cannot preserve five decimal places
+throughout a typical mass range. The `output_precision` metadata describes
+rounding; identifiers and lists remain exact. `iter_feature_rows` streams typed rows
 from either format and normalizes absent relationship fields for comparison.
 
 An exclusive `.parquet.lock` or `.tsv.lock` records PID, hostname and creation time. Write data and
@@ -840,7 +851,7 @@ A failure between the two final renames can leave mismatched files, which
 cannot pass resume validation. A hard-killed process can leave locks/partials;
 inspect its recorded owner and remove a lock only after that worker has stopped.
 
-The per-file sidecar uses schema version 5 and stores all processing settings, source
+The per-file sidecar uses schema version 6 and stores all processing settings, source
 path/size/nanosecond mtime, counts and memory diagnostics, output format/size/SHA-256 and
 an implementation/dependency fingerprint. The fingerprint hashes the numerical
 and per-file processing source modules and versions of NumPy, Numba, SciPy,
