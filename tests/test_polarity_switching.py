@@ -233,7 +233,7 @@ def test_tuned_pipeline_preserves_below_noise_seeds_and_distinct_local_peaks(tmp
         assert row["gapfill_status"] == "peak_bounds"
         assert float(row["peak_height"]) == pytest.approx(height, rel=1e-5)
         assert float(row["peak_area"]) == pytest.approx(height * 2 * np.sqrt(2 * np.pi), rel=0.05)
-        assert float(row["mz"]) == pytest.approx(800, abs=1e-7)
+        assert float(row["mz"]) == float(row["seed_precursor_mz"]) == 800.0001
         assert float(row["seed_precursor_mz"]) == 800.0001
 
 

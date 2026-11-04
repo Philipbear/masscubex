@@ -66,6 +66,30 @@ def test_existing_output_and_locks_protected(sample_file, tmp_path):
     assert lock.read_text() == "a different worker"
 
 
+def test_binned_noise_source_change_invalidates_resume(sample_file, tmp_path, monkeypatch):
+    from masscubex.pipeline import implementation_id
+
+    output = tmp_path / "noise.parquet"
+    process_file(sample_file, output)
+    read_bytes = Path.read_bytes
+
+    def changed_source(path):
+        original = read_bytes(path)
+        return (
+            original + b"\n# edited bin estimator\n"
+            if path.name == "noise_regions.py"
+            else original
+        )
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(Path, "read_bytes", changed_source)
+            implementation_id.cache_clear()
+            assert process_file(sample_file, output, resume=True).status == "ok"
+    finally:
+        implementation_id.cache_clear()
+
+
 def test_failed_parse_leaves_no_outputs_and_preserves_old_result(sample_file, tmp_path):
     output = tmp_path / "features.tsv"
     process_file(sample_file, output)

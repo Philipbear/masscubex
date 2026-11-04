@@ -136,7 +136,10 @@ def reference_check(path, output, full_precision_rows=None):
                 if feature.get("seed_precursor_mz"):
                     # Refined seeds can recover an ion outside the narrow matching
                     # tolerance, but never outside the initial broad search.
-                    if feature.get("gapfill_status") != "fixed_window":
+                    if (
+                        "noise_layout" not in effective
+                        and feature.get("gapfill_status") != "fixed_window"
+                    ):
                         tolerance = max(
                             tolerance,
                             effective["tuning_search_da"],

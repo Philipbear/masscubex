@@ -22,8 +22,9 @@ class Config:
     mz_tolerance_da: float = 0.002
     noise_mode: str = "adaptive"
     noise_estimator: str = "low_tail"
+    noise_layout: str = "bins"
     noise_fraction: float = 0.10
-    noise_window_da: float = 50.0
+    noise_window_da: float = 100.0
     noise_sigma: float = 3.0
     noise_clip_sigma: float = 2.0
     noise_iterations: int = 2
@@ -53,6 +54,7 @@ class Config:
     ms2_seed_rt_tolerance: float = 5.0
     gapfill_mz_tolerance_ppm: float = 10.0
     gapfill_mz_tolerance_da: float = 0.002
+    gapfill_noise_fraction: float = 0.1
     precursor_max_age_seconds: float = 15.0
     gapfill_max_gap_seconds: float = 15.0
     best_ms2: str = "fragment_intensity"
@@ -104,6 +106,8 @@ class Config:
             raise ValueError("noise_mode must be 'adaptive' or 'none'")
         if self.noise_estimator not in {"low_tail", "clipped"}:
             raise ValueError("noise_estimator must be 'low_tail' or 'clipped'")
+        if self.noise_layout not in {"bins", "sliding"}:
+            raise ValueError("noise_layout must be 'bins' or 'sliding'")
         if self.profile_mode not in {"centroid", "reject"}:
             raise ValueError("profile_mode must be 'centroid' or 'reject'")
         if self.quant_method not in {"peak_height", "peak_area"}:
@@ -136,6 +140,7 @@ class Config:
             "peak_distance_seconds",
             "gapfill_mz_tolerance_da",
             "gapfill_mz_tolerance_ppm",
+            "gapfill_noise_fraction",
         }
         excluded = (
             set(integer_minima)
@@ -143,6 +148,7 @@ class Config:
             | {
                 "noise_mode",
                 "noise_estimator",
+                "noise_layout",
                 "profile_mode",
                 "quant_method",
                 "best_ms2",
@@ -173,6 +179,7 @@ class Config:
             raise ValueError("At least one gapfill m/z tolerance must be positive")
         for name in (
             "noise_fraction",
+            "gapfill_noise_fraction",
             "group_min_correlation",
             "group_min_overlap",
             "isf_min_relative_intensity",

@@ -38,6 +38,7 @@ def audit_seeded_quantification(path, output, config, full_precision_rows=None):
     start = np.array([float(r["rt_start_seconds"]) for r in seeded])
     end = np.array([float(r["rt_end_seconds"]) for r in seeded])
     traces = [[] for _ in seeded]
+    noise_references = [[] for _ in seeded]
     source_ms2 = set()
     known_wide = 0
     missing_width = 0
@@ -80,6 +81,31 @@ def audit_seeded_quantification(path, output, config, full_precision_rows=None):
                 )
                 value = float(summed_y[in_window].max()) if in_window.any() else 0.0
                 traces[i].append((rt, value))
+                if seeded[i]["ms1_quant_status"] == "imputed_noise":
+                    # Independent, sorted NumPy reference; do not call the runtime noise kernel.
+                    assert (
+                        effective["noise_layout"] == "bins"
+                        and effective["noise_estimator"] == "low_tail"
+                    )
+                    width = effective["noise_window_da"]
+                    bin_id = np.floor(masses[i] / width)
+                    values = np.sort(
+                        summed_y[(np.floor(unique_mz / width) == bin_id) & (summed_y > 0)]
+                    )
+                    level = effective["min_intensity"]
+                    if (
+                        effective["noise_mode"] != "none"
+                        and len(values) >= effective["noise_min_neighbors"]
+                    ):
+                        count = max(
+                            effective["noise_min_neighbors"],
+                            int(np.ceil(effective["noise_fraction"] * len(values))),
+                        )
+                        selected = values[:count]
+                        level = max(level, float(selected.mean() + 3 * selected.std(ddof=0)))
+                    noise_references[i].append(
+                        (abs(rt - float(seeded[i]["seed_rt_seconds"])), rt, level)
+                    )
     seen = set()
     for row in rows:
         for index in json.loads(row["ms2_spectrum_indices"]):
@@ -88,12 +114,41 @@ def audit_seeded_quantification(path, output, config, full_precision_rows=None):
     unresolved = {r["spectrum_index"] for r in metadata["unassigned_ms2"]}
     assert not seen & unresolved
     assert seen | unresolved == source_ms2
-    for row, trace in zip(seeded, traces):
+    for row, trace, references in zip(seeded, traces, noise_references):
         if not trace:
             assert row["peak_height"] == row["peak_area"] == ""
             continue
         t, y = np.asarray(trace).T
         effective = resolved.get(row["polarity"], config.to_dict())
+        if "noise_layout" in effective:
+            assert float(row["mz"]) == float(row["seed_precursor_mz"])
+            assert (
+                float(row["gapfill_mz_radius_da"])
+                <= max(
+                    effective["mz_tolerance_da"],
+                    float(row["mz"]) * effective["mz_tolerance_ppm"] * 1e-6,
+                )
+                + 1e-14
+            )
+        if row["ms1_quant_status"] == "imputed_noise":
+            chosen = [r[2] for r in sorted(references)[:3] if r[2] > 0]
+            assert chosen and row["peak_area"] == "" and int(row["scan_count"]) == 0
+            threshold = float(np.median(chosen))
+            np.testing.assert_allclose(float(row["apex_noise_threshold"]), threshold, rtol=1e-12)
+            np.testing.assert_allclose(
+                float(row["peak_height"]),
+                effective["gapfill_noise_fraction"] * threshold,
+                rtol=1e-12,
+            )
+            if row["gapfill_status"] == "no_local_ms1_signal":
+                dt = np.median(np.diff(t)) if len(t) > 1 else 0
+                local = abs(t - float(row["seed_rt_seconds"])) <= max(
+                    effective["ms2_rt_tolerance"], 2 * dt
+                )
+                assert np.max(y[local], initial=0.0) == 0
+            else:
+                assert y.max() == 0
+            continue
         dt = np.diff(t)
         expected_area = np.sum(
             np.where(
@@ -116,7 +171,8 @@ def audit_seeded_quantification(path, output, config, full_precision_rows=None):
         "all_source_ms2_accounted_for": True,
         "unique_feature_per_assigned_ms2": True,
         "seeded_quantification_independently_verified": len(seeded),
-        "seeded_numeric_measurements": sum(bool(r["peak_height"]) for r in seeded),
+        "seeded_numeric_measurements": sum(r["ms1_quant_status"] == "gap_filled" for r in seeded),
+        "seeded_imputed_heights": sum(r["ms1_quant_status"] == "imputed_noise" for r in seeded),
         "known_isolation_width_above_4": known_wide,
         "missing_isolation_width": missing_width,
     }

@@ -14,7 +14,7 @@ per-file failure reporting. Neither contains per-mass numerical loops.
 | `reference_chromatograms.py` | Readable SciPy compatibility path for tied peak priorities and a differential-test oracle. |
 | `calibration.py` | Compiled quality screening of one representative trace; accepted candidates retain NumPy/SciPy measurement arithmetic to preserve calibrated boundaries. Named `RepresentativeValues` and explicit rejection reasons. |
 | `tuning.py` | Representative selection, robust per-polarity estimates, evidence minima and override policy. |
-| `noise.py`, `centroid.py` | MS1 noise estimation and profile mass detection. |
+| `noise.py`, `noise_regions.py`, `centroid.py` | Sliding/binned MS1 noise estimation and profile mass detection. |
 | `ms2.py`, `gapfill.py`, `gapfill_refinement.py` | MS2 bookkeeping, unmatched precursor seeds, query scheduling and raw-MS1 measurements. |
 | `grouping.py` | Mass-window candidates and evidence-qualified ion relationships. |
 | `output.py` | Separate TSV and columnar Parquet writers, shared output schema and typed readers. |

@@ -16,18 +16,19 @@ from numba import njit
 
 from .centroid import centroid_profile
 from .features import Feature
-from .gapfill_refinement import refine_measurement, merge_refined
+from .gapfill_refinement import _radius, refine_measurement, merge_refined
 from .ms2 import MS2Assignment, apply_ms2_assignments, ineligible_reason
 from .readers import iter_ms1
 from .tuning import config_for
+from .noise_regions import regional_thresholds
 
 
 @njit(cache=True, nogil=True)
-def eic_intensities(mz, intensity, targets, ppm, da):
+def eic_intensities(mz, intensity, targets, radii):
     """Take the largest raw centroid/profile sample inside each target interval."""
     result = np.zeros(len(targets))
     for i in range(len(targets)):
-        tolerance = max(da, targets[i] * ppm * 1e-6)
+        tolerance = radii[i]
         left = np.searchsorted(mz, targets[i] - tolerance)
         right = np.searchsorted(mz, targets[i] + tolerance, side="right")
         for j in range(left, right):
@@ -50,6 +51,29 @@ class _Measurement:
     sampling_limit: bool = False
     retained_values: int = 0
     finalized: bool = False
+    noise_references: list = field(default_factory=list)
+
+
+def _impute_missing_height(feature, measurement, config):
+    """Use a noise-derived placeholder only when MS1 is absent, never as an area."""
+    if feature.ms1_quant_status not in {"no_ms1_signal", "no_local_ms1_signal"}:
+        return
+    feature.gapfill_status = feature.ms1_quant_status
+    feature.peak_height = feature.peak_area = feature.intensity = None
+    # Up to three closest compatible MS1 scans in the query window. Unsupported
+    # regions (threshold zero) provide no basis for a positive imputation.
+    thresholds = [row[2] for row in measurement.noise_references if row[2] > 0]
+    if not thresholds:
+        return
+    threshold = float(np.median(thresholds))
+    feature.apex_noise_threshold = threshold
+    if config.gapfill_noise_fraction == 0:
+        return
+    feature.peak_height = config.gapfill_noise_fraction * threshold
+    feature.intensity = feature.peak_height if config.quant_method == "peak_height" else None
+    feature.ms1_quant_status = "imputed_noise"
+    # No measured peak, area, trace or scan count is manufactured. Keep the
+    # gapfill_status reason and MS2 seed metadata so the placeholder is auditable.
 
 
 def seed_ms2_features(
@@ -165,7 +189,9 @@ def seed_ms2_features(
         if not measurement.refine or measurement.finalized:
             return
         feature = features[measurement.feature_index]
-        refine_measurement(feature, measurement, config_for(feature.polarity, config, configs))
+        effective = config_for(feature.polarity, config, configs)
+        refine_measurement(feature, measurement, effective)
+        _impute_missing_height(feature, measurement, effective)
         retained_values -= measurement.retained_values
         measurement.retained_values = 0
         measurement.samples.clear()
@@ -215,28 +241,24 @@ def seed_ms2_features(
                     scan.mz,
                     scan.intensity,
                     targets[query_ids],
-                    float(effective.gapfill_mz_tolerance_ppm),
-                    float(effective.gapfill_mz_tolerance_da),
+                    np.array([_radius(targets[i], effective) for i in query_ids]),
                 )
-                for i, value in zip(query_ids, values):
+                thresholds = regional_thresholds(
+                    scan.mz, scan.intensity, targets[query_ids], effective
+                )
+                for i, value, threshold in zip(query_ids, values, thresholds):
                     measurement = measurements[i]
                     feature = features[measurement.feature_index]
                     measurement.scans += 1
+                    insort(
+                        measurement.noise_references,
+                        (abs(scan.rt - feature.seed_rt_seconds), scan.rt, float(threshold)),
+                    )
+                    del measurement.noise_references[3:]
                     if measurement.refine:
                         if measurement.sampling_limit:
                             continue
-                        radius = max(
-                            effective.tuning_search_da,
-                            targets[i] * effective.tuning_search_ppm * 1e-6,
-                            effective.gapfill_mz_tolerance_da,
-                            targets[i] * effective.gapfill_mz_tolerance_ppm * 1e-6,
-                        )
-                        # Retain context beyond the search edge so a recovered
-                        # center near that edge still has its COMPLETE narrow EIC.
-                        radius += 2 * max(
-                            effective.gapfill_mz_tolerance_da,
-                            (targets[i] + radius) * effective.gapfill_mz_tolerance_ppm * 1e-6,
-                        )
+                        radius = _radius(targets[i], effective)
                         a, b = (
                             np.searchsorted(raw_mz, targets[i] - radius),
                             np.searchsorted(raw_mz, targets[i] + radius, side="right"),
@@ -282,10 +304,7 @@ def seed_ms2_features(
         if measurement.refine:
             finish_refined(measurement)
             continue
-        feature.gapfill_mz_radius_da = max(
-            effective.gapfill_mz_tolerance_da,
-            feature.mz * effective.gapfill_mz_tolerance_ppm * 1e-6,
-        )
+        feature.gapfill_mz_radius_da = _radius(feature.mz, effective)
         if measurement.scans:
             if not np.isfinite(measurement.area):
                 raise ValueError("MS2-seeded MS1 peak area overflow")
@@ -297,6 +316,7 @@ def seed_ms2_features(
             feature.ms1_quant_status = "gap_filled" if feature.scan_count else "no_ms1_signal"
             if config.group_ions:
                 feature.trace = np.asarray(measurement.trace)
+            _impute_missing_height(feature, measurement, effective)
     assignments = merge_refined(features, assignments, first_feature, config, configs)
     stats["ms2_seeded_features"] = len(features) - first_feature
     stats["ms2_gapfill_sample_points"] = sum(m.scans for m in measurements)

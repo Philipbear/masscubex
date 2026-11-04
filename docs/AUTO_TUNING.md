@@ -6,7 +6,7 @@ default to Parquet; the calculations below apply to both Parquet and TSV.
 Automatic calibration and ion grouping are **on by default**. Calibration is a
 new MassCubeX implementation. It estimates repeatability and chromatography from
 the file; it does not calibrate absolute mass accuracy against known compounds.
-The **50 Da / lowest 10% / minimum 5 / μ + 3σ MS1 noise rule is unchanged**.
+The MS1 noise default is **fixed 100 Da bins / lowest 10% / minimum 5 / μ + 3σ**.
 Neither the noise settings nor the ion-grouping mass tolerance is auto-tuned.
 
 ## Broad search, then qualified representatives
@@ -74,7 +74,8 @@ MS1 ppm     = max(5 ppm,      2 × Q95(per-peak mass error in ppm))
 
 Each component is capped at its pilot-search component. Trace matching and raw
 gap-fill extraction use `max(Da floor, m/z × ppm × 1e−6)` as their radius.
-The gap-fill parameters are separate settings, so either may be overridden.
+The gap-fill parameters may be overridden, but their resulting radius is
+capped at the resolved MS1 radius. Narrower gap-fill settings are honored.
 
 MS/MS precursor tolerance requires its own evidence: a single selected-ion
 precursor, known matching polarity and RT within a representative's FWHM, with
@@ -130,27 +131,24 @@ Unknown polarity never supplies learned mass/width settings.
 ## Refined raw-MS1 gap filling
 
 For a polarity with supported calibration, each unmatched usable MS2 initially
-creates its own query. Search the learned time half-window, with a broad mass
-radius equal to the larger of the pilot-search and gap-fill radii. Retain two
-additional narrow radii of context beyond each search edge, so a center near
-the edge still has its complete narrow EIC. Candidate centers must remain
-inside the original search. Keep only the raw slices needed by active queries; for profile data,
+creates its own query. Search the learned time half-window using one EIC
+anchored at the exact precursor m/z. Its radius is the smaller of the configured
+gap-fill radius and the normal MS1 trace radius, each calculated as
+`max(Da, m/z × ppm × 1e−6)`. There is no broad pilot-mass search, recentering,
+or padding outside that interval. Keep only the raw slices needed by active queries; for profile data,
 centroid again with zero baseline/threshold. Thus a below-noise ion can still
 be measured. Do not apply the detection floor or minimum detected-scan count.
 
-Sort the collected masses and partition into clusters whose full diameter is
-at most twice the narrow gap-fill radius at the first mass; this prevents
-unlimited chaining. Use each cluster's median mass as a candidate center and
-reconstruct its exact narrow EIC from the retained slices, taking the maximum
-centroid intensity in each scan (zero when absent).
+Take the maximum centroid intensity inside the anchored interval in each scan
+(zero when absent). This is a forced-window measurement, not deconvolution of
+unresolved or coisolated ions.
 
 Require positive evidence within `max(ms2_rt_tolerance, 2 × local median MS1
-interval)` of the original seed time. Prefer centers inside the independently
-resolved MS2 mass tolerance. If none qualify, consider the broad-search
-candidates. Rank by local maximum intensity, then distance to precursor mass.
-If the best is less than three times the second-best eligible candidate,
-report `ambiguous_mass` with blank quantification. This factor is an explicit
-heuristic; MS2 triggering alone does not prove which nearby ion was isolated.
+interval)` of the original seed time. No local ion gives
+`gapfill_status=no_local_ms1_signal`; no ion anywhere gives `no_ms1_signal`.
+Version 0.10 removes the former broad-search / 3× candidate-ranking rule:
+overlapping candidate windows could count the same raw centroid twice. The
+[blank/QC audit](../benchmarks/results/EIC_REVIEW.md) documents this defect.
 
 For the selected narrow EIC, interpolate and smooth in seconds as above. Find
 maxima at the configured prominence and separation, then valleys between them.
@@ -164,7 +162,7 @@ quantification. These are forced measurements, not noise-qualified detections.
 Integrate original, unfiltered EIC values within those bounds, excluding
 intervals above `gapfill_max_gap_seconds`. Do not subtract baseline, extrapolate
 to window edges, or interpolate missing intensity for quantification. Store the
-refined mass, original seed precursor/time, actual mass radius and integration
+unchanged precursor mass, original seed time, actual mass radius and integration
 bounds in the TSV. Repeated queries merge only when they recover the same
 known polarity, mass within the narrow radius, identical original MS1 apex time
 (within 1 microsecond), and each seed time lies within the other query's bounds
@@ -186,8 +184,15 @@ boundary refinement. Profile fallback takes the maximum raw profile sample.
 Seed reuse has its own ±5-second anchor tolerance, independent of the search
 window; changing one does not silently change the other. All these fallback
 values are configurable. Older 0.4.0 used the broader MS2 mass tolerance for
-this measurement. Zero means compatible scans existed with no signal; blank
-means unavailable, ambiguous, or unsupported. See the output status reference.
+this measurement. If no ion is found, use the median positive regional noise
+threshold from up to the three closest compatible MS1 scans in the query
+window. Default imputed height is 0.1× that reference; area remains missing,
+scan count is zero, and `ms1_quant_status=imputed_noise` labels it explicitly.
+The reference is in `apex_noise_threshold`, although there is no measured apex.
+`gapfill_status` retains the original absence reason. `--gapfill-noise-fraction 0`
+disables imputation. Missing scans, ambiguous polarity, unsupported noise,
+peak-bound mismatch and collection limits remain unquantified. See the output
+status reference; imputed height is not an observed signal or evidence for grouping.
 
 ## Polarity and reproducibility
 

@@ -1,4 +1,4 @@
-"""Refine a broad MS2 query into one narrow, local, unfiltered MS1 measurement."""
+"""Choose local RT bounds for one precursor-anchored, unfiltered MS1 EIC."""
 
 from bisect import bisect_left, bisect_right, insort
 
@@ -12,7 +12,11 @@ from .tuning import config_for
 
 
 def _radius(mass, config):
-    return max(config.gapfill_mz_tolerance_da, mass * config.gapfill_mz_tolerance_ppm * 1e-6)
+    """Gap filling may be narrower than tracing, but never deliberately wider."""
+    return min(
+        max(config.mz_tolerance_da, mass * config.mz_tolerance_ppm * 1e-6),
+        max(config.gapfill_mz_tolerance_da, mass * config.gapfill_mz_tolerance_ppm * 1e-6),
+    )
 
 
 @njit(cache=True, nogil=True)
@@ -86,60 +90,27 @@ def refine_measurement(feature, measurement, config):
         return
     t = np.array([sample[0] for sample in samples])
     masses = np.concatenate([s[1] for s in samples])
+    center = feature.seed_precursor_mz
+    radius = _radius(center, config)
+    feature.gapfill_mz_radius_da = radius
     if not len(masses):
-        feature.peak_height = feature.peak_area = feature.intensity = 0.0
         feature.ms1_quant_status = feature.gapfill_status = "no_ms1_signal"
         return
     intensities = np.concatenate([sample[2] for sample in samples])
     offsets = np.empty(len(samples) + 1, dtype=np.int64)
     offsets[0] = 0
     np.cumsum([len(sample[1]) for sample in samples], out=offsets[1:])
-    ordered_masses = np.sort(masses)
-    # Bound each cluster's full diameter: no chain of close masses can span the query.
-    centers = []
-    start = 0
-    while start < len(masses):
-        end = int(
-            np.searchsorted(
-                ordered_masses,
-                ordered_masses[start] + 2 * _radius(ordered_masses[start], config),
-                side="right",
-            )
-        )
-        centers.append(float(np.median(ordered_masses[start:end])))
-        start = end
+    # Keep the seed's exact mass anchor. Recentring could admit a different ion
+    # outside the normal MS1 tolerance, and overlapping candidate windows could
+    # count one centroid twice in the former 3x "ambiguous_mass" comparison.
+    y = _eic(masses, intensities, offsets, center, radius)
     dt = float(np.median(np.diff(t))) if len(t) > 1 else 0.0
     local = np.abs(t - feature.seed_rt_seconds) <= max(config.ms2_rt_tolerance, 2 * dt)
-    candidates = []
-    search = max(
-        config.tuning_search_da,
-        feature.seed_precursor_mz * config.tuning_search_ppm * 1e-6,
-        _radius(feature.seed_precursor_mz, config),
-    )
-    for center in centers:
-        if abs(center - feature.seed_precursor_mz) > search:
-            continue
-        y = _eic(masses, intensities, offsets, center, _radius(center, config))
-        height = float(np.max(y[local], initial=0.0))
-        if height > 0:
-            candidates.append((height, center, y))
-    if not candidates:
-        # An ion elsewhere in the broad time query is not evidence for this MS2.
+    if np.max(y[local], initial=0.0) <= 0:
+        # An ion elsewhere in the time query is not evidence for this MS2.
         feature.ms1_quant_status = feature.gapfill_status = "no_local_ms1_signal"
         return
-    candidates.sort(key=lambda item: (-item[0], abs(item[1] - feature.seed_precursor_mz)))
-    # Prefer candidates inside the independently learned precursor tolerance.
-    precursor_radius = max(
-        config.ms2_mz_tolerance_da, feature.seed_precursor_mz * config.ms2_mz_tolerance_ppm * 1e-6
-    )
-    close = [c for c in candidates if abs(c[1] - feature.seed_precursor_mz) <= precursor_radius]
-    candidates = close or candidates
-    if len(candidates) > 1 and candidates[0][0] < 3 * candidates[1][0]:
-        feature.ms1_quant_status = feature.gapfill_status = "ambiguous_mass"
-        return
-    _, center, y = candidates[0]
     feature.mz = center
-    feature.gapfill_mz_radius_da = _radius(center, config)
     a, b = _local_bounds(t, y, feature.seed_rt_seconds, config)
     if (
         not t[a] - config.ms2_rt_tolerance

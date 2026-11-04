@@ -130,7 +130,7 @@ from masscubex import Config, process_file
 result = process_file(
     "sample.mzXML",
     "features/sample.parquet",
-    config=Config(noise_window_da=50, noise_sigma=3, min_scans=5),
+    config=Config(noise_layout="bins", noise_window_da=100, noise_sigma=3, min_scans=5),
     resume=True,
 )
 print(result.features, result.elapsed_seconds)
@@ -235,19 +235,23 @@ Old configuration files containing `4` retain that explicit value; override
 with `--ms2-max-isolation-width 0` or update the JSON.
 
 By default, an unmatched single-precursor MS2 with usable m/z and time creates
-an **MS2-seeded feature**. With supported calibration, a broad search finds a
-candidate ion, a narrow raw EIC supplies height/area, and local peak boundaries
+an **MS2-seeded feature**. A narrow raw EIC anchored at its precursor m/z
+supplies height/area. With supported calibration, local peak boundaries
 define integration. Repeated scans merge only after recovering the same MS1
 apex. Insufficient evidence uses a fixed ±5-second window and separate
-±max(0.002 Da, 10 ppm) mass radius. Both modes bypass the MS1 detection threshold
+±max(0.002 Da, 10 ppm) fallback mass radius. Both modes cap the radius at the
+normal MS1 tolerance; a wider gap-fill override cannot broaden it. They bypass the MS1 detection threshold
 and minimum scan count. Existing detected-feature assignments are preserved.
 
 Use `--ms2-gapfill-rt-window SECONDS` to change that half-window, or
 `--no-ms2-seeded-features` to keep only independently detected MS1 features.
-`feature_origin` and `ms1_quant_status` identify the added rows. Zero means
-MS1 scans were available but no signal was found; blank quantification means
-MS1 was unavailable, ambiguous, outside local peak support, or exceeded the
-bounded query limits. Unusable precursor metadata,
+`feature_origin` and `ms1_quant_status` identify the added rows. If no MS1 ion
+is found, height is imputed as 0.1× regional noise, with status `imputed_noise`,
+missing area and zero observed scans. `apex_noise_threshold` records the noise
+reference; it is the median positive threshold from up to the three closest
+compatible MS1 scans in the query window. Use `--gapfill-noise-fraction 0` to
+leave height missing instead. Missing scans, unsupported noise, unresolved
+polarity, local-peak mismatch and exceeded limits remain blank. Unusable precursor metadata,
 multiprecursor spectra, and an explicitly enabled width cutoff are recorded
 per scan in the JSON sidecar's `unassigned_ms2`, with native IDs, source indices
 and reasons. The sidecar counts partition all parsed MS2 into assigned and
@@ -305,16 +309,16 @@ Missing scalars are null in Parquet and blank cells in TSV.
 | Column | Meaning |
 | --- | --- |
 | `feature_id` | Sequential identifier within this file |
-| `mz` | Intensity-weighted mean for detected features; refined MS1 center or fallback precursor m/z for seeded features |
+| `mz` | Intensity-weighted mean for detected features; original precursor m/z for seeded features |
 | `rt_apex_seconds` | Time of its highest original intensity |
 | `rt_start_seconds`, `rt_end_seconds` | Integration boundaries |
-| `peak_height` | Detected peak height or maximum raw MS1 intensity in the seed window; blank if unavailable |
+| `peak_height` | Detected/raw MS1 height, or a labelled noise-derived estimate when status is `imputed_noise`; blank if unavailable |
 | `peak_area` | Trapezoidal integral, intensity × seconds; seeded rows integrate refined local bounds or the fallback window |
 | `scan_count` | Number of observed nonzero MS1 samples |
-| `apex_noise_threshold` | Local MS1 threshold at the feature apex |
+| `apex_noise_threshold` | Local MS1 threshold at the detected apex; regional reference for an imputed seed |
 | `polarity` | `positive`, `negative`, or `unknown` |
 | `feature_origin` | `ms1_detected` or `ms2_seeded` |
-| `ms1_quant_status` | `detected`, `gap_filled`, `no_ms1_signal`, `no_ms1_scans`, `ambiguous_polarity`, `ambiguous_mass`, `no_local_ms1_signal`, `no_local_peak`, or `sampling_limit` |
+| `ms1_quant_status` | `detected`, `gap_filled`, `imputed_noise`, `no_ms1_signal`, `no_ms1_scans`, `ambiguous_polarity`, `no_local_ms1_signal`, `no_local_peak`, or `sampling_limit` |
 | `seed_precursor_mz`, `seed_rt_seconds` | Original first MS2 anchor for seeded rows; blank for detected rows |
 | `gapfill_status` | `fixed_window`, `peak_bounds`, `single_observation`, or a refinement failure status; blank for detected rows |
 | `gapfill_mz_radius_da` | Actual narrow EIC radius when measured; blank if unavailable |
@@ -334,11 +338,11 @@ available; `--quant-method` records the preferred measurement once in
 measurements. Best-spectrum ranking is in `config.best_ms2`. A height/threshold
 ratio can be calculated when the threshold is nonzero; it is not a statistical S/N.
 
-`ambiguous_mass` means a seeded MS2 feature has multiple eligible nearby MS1
-mass candidates, and the strongest candidate's local height is less than
-three times the next candidate's. The precursor alone cannot distinguish them
-confidently. Keep the MS2 references but leave MS1 height/area blank instead of
-quantifying a possibly different ion. See [refinement details](AUTO_TUNING.md).
+`ambiguous_mass` is a historical v0.9 status, no longer emitted. Its broad
+candidate search compared the two highest local MS1 heights; a ratio below
+3 caused missing quantification. Overlapping candidate windows could count
+the same centroid twice. Version 0.10 uses one precursor-anchored EIC within
+the normal MS1 tolerance and removes that rule. See the [audit](../benchmarks/results/EIC_REVIEW.md).
 
 MS2 arrays are ordered by acquisition and correspond position by position.
 A native number is never invented from a spectrum index. Parquet lists are

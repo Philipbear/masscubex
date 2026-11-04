@@ -20,7 +20,9 @@ def test_default_quantification_and_numbered_catalog(capsys):
     assert config["noise_estimator"] == "low_tail"
     assert config["noise_fraction"] == 0.10
     assert config["noise_sigma"] == 3
-    assert config["noise_window_da"] == 50
+    assert config["noise_window_da"] == 100
+    assert config["noise_layout"] == "bins"
+    assert config["gapfill_noise_fraction"] == 0.1
     assert config["noise_min_neighbors"] == 5
     assert Config.from_dict(config) == Config()
     assert main(["adducts", "--json"]) == 0

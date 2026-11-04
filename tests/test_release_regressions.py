@@ -101,7 +101,7 @@ def test_refined_queries_release_finished_slices_and_enforce_collection_limit(
     )
     spectra = []
     for t in range(81):
-        mass = np.linspace(99.96, 100.04, 81) if dense else np.array([100.0])
+        mass = np.linspace(99.9984, 100.0016, 81) if dense else np.array([100.0])
         y = np.full(len(mass), 1 + 4 * np.exp(-0.5 * ((t % 20 - 10) / 2) ** 2))
         spectra.append(mzml_spectrum(t, t, mass, y))
         if t in (10, 30, 50, 70):

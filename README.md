@@ -55,13 +55,15 @@ default; `--executor thread` is also available.
 - **Automatic calibration:** broad initial mass search, then at least 20 qualified
   peaks per polarity to learn mass and time settings; explicit fallbacks when
   evidence is insufficient. Polarity-switching files use separate streams.
-- **MS1 noise:** 50 Da window, lowest 10% of positive neighbors, minimum 5,
+- **MS1 noise:** fixed 100 Da bins, lowest 10% of positive samples, minimum 5,
   threshold μ + 3σ. Profile MS1 is centroided automatically.
 - **MS/MS:** all associated scan IDs and the best scan, selected by summed
   fragment intensity. The isolation-width cutoff is disabled.
 - **Unmatched MS/MS:** create a marked precursor feature and gap-fill raw MS1
   height and area using local peak boundaries when calibration is supported.
-  The fallback search is ±5 seconds. Ambiguous measurements remain labelled. Unusable
+  Mass windows never exceed the normal MS1 tolerance. If no ion is found,
+  height is imputed as 0.1× regional noise and labelled; area remains missing.
+  The fallback time window is ±5 seconds. Unusable
   precursor metadata is reported with scan IDs and reasons in the JSON sidecar.
 - **Ion grouping:** on by default; selected adducts and water-loss candidates are
   listed by `masscubex adducts`.
@@ -95,6 +97,7 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
 - [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
 - [Compact output and feature-count comparison with original MassCube](benchmarks/results/OUTPUT_AND_COUNTS.md)
+- [Blank/QC EIC review, noise bins and strict MS1 gap filling](benchmarks/results/EIC_REVIEW.md)
 - [Processing times, worker scaling and two-million-file estimates](benchmarks/results/PERFORMANCE.md)
 - [Code structure and numerical development checks](docs/DEVELOPMENT.md)
 

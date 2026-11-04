@@ -1,5 +1,27 @@
 # MassCubeX validation
 
+## Version 0.10.0: blank/QC EIC review and strict MS1 gap filling
+
+**580 source tests and 580 isolated installed-wheel tests pass locally; lint
+passes.** The [EIC review](EIC_REVIEW.md) compares raw signals, actual original
+MassCube traces and reported intervals, including equal-floor controls. Of 64
+historical ambiguous blank/QC seeds, 56 counted the same raw centroid twice.
+The broad gap-fill mass search and its 3× candidate rule are removed.
+
+Fixed 100 Da noise bins use the lowest 10% / minimum 5 / μ + 3σ rule. Missing
+local MS1 signals can receive a clearly labelled 0.1× noise height, with missing
+area. The [independent 50-file audit](MSV000086989-ms2-v0.10.0.json) verifies all
+125,266 MS2 references, 4,653 raw seeded measurements and 121 imputed heights.
+All [1,555,304 Parquet/TSV rows agree](eic-revision-v0.10.0.json). Replaying the
+old noise setting preserves all **465,664 blank/QC detected-feature measurements
+and MS2 links** exactly; tracking and segmentation were not changed.
+
+Bins produce 0.98% more detected rows than the old sliding setting. They do not
+resolve the observed background splitting. One warm serial sweep of all 50
+files took 60.86 s for processing/Parquet output, excluding independent checks;
+this is not a repeated cross-version speed benchmark. See the
+[release record](release-v0.10.0.json) for the fingerprint and wheel checksum.
+
 ## Version 0.9.0: compact output and original-MassCube count audit
 
 **551 source tests and 551 installed-wheel tests pass.** The

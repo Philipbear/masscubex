@@ -45,6 +45,7 @@ def implementation_id():
         "array_validation.py",
         "scan_cache.py",
         "noise.py",
+        "noise_regions.py",
         "centroid.py",
         "features.py",
         "chromatograms.py",

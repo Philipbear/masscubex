@@ -452,6 +452,7 @@ def warmup():
     from .centroid import centroid_profile
     from .grouping import trace_correlation, _candidate_pairs, sorted_mass_windows
     from .gapfill import eic_intensities
+    from .noise_regions import regional_thresholds
     from .calibration import measure_representative
     from .gapfill_refinement import _eic
 
@@ -469,7 +470,8 @@ def warmup():
     centroid_profile(mz, intensity, np.zeros(2), threshold, 3, 4.0)
     trace = np.column_stack((intensity, np.arange(2, dtype=float)))
     trace_correlation(trace, trace)
-    eic_intensities(mz, intensity, mz, 20.0, 0.01)
+    eic_intensities(mz, intensity, mz, np.full(len(mz), 0.01))
+    regional_thresholds(mz, intensity, mz, config)
     list(summarize_trace(np.column_stack((mz, intensity, mz, threshold)), config))
     measure_representative(np.zeros((2, 4)), 0.05, 100.0)
     ids = np.arange(2, dtype=np.int64)

@@ -117,7 +117,12 @@ def test_legacy_clipped_chromatographic_truth_across_three_noise_scales():
     features = sorted(
         extract_features(
             iter(scans),
-            Config(noise_estimator="clipped", noise_window_da=25, noise_min_neighbors=8),
+            Config(
+                noise_estimator="clipped",
+                noise_layout="sliding",
+                noise_window_da=25,
+                noise_min_neighbors=8,
+            ),
         ),
         key=lambda feature: feature.mz,
     )
@@ -133,8 +138,13 @@ def brute_force_low_tail(mz, intensity, config):
     mean, std = np.zeros(len(mz)), np.zeros(len(mz))
     cutoff = np.full(len(mz), config.min_intensity)
     for i, mass in enumerate(mz):
-        neighbors = (abs(mz - mass) <= config.noise_window_da / 2) & (intensity > 0)
-        neighbors[i] = False
+        if config.noise_layout == "bins":
+            neighbors = (
+                np.floor(mz / config.noise_window_da) == np.floor(mass / config.noise_window_da)
+            ) & (intensity > 0)
+        else:
+            neighbors = (abs(mz - mass) <= config.noise_window_da / 2) & (intensity > 0)
+            neighbors[i] = False
         values = np.sort(intensity[neighbors])
         if len(values) < config.noise_min_neighbors:
             continue
@@ -147,12 +157,15 @@ def brute_force_low_tail(mz, intensity, config):
 
 @pytest.mark.parametrize("fraction", [0.01, 0.05, 0.10, 1.0])
 @pytest.mark.parametrize("window", [4.0, 50.0, 1000.0])
-def test_low_tail_agrees_with_independent_sorted_window_reference(fraction, window):
+@pytest.mark.parametrize("layout", ["bins", "sliding"])
+def test_low_tail_agrees_with_independent_sorted_window_reference(fraction, window, layout):
     rng = np.random.default_rng(183)
     mz = 100 + np.cumsum(rng.uniform(0, 0.7, 300))
     intensity = np.round(rng.lognormal(4, 2, len(mz)))  # Ties and zero values.
     intensity[::9] = 0
-    cfg = Config(noise_fraction=fraction, noise_window_da=window, min_intensity=3.0)
+    cfg = Config(
+        noise_fraction=fraction, noise_window_da=window, noise_layout=layout, min_intensity=3.0
+    )
     expected = brute_force_low_tail(mz, intensity, cfg)
     actual = estimate_noise(mz, intensity, cfg)
     np.testing.assert_allclose(actual, expected, rtol=1e-11, atol=1e-10)
@@ -161,7 +174,7 @@ def test_low_tail_agrees_with_independent_sorted_window_reference(fraction, wind
 def test_low_tail_minimum_expands_10_percent_to_five_and_excludes_candidate():
     mz = np.linspace(100, 110, 41)
     intensity = np.arange(1, 42, dtype=float)
-    mean, std, cutoff = estimate_noise(mz, intensity)
+    mean, std, cutoff = estimate_noise(mz, intensity, Config(noise_layout="sliding"))
     # Forty neighbors -> ceil(10% * 40) = 4, expanded to 5.
     # Candidate 1 is excluded, so its five background points are 2,...,6.
     assert mean[0] == np.mean(np.arange(2, 7))
@@ -193,7 +206,7 @@ def test_profile_zero_padding_is_not_a_background_reference():
 def test_exact_minimum_and_inclusive_physical_window_boundary():
     mz = np.array([100, 110, 120, 125, 140, 150], dtype=float)
     intensity = np.arange(1, 7, dtype=float)
-    cfg = Config()
+    cfg = Config(noise_layout="sliding", noise_window_da=50)
     result = estimate_noise(mz, intensity, cfg)
     expected = brute_force_low_tail(mz, intensity, cfg)
     np.testing.assert_allclose(result, expected)
@@ -244,7 +257,7 @@ def test_lazy_noise_moments_follow_repeated_empty_and_refilled_rank_subtrees(fra
         [rng.integers(1, 100, 64) * scale for scale in (1.0, 1e8, 1.0, 1e8, 1.0, 1e8)]
     )
     intensity[::7] = 0
-    config = Config(noise_fraction=fraction, noise_window_da=8.0)
+    config = Config(noise_fraction=fraction, noise_window_da=8.0, noise_layout="sliding")
     actual = estimate_noise(mz, intensity, config)
     expected = brute_force_low_tail(mz, intensity, config)
     np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)

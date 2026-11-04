@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.9.0 processing path,
+This document describes the implemented MassCubeX 0.10.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -19,7 +19,7 @@ the old `masscube` package. The comparisons below refer to that exact commit.
 | Component | Relationship to the cloned MassCube implementation |
 | --- | --- |
 | Input scope | Replaced the vendor/cache-oriented readers with streaming mzML/mzXML readers, including gzip. The cloned commit's reader explicitly rejected mzXML; this fork implements it directly. |
-| MS1 noise | Replaced fixed absolute cutoffs with a moving m/z background. Version 0.3.2 defaults to a 50 Da window and the lowest-intensity 10% of positive neighbors, expanded to at least 5, followed by mean + 3 standard deviations of that subset, with the detection multiplier fixed at 3 (§3). The earlier clipped estimator and an absolute floor remain selectable. |
+| MS1 noise | Replaced fixed absolute cutoffs with regional m/z background. Version 0.10 defaults to fixed 100 Da bins and the lowest-intensity 10% of positive samples, expanded to at least 5, followed by mean + 3 standard deviations of that subset (§3). Historical sliding windows, clipped estimates and an absolute floor remain selectable. |
 | Profile mass detection | Added explicit profile peak detection and numerical first-moment centroiding (§4). This differs from upstream `centroid_signals`, which merged adjacent masses separated by less than 0.002 Da and summed their intensities. |
 | Trace building | Retained the concept of matching successive MS1 peaks into ion traces; replaced Python per-centroid objects/list updates with compiled array pools, changed matching to a running intensity-weighted mass, and added a time-gap limit (§5). |
 | Chromatographic splitting | Retained Gaussian smoothing plus peak prominence as a concept; reimplemented splitting and area boundaries. The default relative prominence is 0.1 rather than upstream's 0.03. The old shape/noise-score gate and above-median peak requirement are not retained (§6). |
@@ -128,7 +128,43 @@ centroid zeros/duplicate coordinates have been handled, but including profile
 zero samples. `retained_centroids` counts accepted centroid entries or detected
 profile masses. Their ratio on profile data is not a noise-removal percentage.
 
-## 3. New MS1 algorithm: moving low-intensity background across m/z
+## 3. New MS1 algorithm: low-intensity background across m/z
+
+### Default since 0.10: fixed 100 Da bins
+
+Each MS1 scan is processed independently. Bin edges are anchored at zero:
+`[0, 100)`, `[100, 200)`, `[200, 300)`, etc. A point exactly at 200 belongs
+to `[200, 300)`. `--noise-window-da` controls bin width; `--noise-layout bins`
+is the default. Bins never pool scans, retention times or polarities.
+
+For each bin with `N` positive intensities, select its lowest
+`k = max(5, ceil(0.10 × N))` values. Compute the mean and population standard
+deviation (`ddof=0`) of **that same subset**, then use
+`threshold = max(min_intensity, μ + 3σ)`. All points in the bin share one
+threshold, including points in the selected subset; there is no per-point
+leave-one-out exclusion. Zero padding does not contribute. Fewer than five
+positive samples gives an unsupported estimate and uses only `min_intensity`
+(zero by default). Empty neighboring bins are not borrowed.
+
+Numba partitions each bin once to select the low tail; it does not sort a
+separate neighborhood for every mass. Moments are calculated after shifting
+by a selected value to preserve small variation on a large baseline. Overflow
+raises a file error. Centroid intensities must be strictly above the threshold;
+profile samples use the complete grid and the same thresholds for centroiding.
+Intensity itself is not smoothed or baseline-subtracted.
+
+This change simplifies the regional noise estimate; it does **not** guarantee
+stronger filtering or correct over-splitting of persistent chromatographic
+background. A standard deviation of a truncated low tail is not a calibrated
+false-positive probability. The [raw EIC audit](../benchmarks/results/EIC_REVIEW.md)
+shows both plausible weak peaks and excessive splitting. Peak tracking and
+chromatographic segmentation have not been changed in 0.10.
+
+### Historical sliding estimator, still selectable
+
+Use `--noise-layout sliding --noise-window-da 50` to reproduce the v0.9 noise
+neighborhood (±25 Da). A width of 100 gives the optional ±50 Da sliding window.
+The following subsections document this historical sliding implementation.
 
 This estimator operates separately on every MS1 scan. It estimates local
 background along the **physical m/z axis**, not along retention time. It does
@@ -141,9 +177,9 @@ of the neighboring positive points. "Lowest 10%" refers to rank by intensity,
 not the last 10% of m/z coordinates or a percentage of cumulative intensity.
 There is no smoothing of the whole spectrum or averaging of all local peaks.
 
-### Default reference subset, moments and threshold
+### Sliding reference subset, moments and threshold
 
-Let `W` be the full window width (default 50 Da, ±25 Da), `p` the low-intensity fraction
+Let `W` be the full window width (v0.9: 50 Da, ±25 Da), `p` the low-intensity fraction
 (0.10), `B` the minimum selected background count (5), `s` the detection
 multiplier (fixed at 3), and `F` the absolute intensity floor (0). For each candidate:
 
@@ -242,7 +278,7 @@ per m/z point, full sliding-window matrix, or nested Numba thread pool.
 
 ### Previous optional estimator: iteratively clipped moments
 
-`noise_estimator="clipped"` preserves the 0.2.0 algorithm for comparison.
+`noise_estimator="clipped"` with `noise_layout="sliding"` preserves the 0.2.0 algorithm for comparison.
 `noise_clip_sigma` and `noise_iterations` apply **only** to this estimator;
 `noise_fraction` applies **only** to `low_tail`. The legacy estimator starts
 from all points, including profile zeros, before clipping strong candidates.
@@ -250,8 +286,8 @@ from all points, including profile zeros, before clipping strong candidates.
 Let `W` be the configured full window width, `K` the clipping-iteration count
 (default 2), `c` the clipping multiplier (2), `s` the fixed detection multiplier (3),
 `B` the configured minimum background-neighbor count, and `F` the absolute floor (0).
-The current shared defaults are `W=50` and `B=5`. For the historical 0.2.0
-behavior, select `clipped` together with `noise_window_da=25` and
+The current shared defaults are `W=100` and `B=5`. For the historical 0.2.0
+behavior, select `clipped` with `noise_layout="sliding"`, `noise_window_da=25` and
 `noise_min_neighbors=8`; the diagnostic script pins those historical settings.
 
 #### Legacy window, moments and clipping
@@ -628,11 +664,11 @@ spectrum order. Keep all existing detected-feature assignments unchanged.
 A seed requires one precursor, a usable precursor m/z and retention time,
 and no exclusion by an explicitly configured isolation-width limit.
 
-A polarity with at least 20 qualified representatives uses the refined mode:
-search broadly around each precursor, retain complete raw slices with boundary
-padding, identify a narrow EIC, find local chromatographic bounds, then merge
-queries only when they recover the same mass/polarity and original MS1 apex.
-Comparable nearby candidate ions give blank quantification (`ambiguous_mass`).
+A polarity with at least 20 qualified representatives uses refined time bounds:
+extract one narrow EIC anchored at the exact precursor mass, find local
+chromatographic bounds, then merge queries only when they recover the same
+mass/polarity and original MS1 apex. Version 0.10 removes the broad mass search
+and its 3× candidate-ranking rule (`ambiguous_mass` in older tables).
 The complete algorithm, quality rules, safety limits and constants are in
 [AUTO_TUNING.md](AUTO_TUNING.md#refined-raw-ms1-gap-filling).
 
@@ -641,9 +677,11 @@ window `[max(0, t − w), t + w]`, where `w=5` seconds by default. Reuse a seed
 only within its separate `ms2_seed_rt_tolerance` (5 seconds) of the original
 anchor and within the resolved MS2 mass tolerance. Ties use mass difference,
 anchor-time difference and feature order. The window never expands through
-repeated MS2 scans. Its raw MS1 mass radius is now independently configured:
-`max(gapfill_mz_tolerance_da, p × gapfill_mz_tolerance_ppm × 1e−6)`, with
-fallback 0.002 Da / 10 ppm. Version 0.4.0 used the broader MS2 matching radius.
+repeated MS2 scans. Both modes cap the mass radius at the normal MS1 radius:
+`min(max(gapfill_Da, p × gapfill_ppm × 1e−6), max(MS1_Da, p × MS1_ppm × 1e−6))`.
+The two configured radii default to 0.002 Da / 10 ppm, and calibration normally
+sets both to the same learned values. A wider explicit gap-fill override is
+capped; a narrower one is honored. The precursor center never moves.
 
 Both modes stream raw MS1 once for all seeds using per-polarity active-query
 schedules. No adaptive detection threshold or minimum feature scan count is
@@ -673,20 +711,33 @@ may support one known MS2 polarity, but never both positive and negative MS2
 streams. Known polarity without corresponding MS1 scans stays unavailable.
 
 Rows have `feature_origin=ms2_seeded` or `ms1_detected`. Seeds retain original
-`seed_precursor_mz` and `seed_rt_seconds`; refined measurements may change `mz`
-and integration bounds. `gapfill_mz_radius_da` records the actual measurement
+`seed_precursor_mz` and `seed_rt_seconds`; seeded `mz` stays at the precursor
+anchor while refined time bounds may change. `gapfill_mz_radius_da` records the measurement
 radius. `gapfill_status` distinguishes `fixed_window`, `peak_bounds`,
 `single_observation` and unsuccessful refinement. `scan_count` counts positive
-MS1 observations. Noise threshold/ratio are blank for seeds.
+MS1 observations. Measured seeds have no detection threshold. When no MS1 ion
+is present (including no local signal near the seed time), estimate regional
+noise independently in up to the three closest compatible MS1 scans in the
+query window. Use the median of their positive thresholds; each threshold is
+the same bin's μ + 3σ, including any explicit minimum floor. Unsupported zero
+thresholds supply no imputation evidence. Set height to 0.1× that reference,
+area to missing, `scan_count=0`, and `ms1_quant_status=imputed_noise`.
+`apex_noise_threshold` holds the reference used; there is no measured apex for
+this row. `gapfill_status` retains the absence reason. No trace is manufactured
+for grouping. `--gapfill-noise-fraction 0` disables imputation. Unknown polarity,
+missing scans, unsupported noise, local-peak mismatch and sampling limits do
+not receive fabricated heights. An actual below-threshold MS1 ion is measured
+normally, even if weaker than this possible placeholder.
 
 | `ms1_quant_status` | Meaning and quantitative output |
 | --- | --- |
 | `detected` | Normal MS1 detection |
 | `gap_filled` | Raw MS1 measurement; height/area populated |
-| `no_ms1_signal` | Compatible scans but no signal; height/area zero |
+| `imputed_noise` | No MS1 signal; height is 0.1× regional threshold, area missing |
+| `no_ms1_signal` | Compatible scans but no signal and no usable/enabled imputation; blank |
 | `no_ms1_scans` | No compatible MS1 scans; quantitative fields blank |
 | `ambiguous_polarity` | No defensible MS1 polarity; blank |
-| `ambiguous_mass` | Competing local candidate ions; blank |
+| `ambiguous_mass` | Historical v0.9 candidate ranking only; no longer emitted |
 | `no_local_ms1_signal` | Broad query has ions but none near the seed time; blank |
 | `no_local_peak` | Recovered peak bounds do not support the seed time; blank |
 | `sampling_limit` | Query exceeds the documented bounded collection limits; blank |
@@ -1060,6 +1111,7 @@ settings. Full derivations and override semantics: [AUTO_TUNING.md](AUTO_TUNING.
 | `peak_distance_seconds` | `--peak-distance-seconds` | 0 means use scan units; calibrated when enabled |
 | `ms2_seed_rt_tolerance` | `--ms2-seed-rt-tolerance` | 5 s fallback; seed reuse independently of the search half-window |
 | `gapfill_mz_tolerance_ppm`, `gapfill_mz_tolerance_da` | `--gapfill-mz-ppm`, `--gapfill-mz-da` | 10 ppm / 0.002 Da fallback; raw-MS1 measurement radius |
+| `gapfill_noise_fraction` | `--gapfill-noise-fraction` | 0.1; imputed height / regional threshold; 0 disables |
 | `precursor_max_age_seconds` | `--precursor-max-age-seconds` | 15 s fallback; preceding-MS1 precursor-intensity age limit |
 | `gapfill_max_gap_seconds` | `--gapfill-max-gap-seconds` | 15 s fallback; maximum integrated gap-fill interval |
 | `mz_tolerance_ppm` | `--mz-ppm` | 10; trace-matching ppm |
@@ -1067,7 +1119,8 @@ settings. Full derivations and override semantics: [AUTO_TUNING.md](AUTO_TUNING.
 | `noise_mode` | `--noise` | `adaptive`; alternative `none` |
 | `noise_estimator` | `--noise-estimator` | `low_tail`; alternative `clipped` (the 0.2.0 estimator) |
 | `noise_fraction` | `--noise-fraction` | 0.10; positive fraction ≤ 1, used by `low_tail` |
-| `noise_window_da` | `--noise-window-da` | 50 Da full width (±25 Da) |
+| `noise_layout` | `--noise-layout` | `bins`; optional `sliding` |
+| `noise_window_da` | `--noise-window-da` | 100 Da bin width; full width in sliding mode |
 | `noise_sigma` | `--noise-sigma` | Fixed at 3; other values rejected by API, JSON and CLI |
 | `noise_clip_sigma` | `--noise-clip-sigma` | 2; background-clipping multiplier, `clipped` only |
 | `noise_iterations` | `--noise-iterations` | 2; integer ≥ 0, `clipped` only |

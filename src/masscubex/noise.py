@@ -1,8 +1,7 @@
-"""Moving MS1 background from low-intensity neighbors along physical m/z.
+"""MS1 background from low-intensity samples in physical m/z regions.
 
-The default uses the weakest fraction with a minimum count. A sliding rank
-tree supplies low-tail counts/moments without sorting every window.
-The previous clipped-moments estimator remains selectable for comparison.
+The default uses one estimate per fixed bin. The historical sliding rank tree
+and clipped-moments estimator remain selectable for explicit comparisons.
 """
 
 import numpy as np
@@ -10,6 +9,7 @@ from numba import njit
 
 from .config import Config
 from .array_validation import normalized_arrays
+from .noise_regions import estimate_bins
 
 
 @njit(cache=True, inline="always")
@@ -292,6 +292,18 @@ def estimate_noise(mz, intensity, config: Config | None = None):
         raise ValueError("Noise estimation requires sorted finite m/z and nonnegative intensity")
     if config.noise_mode == "none":
         return np.zeros(mz.size), np.zeros(mz.size), np.full(mz.size, config.min_intensity)
+    if config.noise_layout == "bins":
+        return estimate_bins(
+            mz,
+            intensity,
+            float(config.noise_window_da),
+            float(config.noise_fraction),
+            config.noise_min_neighbors,
+            float(config.min_intensity),
+            config.noise_estimator == "clipped",
+            config.noise_iterations,
+            float(config.noise_clip_sigma),
+        )
     if config.noise_estimator == "low_tail":
         return _estimate_low_tail(
             mz,

@@ -33,7 +33,7 @@ def test_raw_weak_measurement_uses_narrow_mass_and_local_boundaries():
     config = Config(min_intensity=100, smoothing_seconds=0.3, peak_distance_seconds=2)
     refine_measurement(f, m, config)
     assert f.ms1_quant_status == "gap_filled" and f.gapfill_status == "peak_bounds"
-    assert f.mz == 100 and f.peak_height == pytest.approx(4, rel=1e-6)
+    assert f.mz == f.seed_precursor_mz == 100.0001 and f.peak_height == pytest.approx(4, rel=1e-6)
     assert f.rt_start_seconds > 10 and f.rt_end_seconds < 36.1
     assert f.peak_area == pytest.approx(4 * 2 * np.sqrt(2 * np.pi), rel=0.03)
     assert f.gapfill_mz_radius_da == 0.002
@@ -43,11 +43,12 @@ def test_raw_weak_measurement_uses_narrow_mass_and_local_boundaries():
     assert f.peak_area == pytest.approx(np.sum(np.diff(t) * (y[:-1] + y[1:]) / 2))
 
 
-def test_competing_local_ions_retain_ms2_but_do_not_invent_quantification():
+def test_ion_outside_ms1_tolerance_cannot_compete_for_gapfill():
     f, m = measure(close_competitor=True)
     refine_measurement(f, m, Config())
-    assert f.ms1_quant_status == f.gapfill_status == "ambiguous_mass"
-    assert f.peak_height is None and f.peak_area is None
+    assert f.ms1_quant_status == "gap_filled"
+    assert f.peak_height == pytest.approx(4)
+    assert f.mz == f.seed_precursor_mz
 
 
 def test_repeated_queries_merge_by_recovered_apex_not_broad_window():
@@ -72,7 +73,7 @@ def test_limits_and_no_signal_are_explicit():
     f, m = measure()
     m.samples = [(t, np.array([]), np.array([])) for t, _, _ in m.samples]
     refine_measurement(f, m, Config())
-    assert f.ms1_quant_status == "no_ms1_signal" and f.peak_height == 0
+    assert f.ms1_quant_status == "no_ms1_signal" and f.peak_height is None
 
 
 def test_time_based_segmentation_is_stable_across_scan_rates():
@@ -89,7 +90,7 @@ def test_time_based_segmentation_is_stable_across_scan_rates():
     np.testing.assert_allclose(apices, [[8, 20]] * 3, atol=0.4)
 
 
-def test_broad_search_edge_retains_complete_narrow_eic(tmp_path, monkeypatch):
+def test_broad_search_cannot_borrow_a_different_ms1_ion(tmp_path, monkeypatch):
     from masscubex.tuning import TuningResult
     from masscubex import pipeline
     from conftest import mzml_spectrum, write_mzml
@@ -114,7 +115,9 @@ def test_broad_search_edge_retains_complete_narrow_eic(tmp_path, monkeypatch):
     )
     source = write_mzml(tmp_path / "edge.mzML", spectra)
     (row,), _ = outputs(source, tmp_path / "out.tsv", config)
-    assert row["gapfill_status"] == "peak_bounds"
-    assert float(row["peak_height"]) == 4
-    assert float(row["peak_area"]) == 15
-    assert row["scan_count"] == "7"
+    assert row["gapfill_status"] == "no_ms1_signal"
+    assert row["ms1_quant_status"] == "imputed_noise"
+    assert float(row["peak_height"]) == 10  # 0.1 * explicit noise floor, not the neighboring ion.
+    assert row["peak_area"] == ""
+    assert row["scan_count"] == "0"
+    assert row["ms2_count"] == "1"

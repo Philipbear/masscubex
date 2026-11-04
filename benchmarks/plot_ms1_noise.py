@@ -58,6 +58,7 @@ def main():
     if not args.mz_min < args.mz_max:
         parser.error("Require mz-min < mz-max")
     config = Config(
+        noise_layout="sliding",
         noise_estimator="clipped",
         noise_sigma=args.noise_sigma,
         noise_window_da=25,

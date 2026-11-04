@@ -37,10 +37,13 @@ def main():
     parser.add_argument("--noise-fraction", type=float, default=defaults.noise_fraction)
     parser.add_argument("--noise-min-neighbors", type=int, default=defaults.noise_min_neighbors)
     parser.add_argument("--noise-window-da", type=float, default=defaults.noise_window_da)
+    parser.add_argument(
+        "--noise-layout", choices=("bins", "sliding"), default=defaults.noise_layout
+    )
     parser.add_argument("--noise-sigma", type=float, choices=(3.0,), default=defaults.noise_sigma)
     parser.add_argument(
         "--comparison",
-        choices=("five-percent", "previous-defaults", "clipped"),
+        choices=("five-percent", "previous-defaults", "clipped", "v0.9"),
         default="five-percent",
     )
     parser.add_argument("--axis-multiple", type=float, default=3.5)
@@ -53,13 +56,18 @@ def main():
         noise_fraction=args.noise_fraction,
         noise_min_neighbors=args.noise_min_neighbors,
         noise_window_da=args.noise_window_da,
+        noise_layout=args.noise_layout,
         noise_sigma=args.noise_sigma,
     )
     if args.comparison == "five-percent":
         previous = replace(current, noise_fraction=0.05)
         previous_label = f"Lowest 5%, min {previous.noise_min_neighbors}"
+    elif args.comparison == "v0.9":
+        previous = replace(current, noise_layout="sliding", noise_window_da=50)
+        previous_label = "v0.9: lowest 10%, min 5, sliding"
     else:
         previous = Config(
+            noise_layout="sliding",
             noise_estimator="clipped" if args.comparison == "clipped" else "low_tail",
             noise_window_da=25,
             noise_fraction=0.05,
@@ -79,12 +87,18 @@ def main():
     new_keep, old_keep = scan.intensity > new_cutoff, scan.intensity > old_cutoff
     extra = new_keep & ~old_keep
     positive_mz = scan.mz[scan.intensity > 0]
-    half = current.noise_window_da / 2
-    neighbors = (
-        np.searchsorted(positive_mz, scan.mz + half, side="right")
-        - np.searchsorted(positive_mz, scan.mz - half, side="left")
-        - (scan.intensity > 0).astype(int)
-    )
+    if current.noise_layout == "bins":
+        edges = np.floor(scan.mz / current.noise_window_da) * current.noise_window_da
+        neighbors = np.searchsorted(positive_mz, edges + current.noise_window_da) - np.searchsorted(
+            positive_mz, edges
+        )
+    else:
+        half = current.noise_window_da / 2
+        neighbors = (
+            np.searchsorted(positive_mz, scan.mz + half, side="right")
+            - np.searchsorted(positive_mz, scan.mz - half, side="left")
+            - (scan.intensity > 0).astype(int)
+        )
     selected = np.where(
         neighbors >= current.noise_min_neighbors,
         np.maximum(current.noise_min_neighbors, np.ceil(neighbors * current.noise_fraction)),
@@ -95,7 +109,7 @@ def main():
         raise ValueError("Choose a window with supported, nonzero background")
     limits = [
         args.axis_multiple * float(np.median(old_cutoff[window])),
-        args.axis_multiple * float(np.median(new_mean[window])),
+        args.axis_multiple * float(np.median(new_cutoff[window])),
     ]
     counts = {}
     for name, mask in (("shown_window", window), ("whole_scan", all_points)):
@@ -236,7 +250,7 @@ def main():
     titles = [
         f"Before filtering · {n} centroids (new threshold overlaid)",
         f"{previous_label} · {previous.noise_window_da:g} Da · {int((window & old_keep).sum())}/{n} kept",
-        f"Lowest {100 * current.noise_fraction:g}%, min {current.noise_min_neighbors} · {current.noise_window_da:g} Da · {int((window & new_keep).sum())}/{n} kept",
+        f"Lowest {100 * current.noise_fraction:g}%, min {current.noise_min_neighbors} · {current.noise_window_da:g} Da {current.noise_layout} · {int((window & new_keep).sum())}/{n} kept",
     ]
     fig, axes = plt.subplots(3, 2, figsize=(14, 10.5))
     fig.subplots_adjust(left=0.075, right=0.98, bottom=0.17, top=0.80, hspace=0.40, wspace=0.23)
@@ -261,7 +275,7 @@ def main():
     )
     for x, heading, value in (
         (0.075, "Comparison cutoff scale", np.median(old_cutoff[window])),
-        (0.575, "New background zoom", np.median(new_mean[window])),
+        (0.575, "New cutoff scale", np.median(new_cutoff[window])),
     ):
         fig.text(x, 0.885, heading, fontsize=16, weight="bold")
         fig.text(

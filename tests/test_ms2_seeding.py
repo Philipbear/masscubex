@@ -81,7 +81,7 @@ def test_short_ms1_trace_is_preserved_when_below_min_scan_count(tmp_path):
     assert float(row["peak_height"]) == 20 and float(row["peak_area"]) == 15
 
 
-def test_absent_ms1_signal_is_zero_but_unavailable_ms1_is_blank(tmp_path):
+def test_absent_ms1_without_supported_noise_and_unavailable_ms1_are_blank(tmp_path):
     spectra = [mzml_spectrum(i + 1, i, [200], [10]) for i in range(3)]
     spectra += [
         mzml_spectrum(10, 1, [50], [5], level=2, precursor=precursor_mzml()),
@@ -91,7 +91,7 @@ def test_absent_ms1_signal_is_zero_but_unavailable_ms1_is_blank(tmp_path):
     rows, metadata = outputs(path, tmp_path / "out.tsv", Config(group_ions=True))
     assert len(rows) == 2
     assert rows[0]["ms1_quant_status"] == "no_ms1_signal"
-    assert rows[0]["peak_height"] == rows[0]["peak_area"] == "0.00"
+    assert rows[0]["peak_height"] == rows[0]["peak_area"] == ""
     assert rows[1]["ms1_quant_status"] == "no_ms1_scans"
     assert rows[1]["peak_height"] == rows[1]["peak_area"] == ""
     assert metadata["ms2_assigned"] == 2
@@ -256,7 +256,9 @@ def test_float32_mass_boundary_and_duplicate_centroids_use_normalized_raw_ms1(tm
     spectra = [mzxml_scan(1, 0, [327.2021789550781] * 2, [10, 20], precision=32)]
     spectra.append(mzxml_scan(2, 0.1, [50], [5], level=2, precursor=precursor))
     path = write_mzxml(tmp_path / "precision.mzXML", spectra)
-    (row,), _ = outputs(path, tmp_path / "out.tsv", Config(gapfill_mz_tolerance_da=0.01))
+    (row,), _ = outputs(
+        path, tmp_path / "out.tsv", Config(mz_tolerance_da=0.01, gapfill_mz_tolerance_da=0.01)
+    )
     assert row["peak_height"] == "30.00" and row["peak_area"] == "0.00"
 
 
