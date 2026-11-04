@@ -11,6 +11,7 @@ per-file failure reporting. Neither contains per-mass numerical loops.
 | `scan_cache.py` | Budgeted decoded-scan replay with streaming fallback and independent MS2 metadata per pass. |
 | `features.py` | Recyclable trace pools, batched native feature extraction and the `Feature` record. Calibration uses the raw-trace interface. `MEAN_MZ`, `HEAD_NODE`, etc. name pool columns; `available_nodes` and `active_count` name state counters. |
 | `chromatograms.py` | Compiled segmentation and original-sample measurements. Named `PeakSettings`, `PeakSummary` and `PeakCandidate` records carry options, measurements and fallback status. |
+| `peak_shapes.py` | MassCube-style Gaussian/roughness scores and additional shape evidence for splitting noisy traces. Missing-scan interpolation is used only for segmentation. |
 | `reference_chromatograms.py` | Readable SciPy compatibility path for tied peak priorities and a differential-test oracle. |
 | `calibration.py` | Compiled quality screening of one representative trace; accepted candidates retain NumPy/SciPy measurement arithmetic to preserve calibrated boundaries. Named `RepresentativeValues` and explicit rejection reasons. |
 | `tuning.py` | Representative selection, robust per-polarity estimates, evidence minima and override policy. |

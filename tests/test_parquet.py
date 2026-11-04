@@ -79,7 +79,7 @@ def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_
     assert table["peak_height"][0].as_py() is None
     assert table["ms2_scan_numbers"][0].as_py() == [None, 9223372036854775807]
     assert pq.read_metadata(b).row_group(0).column(0).compression == "ZSTD"
-    assert table.schema.metadata[b"masscubex.table_schema"] == b"6"
+    assert table.schema.metadata[b"masscubex.table_schema"] == b"7"
     assert json.loads(table.schema.metadata[b"masscubex.output_precision"]) == OUTPUT_PRECISION
     assert set(FEATURE_COLUMNS).isdisjoint(
         {
@@ -90,7 +90,7 @@ def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_
             "apex_threshold_ratio",
         }
     )
-    assert len(FEATURE_COLUMNS) == 27
+    assert len(FEATURE_COLUMNS) == 29
 
 
 def test_rounding_is_output_only_and_tsv_has_fixed_decimal_places(tmp_path):
@@ -138,7 +138,7 @@ def test_default_parquet_explicit_tsv_and_format_mismatch(sample_file, tmp_path)
     assert result.output.endswith(".features.parquet")
     metadata = json.loads(Path(result.output + ".json").read_text())
     assert metadata["output_format"] == "parquet"
-    assert metadata["schema_version"] == 6
+    assert metadata["schema_version"] == 7
     assert metadata["output_precision"] == OUTPUT_PRECISION
     assert metadata["output_bytes"] == Path(result.output).stat().st_size
     assert len(metadata["output_sha256"]) == 64

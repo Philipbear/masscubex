@@ -403,6 +403,8 @@ class Feature:
     seed_rt_seconds: float | None = None
     gapfill_status: str | None = None
     gapfill_mz_radius_da: float | None = None
+    gaussian_similarity: float | None = None
+    segmentation_status: str = "not_applicable"
     trace: np.ndarray | None = field(default=None, repr=False, metadata={"tsv": False})
     _ms2_records: tuple = field(default=(), repr=False, metadata={"tsv": False})
 
@@ -442,8 +444,17 @@ def _candidate_features(candidates, config, polarity):
             polarity=polarity,
             intensity=peak.height if config.quant_method == "peak_height" else peak.area,
             quant_method=config.quant_method,
+            gaussian_similarity=peak.gaussian_similarity,
+            segmentation_status=segmentation_status(config.segment, peak.split, peak.guarded),
             trace=candidate.trace if config.group_ions else None,
         )
+
+
+def segmentation_status(enabled, split, guarded):
+    if not enabled:
+        return "disabled"
+    result = "split" if split else "unsplit"
+    return "guarded_" + result if guarded else result
 
 
 def warmup():

@@ -1,0 +1,19 @@
+{
+  "version": "0.11.0",
+  "implementation_sha256": "12dbfe3bc929265128a9d63f7ee9b25aeded3e1f3c6e71c4cfa34a6bc15a9f24",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pyarrow": "17.0.0",
+    "pynumpress": "0.0.9"
+  },
+  "source_tests_passed": 650,
+  "isolated_wheel_tests_passed": 650,
+  "wheel_modules_verified": 24,
+  "wheel_sha256": "6c28f66f625ed4e8866cd316ac0aba522a3d4144c960d25b4312cdb8b9e938d4",
+  "ms2_audit": "MSV000086989-ms2-v0.11.0.json",
+  "shape_audit": "peak-shapes-v0.11.0.json",
+  "figure_manifest": "../figures/peak-shapes-v0.11/comparison.json"
+}

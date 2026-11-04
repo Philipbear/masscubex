@@ -16,6 +16,9 @@ and default-on candidate ion relationships,
 and a configurable per-file Parquet/TSV command-line workflow. Packaging and documentation have been rewritten;
 vendor readers, alignment, annotation, statistics, and plotting are removed.
 The original Apache License 2.0 and attribution above are retained.
+The Gaussian-similarity and trace noise-score concepts in peak_shapes.py derive
+from upstream MassCube's feature_evaluation.py. The temporal-noise, sampling
+support and asymmetric-template split guard are MassCubeX additions.
 
 SciPy compatibility algorithms
 The Gaussian reflection, plateau detection, distance selection and prominence

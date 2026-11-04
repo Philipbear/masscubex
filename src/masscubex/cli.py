@@ -253,6 +253,9 @@ _SETTING_FLAGS = (
     ("smoothing_seconds", "--smoothing-seconds", float),
     ("peak_distance_seconds", "--peak-distance-seconds", float),
     ("peak_prominence", "--peak-prominence", float),
+    ("peak_min_gaussian_similarity", "--peak-min-gaussian-similarity", float),
+    ("peak_min_snr", "--peak-min-snr", float),
+    ("peak_noise_score_limit", "--peak-noise-score-limit", float),
     ("peak_distance", "--peak-distance", int),
     ("ms2_mz_tolerance_ppm", "--ms2-mz-ppm", float),
     ("ms2_mz_tolerance_da", "--ms2-mz-da", float),
@@ -393,6 +396,7 @@ def _parser():
             "Estimate mass/timing settings independently for each polarity",
         ),
         ("segment", "--segment", "Split chromatographic peaks"),
+        ("peak_shape_guard", "--peak-shape-guard", "Require shape and noise evidence for splits"),
         (
             "assume_centroid",
             "--assume-centroid",

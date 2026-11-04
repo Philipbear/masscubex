@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.10.0 processing path,
+This document describes the implemented MassCubeX 0.11.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -22,7 +22,7 @@ the old `masscube` package. The comparisons below refer to that exact commit.
 | MS1 noise | Replaced fixed absolute cutoffs with regional m/z background. Version 0.10 defaults to fixed 100 Da bins and the lowest-intensity 10% of positive samples, expanded to at least 5, followed by mean + 3 standard deviations of that subset (§3). Historical sliding windows, clipped estimates and an absolute floor remain selectable. |
 | Profile mass detection | Added explicit profile peak detection and numerical first-moment centroiding (§4). This differs from upstream `centroid_signals`, which merged adjacent masses separated by less than 0.002 Da and summed their intensities. |
 | Trace building | Retained the concept of matching successive MS1 peaks into ion traces; replaced Python per-centroid objects/list updates with compiled array pools, changed matching to a running intensity-weighted mass, and added a time-gap limit (§5). |
-| Chromatographic splitting | Retained Gaussian smoothing plus peak prominence as a concept; reimplemented splitting and area boundaries. The default relative prominence is 0.1 rather than upstream's 0.03. The old shape/noise-score gate and above-median peak requirement are not retained (§6). |
+| Chromatographic splitting | Reimplemented Gaussian smoothing, prominence and area boundaries. Relative prominence defaults to 0.1 rather than upstream's 0.03. Version 0.11 restores upstream's noise score as a trigger for a new per-peak shape guard, adds Gaussian-similarity reporting, and permits supported multiple peaks in noisy traces (§6). The above-median peak requirement is not retained. |
 | Quantification | Retained peak height as the default and trapezoidal area in intensity × seconds. Added explicit selection and kept both measurements without integer truncation; detected-feature m/z is intensity-weighted rather than the upstream apex mass (§6). MS2 seeds record the original precursor and may refine their mass from raw MS1 (§7). |
 | MS/MS | Retained summed MS2 intensity as the default best-spectrum criterion. Added all associated native identifiers, best-scan identifiers and fragment/precursor intensities, optional ranking methods, MS2-seeded features with forced MS1 quantification, and per-scan unresolved reasons. Isolation-width exclusion is off by default (§7). |
 | Automatic settings | Added broad-search pilot fitting with at least 20 qualified representatives per polarity, independent MS1/MS2 tolerance estimates, physical-time smoothing and local gap-fill boundaries ([details](AUTO_TUNING.md)). |
@@ -45,6 +45,7 @@ Implementation map:
 | [readers.py](../src/masscubex/readers.py) | XML, binary arrays, metadata, scan identifiers |
 | [scan_cache.py](../src/masscubex/scan_cache.py) | Budgeted decoded-scan replay and streaming fallback |
 | [chromatograms.py](../src/masscubex/chromatograms.py) | Compiled peak segmentation and measurements |
+| [peak_shapes.py](../src/masscubex/peak_shapes.py) | Gaussian similarity, trace roughness and evidence for splits in noisy traces |
 | [calibration.py](../src/masscubex/calibration.py) | Compiled quality screening; reproducible accepted-candidate measurements |
 | [noise.py](../src/masscubex/noise.py) | Adaptive MS1 background and threshold |
 | [centroid.py](../src/masscubex/centroid.py) | Profile MS1 mass detection |
@@ -538,6 +539,106 @@ Each segment must contain at least `min_scans` nonzero samples. If fewer than
 two maxima exist, retain the unsplit trace if it passes the length criterion.
 `--no-segment` skips peak splitting entirely.
 
+### Shape guard introduced in 0.11
+
+Original MassCube computes Gaussian similarity for final features, but does
+**not** use that score to gate feature splitting. Its splitter returns an
+unsplit trace when the whole-trace noise score exceeds 3; a Gaussian-similarity
+threshold of 0.7 is used in its later alignment workflow. MassCubeX versions
+through 0.10 used Gaussian **smoothing**, without either that noise-score guard
+or final Gaussian-similarity reporting. This allowed long, fluctuating background
+traces to yield many intervals. See the [before/after review](../benchmarks/results/PEAK_SHAPES.md).
+
+With `peak_shape_guard=True` (default), calculate upstream's noise score before
+segmentation. For height `H=max(I)`, set `z_i=I_i/H` when `I_i >= 0.05H`, otherwise
+zero. The score is
+
+```text
+N = max(0, (sum(abs(z_(i+1) - z_i)) + z_0 + z_last) / 2 - 1)
+```
+
+Traces with fewer than five points or nonpositive height have score zero.
+`N <= peak_noise_score_limit` (default 3) keeps the existing splitting behavior.
+For `N > 3`, apply the following additional evidence checks. A large score
+is a trigger for scrutiny, not a reason to delete the trace or automatically
+merge every peak: five separated ideal peaks can also have `N > 3`.
+
+1. Linearly interpolate only the tracker's internal missing-scan zeros for
+   **split detection**. These runs are already bounded by `max_gap_scans` and
+   `max_gap_seconds`. This prevents tolerated missing observations from
+   manufacturing deep valleys. Do not join independently completed traces.
+   Keep original intensities, zeros, timestamps and MS1 thresholds for output
+   measurements and ion-grouping traces.
+2. Resample/smooth/find candidate maxima as described above. Use their original
+   adjacent valleys as fixed candidate basins. Rejected neighbors do not enlarge
+   a basin during scoring. The outer basins end at the actual trace boundaries;
+   zero padding supplies no baseline evidence.
+3. Estimate a robust temporal fluctuation scale from triples of consecutive
+   positive, original observations. For each interior sample, use
+
+   ```text
+   w_i = (t_i - t_(i-1)) / (t_(i+1) - t_(i-1))
+   e_i = [I_i - (1-w_i) I_(i-1) - w_i I_(i+1)] / sqrt(1 + (1-w_i)^2 + w_i^2)
+   sigma_time = median(abs(e_i - median(e))) / 0.6744897501960817
+   ```
+
+   Linear trends cancel, unequal scan spacing is accounted for, and triples
+   containing missing observations are excluded. Fewer than five residuals
+   leave the estimate unsupported (`sigma_time=0`), so only the other shape
+   checks apply. The normalization estimates per-observation sigma under
+   independent additive Gaussian noise; it is a robust heuristic for real LC-MS
+   fluctuations, not a calibrated false-positive probability.
+4. Set the candidate baseline to the higher of its two smoothed valley/boundary
+   intensities. Require positive smoothed apex excess at least
+   `peak_min_snr × sigma_time` (default 5). This chromatographic check is separate
+   from the unchanged **mass-axis MS1 threshold μ + 3σ**.
+5. Inside that basin, take positive original observations and subtract the
+   baseline, clipping negative excesses to zero. Require at least five observed
+   samples and at least three above **half the maximum raw excess height**, with
+   support on both sides of the smoothed candidate apex. Interpolated points do
+   not count. This rejects isolated spikes even when smoothing spreads them.
+6. Require a Gaussian-template Pearson correlation of at least
+   `peak_min_gaussian_similarity` (default 0.7). Accept either the symmetric
+   apex/FWHM template below or a two-sided template whose left and right sigma
+   equal their respective half-height distances divided by `sqrt(2 log(2))`.
+   The latter accommodates peak fronting and tailing. These guard scores use
+   baseline-corrected positive observations; they are not the exported score.
+7. Split only between the surviving candidates, using the first smoothed valley
+   between each pair. Fewer than two survivors retains the entire original
+   trace as one feature, subject to the existing minimum observation count.
+
+`--no-peak-shape-guard` reproduces the previous segmentation. The limit, S/N
+multiplier and similarity threshold are explicit CLI/JSON settings, not
+automatically tuned. The compiled and independent NumPy/SciPy paths implement
+the same rules, including the equal-priority fallback.
+
+### Shape diagnostics and interpretation
+
+`gaussian_similarity` reports the symmetric MassCube-style shape score on each
+final detected feature's **original** trace, including missing-scan zeros and
+without baseline subtraction. Set the Gaussian center to the first raw apex;
+find the first sample below half height on each side, using the trace boundary
+if no crossing exists. Set sigma to that full width divided by 2.355 (minimum
+1e-6 seconds), generate the Gaussian template, and calculate Pearson correlation
+clamped to [0, 1]. Normalize both profiles to unit apex before arithmetic to
+avoid scale-dependent overflow. Fewer than five points, zero height or zero
+variance gives zero. Output rounds the score to two decimals.
+
+`segmentation_status` is `split` or `unsplit`, prefixed with `guarded_` when the
+whole-trace noise score triggered the extra checks. `disabled` means segmentation
+was switched off. MS2-seeded forced measurements are not segmented by this
+algorithm and have `not_applicable` with a null Gaussian score. A low Gaussian
+score does not remove a row. A retained background-like trace retains its
+original height, integrated area and all assigned MS2 references; its area
+should not be interpreted as a clean chromatographic compound peak.
+
+These diagnostics do not identify contamination or determine biological truth.
+Strongly structured background can resemble elution peaks. Conversely, weak,
+poorly sampled or irregular true peaks in a noisy trace may remain combined;
+the guard does not promise to resolve every coeluting isomer. Acquisition gaps
+and failed mass continuity still produce separate traces. Neither raw-data
+baseline subtraction nor a cross-gap trace-merging algorithm is introduced.
+
 All quantitative measurements use original, unsmoothed intensity observations,
 including zeros for tolerated missing scans. For a segment `(m_i, I_i, t_i)`:
 
@@ -883,7 +984,7 @@ ion evidence. Absent relationship-kind fields are null, not fabricated evidence.
 Unknown evidence fields are rejected instead of silently discarded. Zstd level 3
 compression is lossless **after output rounding**. At most 8,192 features are
 buffered per row group; flat categorical strings use dictionary encoding.
-TSV uses fixed decimal places and compact JSON arrays. The 27-column schema
+TSV uses fixed decimal places and compact JSON arrays. The 29-column schema
 omits five redundant fields listed in [USAGE.md](USAGE.md#feature-table-schema).
 Both writers round binary64 values with Python's half-even rule and never
 mutate the feature objects. Nested relationship masses have 5 decimals,
@@ -902,7 +1003,7 @@ A failure between the two final renames can leave mismatched files, which
 cannot pass resume validation. A hard-killed process can leave locks/partials;
 inspect its recorded owner and remove a lock only after that worker has stopped.
 
-The per-file sidecar uses schema version 6 and stores all processing settings, source
+The per-file sidecar uses schema version 7 and stores all processing settings, source
 path/size/nanosecond mtime, counts and memory diagnostics, output format/size/SHA-256 and
 an implementation/dependency fingerprint. The fingerprint hashes the numerical
 and per-file processing source modules and versions of NumPy, Numba, SciPy,
@@ -1130,6 +1231,10 @@ settings. Full derivations and override semantics: [AUTO_TUNING.md](AUTO_TUNING.
 | `max_gap_scans` | `--max-gap-scans` | 2; integer ≥ 0 |
 | `max_gap_seconds` | `--max-gap-seconds` | 15 s fallback; trace gaps only, learned with supported calibration |
 | `segment` | `--segment` / `--no-segment` | `true` |
+| `peak_shape_guard` | `--peak-shape-guard` / `--no-peak-shape-guard` | `true`; additional evidence for splits in noisy traces |
+| `peak_noise_score_limit` | `--peak-noise-score-limit` | 3; nonnegative whole-trace score above which the guard applies |
+| `peak_min_snr` | `--peak-min-snr` | 5; nonnegative smoothed peak excess / temporal noise requirement within the guard |
+| `peak_min_gaussian_similarity` | `--peak-min-gaussian-similarity` | 0.7; [0,1], symmetric or two-sided local-template correlation within the guard |
 | `smoothing_sigma` | `--smoothing-sigma` | 0.6 MS1 samples |
 | `peak_prominence` | `--peak-prominence` | 0.1; positive fraction ≤ 1 |
 | `peak_distance` | `--peak-distance` | 3 samples; integer ≥ 1 |

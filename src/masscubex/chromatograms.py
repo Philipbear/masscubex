@@ -10,6 +10,13 @@ from typing import NamedTuple
 import numpy as np
 from numba import njit
 
+from .peak_shapes import (
+    filter_shape_peaks,
+    gaussian_similarity,
+    interpolate_missing,
+    trace_noise_score,
+)
+
 
 class PeakSummary(NamedTuple):
     first: int
@@ -22,6 +29,9 @@ class PeakSummary(NamedTuple):
     area: float
     observations: int
     noise_threshold: float
+    gaussian_similarity: float
+    guarded: bool
+    split: bool
 
 
 class PeakSettings(NamedTuple):
@@ -34,6 +44,10 @@ class PeakSettings(NamedTuple):
     peak_distance: int
     peak_distance_seconds: float
     relative_prominence: float
+    shape_guard: bool
+    noise_score_limit: float
+    minimum_similarity: float
+    minimum_snr: float
     keep_trace: bool
 
 
@@ -52,6 +66,10 @@ def peak_settings(config):
         config.peak_distance,
         float(config.peak_distance_seconds),
         float(config.peak_prominence),
+        config.peak_shape_guard,
+        float(config.peak_noise_score_limit),
+        float(config.peak_min_gaussian_similarity),
+        float(config.peak_min_snr),
         config.group_ions,
     )
 
@@ -207,6 +225,10 @@ def summarize_chromatogram(
     peak_distance,
     peak_distance_seconds,
     relative_prominence,
+    shape_guard,
+    noise_score_limit,
+    minimum_similarity,
+    minimum_snr,
 ):
     """Return named summaries and whether SciPy must resolve a tied peak order."""
     first = 0
@@ -221,14 +243,19 @@ def summarize_chromatogram(
     values = trace[first : last + 1, 1]
     times = trace[first : last + 1, 2]
     cuts = [0, len(values) - 1]
+    guarded = False
     if segment:
+        scrutinize = shape_guard and trace_noise_score(values) > noise_score_limit
+        guarded = scrutinize
         physical = smoothing_seconds > 0 or peak_distance_seconds > 0
         sigma, distance = smoothing_sigma, peak_distance
         grid, signal = times, values
+        if scrutinize:
+            signal = interpolate_missing(times, values)
         if physical and len(times) > 1:
             grid = uniform_grid(times)
             step = grid[1] - grid[0]
-            signal = np.interp(grid, times, values)
+            signal = np.interp(grid, times, signal)
             if smoothing_seconds > 0:
                 sigma = smoothing_seconds / step
             if peak_distance_seconds > 0:
@@ -237,6 +264,11 @@ def summarize_chromatogram(
         peaks, tied = select_peaks(smooth, distance, smooth.max() * relative_prominence)
         if tied:
             return summaries, True
+        if scrutinize:
+            accepted = filter_shape_peaks(
+                times, values, grid, smooth, peaks, minimum_similarity, minimum_snr
+            )
+            peaks = accepted
         cuts = valley_boundaries(times, grid, smooth, peaks, physical)
     for left, right in zip(cuts[:-1], cuts[1:]):
         start, stop = first + left, first + right
@@ -271,6 +303,9 @@ def summarize_chromatogram(
                 area,
                 observations,
                 trace[apex, 3],
+                gaussian_similarity(trace[start : stop + 1, 2], trace[start : stop + 1, 1]),
+                guarded,
+                len(cuts) > 2,
             )
         )
     return summaries, False
@@ -293,10 +328,14 @@ def summarize_candidates(trace, settings):
         settings.peak_distance,
         settings.peak_distance_seconds,
         settings.relative_prominence,
+        settings.shape_guard,
+        settings.noise_score_limit,
+        settings.minimum_similarity,
+        settings.minimum_snr,
     )
     candidates = []
     if tied:
-        unused = PeakSummary(0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0)
+        unused = PeakSummary(0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, False, False)
         candidates.append(PeakCandidate(unused, trace, True))
         return candidates
     empty = np.empty((0, 2))

@@ -1,5 +1,22 @@
 # MassCubeX validation
 
+## Version 0.11.0: shape evidence prevents background over-splitting
+
+**650 source tests and 650 isolated installed-wheel tests pass locally; lint
+passes.** A default guard uses MassCube's noise score to identify traces needing
+extra scrutiny, then checks temporal noise, original sampling support and
+symmetric/asymmetric Gaussian shape before accepting splits. Gaussian similarity
+and segmentation status are included in the compact tables.
+
+The [before/after EIC review](PEAK_SHAPES.md) shows 9→1 and 24→2 intervals in the
+reviewed blank/QC regions, with the bounded weak QC peak unchanged. Across 50
+files, detected rows decrease from 1,550,469 to 743,425. The independent audit
+preserves all 125,266 MS2 scans exactly once; all 747,745 Parquet/TSV rows agree.
+With the guard disabled, all previous columns in 471,617 blank/QC rows are exact
+matches to v0.10. Three serial blank/QC passes per setting show median complete
+time 16.29→9.85 s; this improvement accompanies changed scientific outputs.
+See the report for limitations, stage times, figures and reproducible evidence.
+
 ## Version 0.10.0: blank/QC EIC review and strict MS1 gap filling
 
 **580 source tests and 580 isolated installed-wheel tests pass locally; lint

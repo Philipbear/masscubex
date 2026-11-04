@@ -57,6 +57,8 @@ default; `--executor thread` is also available.
   evidence is insufficient. Polarity-switching files use separate streams.
 - **MS1 noise:** fixed 100 Da bins, lowest 10% of positive samples, minimum 5,
   threshold μ + 3σ. Profile MS1 is centroided automatically.
+- **Peak splitting:** noisy traces require supported peak shapes before splitting;
+  retained traces include Gaussian similarity and segmentation status.
 - **MS/MS:** all associated scan IDs and the best scan, selected by summed
   fragment intensity. The isolation-width cutoff is disabled.
 - **Unmatched MS/MS:** create a marked precursor feature and gap-fill raw MS1
@@ -98,6 +100,7 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
 - [Compact output and feature-count comparison with original MassCube](benchmarks/results/OUTPUT_AND_COUNTS.md)
 - [Blank/QC EIC review, noise bins and strict MS1 gap filling](benchmarks/results/EIC_REVIEW.md)
+- [Preventing background over-splitting: methods, EICs and validation](benchmarks/results/PEAK_SHAPES.md)
 - [Processing times, worker scaling and two-million-file estimates](benchmarks/results/PERFORMANCE.md)
 - [Code structure and numerical development checks](docs/DEVELOPMENT.md)
 

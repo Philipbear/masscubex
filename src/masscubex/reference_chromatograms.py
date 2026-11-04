@@ -1,7 +1,8 @@
 """Readable SciPy compatibility path for ambiguous peak-distance ties.
 
-This is the unchanged 0.6 segmentation/quantification path. It also provides
-an independent numerical oracle for the compiled chromatogram implementation.
+This also provides an independent NumPy/SciPy numerical oracle for the compiled
+segmentation and shape guard. Keep its vectorized calculations independent of
+the production kernels so differential tests can expose implementation errors.
 """
 
 from functools import lru_cache
@@ -10,7 +11,84 @@ from numba import njit
 from scipy.ndimage import correlate1d
 from scipy.signal import find_peaks
 from .config import Config
-from .features import Feature
+from .features import Feature, segmentation_status
+
+
+def reference_gaussian_similarity(times, values, asymmetric=False):
+    if len(values) < 5 or values.max() <= 0:
+        return 0.0
+    apex = int(np.argmax(values))
+    y = values / values[apex]
+    before = np.flatnonzero(y[:apex] < 0.5)
+    after = np.flatnonzero(y[apex:] < 0.5)
+    left = int(before[-1]) if len(before) else 0
+    right = apex + int(after[0]) if len(after) else len(y) - 1
+    sigma = max((times[right] - times[left]) / 2.355, 1e-6)
+    if asymmetric:
+        sigma = np.where(
+            times < times[apex],
+            max((times[apex] - times[left]) / np.sqrt(2 * np.log(2)), 1e-6),
+            max((times[right] - times[apex]) / np.sqrt(2 * np.log(2)), 1e-6),
+        )
+    model = np.exp(-0.5 * ((times - times[apex]) / sigma) ** 2)
+    if np.std(y) == 0 or np.std(model) == 0:
+        return 0.0
+    return float(np.clip(np.corrcoef(y, model)[0, 1], 0, 1))
+
+
+def _reference_noise_score(values):
+    if len(values) < 5 or values.max() <= 0:
+        return 0.0
+    y = np.where(values >= 0.05 * values.max(), values / values.max(), 0.0)
+    return max(0.0, (np.abs(np.diff(y)).sum() + y[0] + y[-1]) / 2 - 1)
+
+
+def _reference_shape_peaks(times, values, grid, smooth, peaks, config):
+    if len(peaks) < 2:
+        return peaks
+    observed = values > 0
+    consecutive = observed[:-2] & observed[1:-1] & observed[2:]
+    weight = (times[1:-1] - times[:-2]) / (times[2:] - times[:-2])
+    residuals = (values[1:-1] - (1 - weight) * values[:-2] - weight * values[2:]) / np.sqrt(
+        1 + (1 - weight) ** 2 + weight**2
+    )
+    residuals = residuals[consecutive]
+    noise = (
+        np.median(np.abs(residuals - np.median(residuals))) / 0.6744897501960817
+        if len(residuals) >= 5
+        else 0.0
+    )
+    valleys = (
+        [0]
+        + [
+            left + int(np.argmin(smooth[left : right + 1])) - 1
+            for left, right in zip(peaks[:-1], peaks[1:])
+        ]
+        + [len(grid) - 1]
+    )
+    accepted = []
+    for peak, left, right in zip(peaks, valleys[:-1], valleys[1:]):
+        baseline = max(smooth[left + 1], smooth[right + 1])
+        amplitude = smooth[peak] - baseline
+        selected = observed & (times >= grid[left]) & (times <= grid[right])
+        rt = times[selected]
+        y = np.maximum(values[selected] - baseline, 0.0)
+        support = y > 0.5 * y.max() if len(y) else np.zeros(0, dtype=bool)
+        if (
+            amplitude > 0
+            and amplitude >= config.peak_min_snr * noise
+            and len(y) >= 5
+            and np.count_nonzero(support) >= 3
+            and np.any(support & (rt < grid[peak - 1]))
+            and np.any(support & (rt > grid[peak - 1]))
+            and max(
+                reference_gaussian_similarity(rt, y),
+                reference_gaussian_similarity(rt, y, asymmetric=True),
+            )
+            >= config.peak_min_gaussian_similarity
+        ):
+            accepted.append(peak)
+    return np.asarray(accepted, dtype=np.int64)
 
 
 @lru_cache(maxsize=512)
@@ -80,15 +158,24 @@ def summarize_reference_trace(trace, config: Config, polarity="unknown"):
     trace = trace[valid[0] : valid[-1] + 1]
     intensity = trace[:, 1]
     cuts = [0]
+    guarded = False
     if config.segment:
         rt = trace[:, 2]
+        scrutinize = config.peak_shape_guard and (
+            _reference_noise_score(intensity) > config.peak_noise_score_limit
+        )
+        guarded = scrutinize
+        signal = intensity
+        if scrutinize:
+            observed = intensity > 0
+            signal = np.interp(rt, rt[observed], intensity[observed])
         physical = config.smoothing_seconds > 0 or config.peak_distance_seconds > 0
         if physical and len(rt) > 1:
             step = float(_median_spacing(rt))
             size = min(len(rt) * 4, max(2, int(np.ceil((rt[-1] - rt[0]) / step - 1e-9)) + 1))
             grid = np.linspace(rt[0], rt[-1], size)
             step = float(grid[1] - grid[0])
-            signal = np.interp(grid, rt, intensity)
+            signal = np.interp(grid, rt, signal)
             sigma = (
                 config.smoothing_seconds / step
                 if config.smoothing_seconds > 0
@@ -102,7 +189,7 @@ def summarize_reference_trace(trace, config: Config, polarity="unknown"):
         else:
             grid, signal, sigma, distance = (
                 rt,
-                intensity,
+                signal,
                 config.smoothing_sigma,
                 config.peak_distance,
             )
@@ -112,6 +199,9 @@ def summarize_reference_trace(trace, config: Config, polarity="unknown"):
             peaks, _ = find_peaks(
                 smooth, prominence=smooth.max() * config.peak_prominence, distance=distance
             )
+        if scrutinize:
+            accepted = _reference_shape_peaks(rt, intensity, grid, smooth, peaks, config)
+            peaks = accepted
         peaks = peaks - 1
         peaks = peaks[(peaks >= 0) & (peaks < len(signal))]
         for left, right in zip(peaks[:-1], peaks[1:]):
@@ -149,5 +239,7 @@ def summarize_reference_trace(trace, config: Config, polarity="unknown"):
             polarity=polarity,
             intensity=height if config.quant_method == "peak_height" else area,
             quant_method=config.quant_method,
+            gaussian_similarity=reference_gaussian_similarity(rt, y),
+            segmentation_status=segmentation_status(config.segment, len(cuts) > 2, guarded),
             trace=part[:, 1:3].copy() if config.group_ions else None,
         )

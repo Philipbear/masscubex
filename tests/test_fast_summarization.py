@@ -21,7 +21,10 @@ def assert_features_equal(actual, expected):
             a, b = getattr(fast, field.name), getattr(reference, field.name)
             if isinstance(b, np.ndarray):
                 np.testing.assert_array_equal(a, b)
-            elif field.name in {"mz", "peak_area", "intensity"} and b is not None:
+            elif (
+                field.name in {"mz", "peak_area", "intensity", "gaussian_similarity"}
+                and b is not None
+            ):
                 # Compiled sums/dots can differ in their final float64 bits.
                 assert a == pytest.approx(b, rel=3e-14, abs=1e-14)
             else:
@@ -37,6 +40,7 @@ def assert_features_equal(actual, expected):
         {"smoothing_sigma": 0.05, "peak_distance": 1},
         {"smoothing_sigma": 4.0, "peak_distance": 10},
         {"segment": False, "quant_method": "peak_area"},
+        {"peak_shape_guard": False},
     ],
 )
 def test_compiled_summarization_matches_scipy(seed, settings):

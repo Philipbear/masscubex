@@ -49,6 +49,7 @@ def implementation_id():
         "centroid.py",
         "features.py",
         "chromatograms.py",
+        "peak_shapes.py",
         "reference_chromatograms.py",
         "pipeline.py",
         "ms2.py",

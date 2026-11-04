@@ -20,7 +20,7 @@ FLOAT_COLUMNS = {f.name for f in FEATURE_FIELDS if float in (get_args(f.type) or
 LEGACY_FLOAT_COLUMNS = {f.name for f in ALL_FIELDS if float in (get_args(f.type) or (f.type,))}
 NESTED_COLUMNS = {"ms2_scan_numbers", "ms2_native_ids", "ms2_spectrum_indices", "ion_relations"}
 ROW_GROUP_SIZE = 8192
-TABLE_SCHEMA_VERSION = 6
+TABLE_SCHEMA_VERSION = 7
 # Named policies avoid accidentally rounding an identifier or a new measurement
 # as though it were an intensity. Both writers use Python binary64 half-even
 # rounding, including halfway cases; the in-memory Feature is never modified.
@@ -37,6 +37,7 @@ DECIMAL_PLACES = {
     "seed_precursor_mz": 5,
     "seed_rt_seconds": 2,
     "gapfill_mz_radius_da": 5,
+    "gaussian_similarity": 2,
 }
 RELATION_DECIMAL_PLACES = {
     "neutral_mass": 5,

@@ -1,0 +1,1812 @@
+{
+  "version": "0.11.0",
+  "implementation_sha256": "12dbfe3bc929265128a9d63f7ee9b25aeded3e1f3c6e71c4cfa34a6bc15a9f24",
+  "config": {
+    "scan_cache_mb": 64.0,
+    "auto_tune": true,
+    "tuning_min_peaks": 20,
+    "tuning_max_peaks": 100,
+    "tuning_search_ppm": 100.0,
+    "tuning_search_da": 0.05,
+    "tuning_peak_limit": 128,
+    "tuning_block_scans": 512,
+    "tuning_block_seconds": 120.0,
+    "tuning_locked": [],
+    "mz_tolerance_ppm": 10.0,
+    "mz_tolerance_da": 0.002,
+    "noise_mode": "adaptive",
+    "noise_estimator": "low_tail",
+    "noise_layout": "bins",
+    "noise_fraction": 0.1,
+    "noise_window_da": 100.0,
+    "noise_sigma": 3.0,
+    "noise_clip_sigma": 2.0,
+    "noise_iterations": 2,
+    "noise_min_neighbors": 5,
+    "min_intensity": 0.0,
+    "min_scans": 5,
+    "max_gap_scans": 2,
+    "max_gap_seconds": 15.0,
+    "segment": true,
+    "peak_shape_guard": true,
+    "peak_noise_score_limit": 3.0,
+    "peak_min_gaussian_similarity": 0.7,
+    "peak_min_snr": 5.0,
+    "smoothing_sigma": 0.6,
+    "smoothing_seconds": 0.0,
+    "peak_prominence": 0.1,
+    "peak_distance": 3,
+    "peak_distance_seconds": 0.0,
+    "assume_centroid": false,
+    "profile_mode": "centroid",
+    "profile_min_points": 3,
+    "profile_gap_factor": 4.0,
+    "quant_method": "peak_height",
+    "associate_ms2": true,
+    "ms2_mz_tolerance_ppm": 20.0,
+    "ms2_mz_tolerance_da": 0.01,
+    "ms2_rt_tolerance": 2.0,
+    "ms2_max_isolation_width": 0.0,
+    "ms2_seeded_features": true,
+    "ms2_gapfill_rt_window": 5.0,
+    "ms2_seed_rt_tolerance": 5.0,
+    "gapfill_mz_tolerance_ppm": 10.0,
+    "gapfill_mz_tolerance_da": 0.002,
+    "gapfill_noise_fraction": 0.1,
+    "precursor_max_age_seconds": 15.0,
+    "gapfill_max_gap_seconds": 15.0,
+    "best_ms2": "fragment_intensity",
+    "group_ions": true,
+    "group_isf": true,
+    "adduct_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      22,
+      23
+    ],
+    "custom_adducts": [],
+    "group_mz_tolerance_ppm": 10.0,
+    "group_mz_tolerance_da": 0.002,
+    "group_rt_tolerance": 3.0,
+    "group_min_scans": 5,
+    "group_min_correlation": 0.9,
+    "group_min_overlap": 0.5,
+    "isf_min_relative_intensity": 0.05,
+    "isf_max_peaks": 100
+  },
+  "files": 50,
+  "all_parquet_tsv_rows_equal": true,
+  "group_counts": {
+    "biological": {
+      "files": 40,
+      "before_detected": 1079367,
+      "after_detected": 610654,
+      "before_seeded": 4320,
+      "after_seeded": 3991,
+      "original_at_least_5_scans": 365615
+    },
+    "blank": {
+      "files": 6,
+      "before_detected": 284762,
+      "after_detected": 75146,
+      "before_seeded": 304,
+      "after_seeded": 190,
+      "original_at_least_5_scans": 14283
+    },
+    "QC": {
+      "files": 4,
+      "before_detected": 186340,
+      "after_detected": 57625,
+      "before_seeded": 211,
+      "after_seeded": 139,
+      "original_at_least_5_scans": 11290
+    }
+  },
+  "rows": [
+    {
+      "file": "NIST_POS_Samp_01-01.mzXML",
+      "group": "biological",
+      "input_sha256": "c2dfef00ba4aafec3155af44e1082e73ac9dba3c8b2ac49cf663498ffc9c7935",
+      "features": 14225,
+      "counts": {
+        "ms1_detected": 14079,
+        "unsplit": 4511,
+        "split": 6784,
+        "guarded_unsplit": 2705,
+        "guarded_split": 79,
+        "ms2_seeded": 146,
+        "not_applicable": 146
+      },
+      "before_counts": {
+        "ms1_detected": 24847,
+        "ms2_seeded": 150
+      },
+      "elapsed_seconds": 0.877532749902457,
+      "timings_seconds": {
+        "calibration": 0.27191120805218816,
+        "feature_extraction": 0.2476492878049612,
+        "ion_grouping": 0.08525041723623872,
+        "ms2_association": 0.052885042037814856,
+        "ms2_gapfill": 0.08417449984699488,
+        "table_write": 0.12875354196876287
+      },
+      "parquet_bytes": 635732,
+      "before_parquet_bytes": 925985,
+      "tsv_bytes": 3133328
+    },
+    {
+      "file": "NIST_POS_Samp_01-02.mzXML",
+      "group": "biological",
+      "input_sha256": "ac15dc04652197ae96f60373625f8d2278c711ab44db0caf370b1878f03b7420",
+      "features": 15688,
+      "counts": {
+        "ms1_detected": 15595,
+        "unsplit": 5415,
+        "split": 7229,
+        "guarded_unsplit": 2856,
+        "guarded_split": 95,
+        "ms2_seeded": 93,
+        "not_applicable": 93
+      },
+      "before_counts": {
+        "ms1_detected": 26424,
+        "ms2_seeded": 100
+      },
+      "elapsed_seconds": 0.9344452912919223,
+      "timings_seconds": {
+        "calibration": 0.2916152076795697,
+        "feature_extraction": 0.29504472156986594,
+        "ion_grouping": 0.12057112529873848,
+        "ms2_association": 0.023283041082322598,
+        "ms2_gapfill": 0.060134833212941885,
+        "table_write": 0.13669250020757318
+      },
+      "parquet_bytes": 688683,
+      "before_parquet_bytes": 990012,
+      "tsv_bytes": 3480343
+    },
+    {
+      "file": "NIST_POS_Samp_02-01.mzXML",
+      "group": "biological",
+      "input_sha256": "5d0dff8b033106a9cd4a0c18a6d22f45d49ee992a7c2e8d87ab57cb952c3a1ce",
+      "features": 13778,
+      "counts": {
+        "ms1_detected": 13609,
+        "unsplit": 4404,
+        "split": 6434,
+        "guarded_unsplit": 2684,
+        "guarded_split": 87,
+        "ms2_seeded": 169,
+        "not_applicable": 169
+      },
+      "before_counts": {
+        "ms1_detected": 24502,
+        "ms2_seeded": 176
+      },
+      "elapsed_seconds": 0.8751814998686314,
+      "timings_seconds": {
+        "calibration": 0.286489165853709,
+        "feature_extraction": 0.24367123236879706,
+        "ion_grouping": 0.08419941598549485,
+        "ms2_association": 0.02342295926064253,
+        "ms2_gapfill": 0.10826187487691641,
+        "table_write": 0.12222145777195692
+      },
+      "parquet_bytes": 625478,
+      "before_parquet_bytes": 921221,
+      "tsv_bytes": 3089028
+    },
+    {
+      "file": "NIST_POS_Samp_02-02.mzXML",
+      "group": "biological",
+      "input_sha256": "4ffce33ff1cfabb15dc67567eb6a79cf1a767e211d88f91ebbdc94c0b01a7f99",
+      "features": 15182,
+      "counts": {
+        "ms1_detected": 15086,
+        "unsplit": 4980,
+        "split": 7004,
+        "guarded_unsplit": 2981,
+        "guarded_split": 121,
+        "ms2_seeded": 96,
+        "not_applicable": 96
+      },
+      "before_counts": {
+        "ms1_detected": 26870,
+        "ms2_seeded": 102
+      },
+      "elapsed_seconds": 0.940167082939297,
+      "timings_seconds": {
+        "calibration": 0.2955857911147177,
+        "feature_extraction": 0.2710649254731834,
+        "ion_grouping": 0.09211737476289272,
+        "ms2_association": 0.05196475004777312,
+        "ms2_gapfill": 0.06034020893275738,
+        "table_write": 0.16218429198488593
+      },
+      "parquet_bytes": 671540,
+      "before_parquet_bytes": 1010897,
+      "tsv_bytes": 3374014
+    },
+    {
+      "file": "NIST_POS_Samp_02-03.mzXML",
+      "group": "biological",
+      "input_sha256": "71a3556753cb34dad914fe3d04ee3e99e81e615f6beb29b3af87e5739c0a88d5",
+      "features": 16335,
+      "counts": {
+        "ms1_detected": 16278,
+        "unsplit": 5808,
+        "split": 7123,
+        "guarded_unsplit": 3241,
+        "guarded_split": 106,
+        "ms2_seeded": 57,
+        "not_applicable": 57
+      },
+      "before_counts": {
+        "ms1_detected": 27864,
+        "ms2_seeded": 65
+      },
+      "elapsed_seconds": 0.9428656669333577,
+      "timings_seconds": {
+        "calibration": 0.3171543339267373,
+        "feature_extraction": 0.27831703145056963,
+        "ion_grouping": 0.13173754094168544,
+        "ms2_association": 0.02267904207110405,
+        "ms2_gapfill": 0.043778583873063326,
+        "table_write": 0.14216012507677078
+      },
+      "parquet_bytes": 698586,
+      "before_parquet_bytes": 1007262,
+      "tsv_bytes": 3509810
+    },
+    {
+      "file": "NIST_POS_Samp_03-02.mzXML",
+      "group": "biological",
+      "input_sha256": "97bdd138c4b60865ca47b3c69e12121f14e782ea4159ce8b9d9e6945cbc59a99",
+      "features": 15451,
+      "counts": {
+        "ms1_detected": 15367,
+        "unsplit": 5347,
+        "guarded_unsplit": 2851,
+        "split": 7095,
+        "guarded_split": 74,
+        "ms2_seeded": 84,
+        "not_applicable": 84
+      },
+      "before_counts": {
+        "ms1_detected": 26204,
+        "ms2_seeded": 87
+      },
+      "elapsed_seconds": 0.9225954590365291,
+      "timings_seconds": {
+        "calibration": 0.2911067078821361,
+        "feature_extraction": 0.26586279878392816,
+        "ion_grouping": 0.09062641626223922,
+        "ms2_association": 0.05010425020009279,
+        "ms2_gapfill": 0.05256199976429343,
+        "table_write": 0.16528770793229342
+      },
+      "parquet_bytes": 672769,
+      "before_parquet_bytes": 968033,
+      "tsv_bytes": 3364163
+    },
+    {
+      "file": "NIST_POS_Samp_03-03.mzXML",
+      "group": "biological",
+      "input_sha256": "2abdebaaff09067713e5fac7f0f0b965ab39e88f6987d0b4fc59e78edd1286d1",
+      "features": 15478,
+      "counts": {
+        "ms1_detected": 15411,
+        "unsplit": 5036,
+        "split": 7105,
+        "guarded_unsplit": 3169,
+        "guarded_split": 101,
+        "ms2_seeded": 67,
+        "not_applicable": 67
+      },
+      "before_counts": {
+        "ms1_detected": 27037,
+        "ms2_seeded": 70
+      },
+      "elapsed_seconds": 0.939338875003159,
+      "timings_seconds": {
+        "calibration": 0.32305033318698406,
+        "feature_extraction": 0.27861361717805266,
+        "ion_grouping": 0.12161320773884654,
+        "ms2_association": 0.023210542276501656,
+        "ms2_gapfill": 0.04715495789423585,
+        "table_write": 0.1378290420398116
+      },
+      "parquet_bytes": 673803,
+      "before_parquet_bytes": 990780,
+      "tsv_bytes": 3352217
+    },
+    {
+      "file": "NIST_POS_Samp_04-02.mzXML",
+      "group": "biological",
+      "input_sha256": "d6deede3f2507af95da3b58da11c65675cfefedc6572e9df8a648b0c7910b700",
+      "features": 15424,
+      "counts": {
+        "ms1_detected": 15341,
+        "unsplit": 5192,
+        "split": 7178,
+        "guarded_unsplit": 2894,
+        "guarded_split": 77,
+        "ms2_seeded": 83,
+        "not_applicable": 83
+      },
+      "before_counts": {
+        "ms1_detected": 26993,
+        "ms2_seeded": 90
+      },
+      "elapsed_seconds": 0.9029502081684768,
+      "timings_seconds": {
+        "calibration": 0.29682554211467505,
+        "feature_extraction": 0.2696749148890376,
+        "ion_grouping": 0.08848699973896146,
+        "ms2_association": 0.02206525020301342,
+        "ms2_gapfill": 0.08166616689413786,
+        "table_write": 0.13716437527909875
+      },
+      "parquet_bytes": 674459,
+      "before_parquet_bytes": 982212,
+      "tsv_bytes": 3359787
+    },
+    {
+      "file": "NIST_POS_Samp_04-03.mzXML",
+      "group": "biological",
+      "input_sha256": "9d5bbf05de7fbdc048bd1a7383e5cb0f9648cd3120f4f45818a02c6492668e75",
+      "features": 16123,
+      "counts": {
+        "ms1_detected": 16048,
+        "unsplit": 5165,
+        "split": 7588,
+        "guarded_unsplit": 3219,
+        "guarded_split": 76,
+        "ms2_seeded": 75,
+        "not_applicable": 75
+      },
+      "before_counts": {
+        "ms1_detected": 29130,
+        "ms2_seeded": 88
+      },
+      "elapsed_seconds": 0.976322750095278,
+      "timings_seconds": {
+        "calibration": 0.3147465828806162,
+        "feature_extraction": 0.31146049965173006,
+        "ion_grouping": 0.12437925022095442,
+        "ms2_association": 0.023263500072062016,
+        "ms2_gapfill": 0.0525021250359714,
+        "table_write": 0.1424354170449078
+      },
+      "parquet_bytes": 690656,
+      "before_parquet_bytes": 1040208,
+      "tsv_bytes": 3429408
+    },
+    {
+      "file": "NIST_POS_Samp_05-01.mzXML",
+      "group": "biological",
+      "input_sha256": "31600380a654dc724aa4da5f9792ca806f7c591f9a74ed2b1dbbbacd12dd4105",
+      "features": 14165,
+      "counts": {
+        "ms1_detected": 14016,
+        "unsplit": 4553,
+        "split": 6692,
+        "guarded_unsplit": 2703,
+        "guarded_split": 68,
+        "ms2_seeded": 149,
+        "not_applicable": 149
+      },
+      "before_counts": {
+        "ms1_detected": 24948,
+        "ms2_seeded": 159
+      },
+      "elapsed_seconds": 0.887277000118047,
+      "timings_seconds": {
+        "calibration": 0.2833665828220546,
+        "feature_extraction": 0.24887552997097373,
+        "ion_grouping": 0.08397554140537977,
+        "ms2_association": 0.0227374997921288,
+        "ms2_gapfill": 0.11679395893588662,
+        "table_write": 0.12464041588827968
+      },
+      "parquet_bytes": 641069,
+      "before_parquet_bytes": 938415,
+      "tsv_bytes": 3165701
+    },
+    {
+      "file": "NIST_POS_Samp_05-03.mzXML",
+      "group": "biological",
+      "input_sha256": "22b77416f0caccde5ab4a31627254862e1085398d27f350706db8f630ae1ec0a",
+      "features": 16048,
+      "counts": {
+        "ms1_detected": 15979,
+        "unsplit": 5298,
+        "split": 7120,
+        "guarded_unsplit": 3463,
+        "guarded_split": 98,
+        "ms2_seeded": 69,
+        "not_applicable": 69
+      },
+      "before_counts": {
+        "ms1_detected": 29628,
+        "ms2_seeded": 80
+      },
+      "elapsed_seconds": 0.9860571660101414,
+      "timings_seconds": {
+        "calibration": 0.3150625410489738,
+        "feature_extraction": 0.29359243204817176,
+        "ion_grouping": 0.09389308281242847,
+        "ms2_association": 0.05007149977609515,
+        "ms2_gapfill": 0.05208774982020259,
+        "table_write": 0.17372662480920553
+      },
+      "parquet_bytes": 685589,
+      "before_parquet_bytes": 1038972,
+      "tsv_bytes": 3406737
+    },
+    {
+      "file": "NIST_POS_Samp_06-01.mzXML",
+      "group": "biological",
+      "input_sha256": "e65bc6960735c44cb58c38780a62a72afb189a371d3b84a35ae746cf49e437ed",
+      "features": 13715,
+      "counts": {
+        "ms1_detected": 13558,
+        "unsplit": 4549,
+        "split": 6310,
+        "guarded_unsplit": 2610,
+        "guarded_split": 89,
+        "ms2_seeded": 157,
+        "not_applicable": 157
+      },
+      "before_counts": {
+        "ms1_detected": 24117,
+        "ms2_seeded": 165
+      },
+      "elapsed_seconds": 0.8779335827566683,
+      "timings_seconds": {
+        "calibration": 0.28189262514933944,
+        "feature_extraction": 0.24387581553310156,
+        "ion_grouping": 0.11715970793738961,
+        "ms2_association": 0.022076415829360485,
+        "ms2_gapfill": 0.08372004190459847,
+        "table_write": 0.1224495000205934
+      },
+      "parquet_bytes": 618800,
+      "before_parquet_bytes": 887785,
+      "tsv_bytes": 3034284
+    },
+    {
+      "file": "NIST_POS_Samp_06-02.mzXML",
+      "group": "biological",
+      "input_sha256": "d970a184868be3d0b01cc576552cf7614a3efab4b6b09614f5a67cb430243784",
+      "features": 15509,
+      "counts": {
+        "ms1_detected": 15419,
+        "unsplit": 5288,
+        "split": 7219,
+        "guarded_unsplit": 2820,
+        "guarded_split": 92,
+        "ms2_seeded": 90,
+        "not_applicable": 90
+      },
+      "before_counts": {
+        "ms1_detected": 27034,
+        "ms2_seeded": 98
+      },
+      "elapsed_seconds": 0.9247966669499874,
+      "timings_seconds": {
+        "calibration": 0.3053157916292548,
+        "feature_extraction": 0.28096429724246264,
+        "ion_grouping": 0.09250279096886516,
+        "ms2_association": 0.022672458086162806,
+        "ms2_gapfill": 0.08115804195404053,
+        "table_write": 0.13490691734477878
+      },
+      "parquet_bytes": 679909,
+      "before_parquet_bytes": 1001257,
+      "tsv_bytes": 3416536
+    },
+    {
+      "file": "NIST_POS_Samp_07-01.mzXML",
+      "group": "biological",
+      "input_sha256": "6463c526df8259359357ab9e58a2650c3e9886885568d0e5ba42871c98070270",
+      "features": 14554,
+      "counts": {
+        "ms1_detected": 14371,
+        "unsplit": 5202,
+        "split": 6667,
+        "guarded_unsplit": 2432,
+        "guarded_split": 70,
+        "ms2_seeded": 183,
+        "not_applicable": 183
+      },
+      "before_counts": {
+        "ms1_detected": 22611,
+        "ms2_seeded": 188
+      },
+      "elapsed_seconds": 0.9398482502438128,
+      "timings_seconds": {
+        "calibration": 0.2834664168767631,
+        "feature_extraction": 0.26815576758235693,
+        "ion_grouping": 0.13013574993237853,
+        "ms2_association": 0.02409920794889331,
+        "ms2_gapfill": 0.09532724972814322,
+        "table_write": 0.1317420001141727
+      },
+      "parquet_bytes": 652938,
+      "before_parquet_bytes": 863413,
+      "tsv_bytes": 3242380
+    },
+    {
+      "file": "NIST_POS_Samp_07-02.mzXML",
+      "group": "biological",
+      "input_sha256": "f17e9ad8b51d21c5a028e96c9c7215b6eb9af8359f73ae126c7398baed7c3f5e",
+      "features": 15318,
+      "counts": {
+        "ms1_detected": 15209,
+        "unsplit": 5039,
+        "split": 7466,
+        "guarded_unsplit": 2621,
+        "guarded_split": 83,
+        "ms2_seeded": 109,
+        "not_applicable": 109
+      },
+      "before_counts": {
+        "ms1_detected": 25128,
+        "ms2_seeded": 117
+      },
+      "elapsed_seconds": 0.9305212078616023,
+      "timings_seconds": {
+        "calibration": 0.3034263337031007,
+        "feature_extraction": 0.2575297546572983,
+        "ion_grouping": 0.13055308302864432,
+        "ms2_association": 0.024047417100518942,
+        "ms2_gapfill": 0.06716320803388953,
+        "table_write": 0.14009179081767797
+      },
+      "parquet_bytes": 679611,
+      "before_parquet_bytes": 951775,
+      "tsv_bytes": 3375425
+    },
+    {
+      "file": "NIST_POS_Samp_07-03.mzXML",
+      "group": "biological",
+      "input_sha256": "0cdf07d060d27d57ae5913a488fa8160dba0cddb16f54344b88a7731c972586f",
+      "features": 15591,
+      "counts": {
+        "ms1_detected": 15524,
+        "unsplit": 5050,
+        "split": 7413,
+        "guarded_unsplit": 2963,
+        "guarded_split": 98,
+        "ms2_seeded": 67,
+        "not_applicable": 67
+      },
+      "before_counts": {
+        "ms1_detected": 26392,
+        "ms2_seeded": 71
+      },
+      "elapsed_seconds": 0.9378746668808162,
+      "timings_seconds": {
+        "calibration": 0.2986013749614358,
+        "feature_extraction": 0.266764669213444,
+        "ion_grouping": 0.09469254221767187,
+        "ms2_association": 0.051105083897709846,
+        "ms2_gapfill": 0.05376783385872841,
+        "table_write": 0.16581695899367332
+      },
+      "parquet_bytes": 683237,
+      "before_parquet_bytes": 972700,
+      "tsv_bytes": 3431080
+    },
+    {
+      "file": "NIST_POS_Samp_08-02.mzXML",
+      "group": "biological",
+      "input_sha256": "7f416f00501ab8634e7c8b5f125669ff7d9d148fec27cdd58d0fa74afbe75a61",
+      "features": 15311,
+      "counts": {
+        "ms1_detected": 15209,
+        "unsplit": 5139,
+        "split": 7510,
+        "guarded_unsplit": 2468,
+        "guarded_split": 92,
+        "ms2_seeded": 102,
+        "not_applicable": 102
+      },
+      "before_counts": {
+        "ms1_detected": 25162,
+        "ms2_seeded": 108
+      },
+      "elapsed_seconds": 0.9138182080350816,
+      "timings_seconds": {
+        "calibration": 0.3011372908949852,
+        "feature_extraction": 0.2555455220863223,
+        "ion_grouping": 0.12710045790299773,
+        "ms2_association": 0.02275454206392169,
+        "ms2_gapfill": 0.05978758307173848,
+        "table_write": 0.1402318747714162
+      },
+      "parquet_bytes": 681304,
+      "before_parquet_bytes": 948718,
+      "tsv_bytes": 3405615
+    },
+    {
+      "file": "NIST_POS_Samp_08-03.mzXML",
+      "group": "biological",
+      "input_sha256": "c625fdaaa5a7db1b4b3e8f66d83ddf8bcf867a15be228d3a1a34159a27ba300f",
+      "features": 15841,
+      "counts": {
+        "ms1_detected": 15758,
+        "unsplit": 5041,
+        "split": 7661,
+        "guarded_unsplit": 2955,
+        "guarded_split": 101,
+        "ms2_seeded": 83,
+        "not_applicable": 83
+      },
+      "before_counts": {
+        "ms1_detected": 26826,
+        "ms2_seeded": 93
+      },
+      "elapsed_seconds": 0.9557219999842346,
+      "timings_seconds": {
+        "calibration": 0.3001521658152342,
+        "feature_extraction": 0.27156225591897964,
+        "ion_grouping": 0.09674854204058647,
+        "ms2_association": 0.05045412527397275,
+        "ms2_gapfill": 0.059425583109259605,
+        "table_write": 0.170456999912858
+      },
+      "parquet_bytes": 692022,
+      "before_parquet_bytes": 988214,
+      "tsv_bytes": 3455047
+    },
+    {
+      "file": "NIST_POS_Samp_09-01.mzXML",
+      "group": "biological",
+      "input_sha256": "8569ab4f56809daf603d33c23226d4dfd89ac7cf0214ab1de52fb0740ce599b3",
+      "features": 15051,
+      "counts": {
+        "ms1_detected": 14895,
+        "unsplit": 5399,
+        "split": 6995,
+        "guarded_unsplit": 2418,
+        "guarded_split": 83,
+        "ms2_seeded": 156,
+        "not_applicable": 156
+      },
+      "before_counts": {
+        "ms1_detected": 23340,
+        "ms2_seeded": 159
+      },
+      "elapsed_seconds": 0.937786374706775,
+      "timings_seconds": {
+        "calibration": 0.3134665419347584,
+        "feature_extraction": 0.24700490897521377,
+        "ion_grouping": 0.1203603339381516,
+        "ms2_association": 0.023188916966319084,
+        "ms2_gapfill": 0.08130024978891015,
+        "table_write": 0.1454776250757277
+      },
+      "parquet_bytes": 677391,
+      "before_parquet_bytes": 883986,
+      "tsv_bytes": 3390894
+    },
+    {
+      "file": "NIST_POS_Samp_09-03.mzXML",
+      "group": "biological",
+      "input_sha256": "0fcf4099f16d6bd8a3da8af617203e720f46154c2ce1585f9ca980524ad5615c",
+      "features": 15619,
+      "counts": {
+        "ms1_detected": 15535,
+        "unsplit": 5001,
+        "split": 7428,
+        "guarded_unsplit": 3011,
+        "guarded_split": 95,
+        "ms2_seeded": 84,
+        "not_applicable": 84
+      },
+      "before_counts": {
+        "ms1_detected": 27045,
+        "ms2_seeded": 85
+      },
+      "elapsed_seconds": 0.9879212910309434,
+      "timings_seconds": {
+        "calibration": 0.3105900418013334,
+        "feature_extraction": 0.2744117947295308,
+        "ion_grouping": 0.10570566728711128,
+        "ms2_association": 0.05842158431187272,
+        "ms2_gapfill": 0.060341209173202515,
+        "table_write": 0.170671041123569
+      },
+      "parquet_bytes": 676827,
+      "before_parquet_bytes": 983298,
+      "tsv_bytes": 3329785
+    },
+    {
+      "file": "NIST_POS_Samp_10-01.mzXML",
+      "group": "biological",
+      "input_sha256": "5f66032b40a4281dc8eacf9206dee23e6578c74adfc99923408510bca11a7932",
+      "features": 14616,
+      "counts": {
+        "ms1_detected": 14465,
+        "unsplit": 4645,
+        "split": 7220,
+        "guarded_unsplit": 2521,
+        "guarded_split": 79,
+        "ms2_seeded": 151,
+        "not_applicable": 151
+      },
+      "before_counts": {
+        "ms1_detected": 24717,
+        "ms2_seeded": 159
+      },
+      "elapsed_seconds": 0.9336652089841664,
+      "timings_seconds": {
+        "calibration": 0.3175167911686003,
+        "feature_extraction": 0.2508936538361013,
+        "ion_grouping": 0.12078462494537234,
+        "ms2_association": 0.02436737483367324,
+        "ms2_gapfill": 0.07903283415362239,
+        "table_write": 0.13365441700443625
+      },
+      "parquet_bytes": 664507,
+      "before_parquet_bytes": 948539,
+      "tsv_bytes": 3313806
+    },
+    {
+      "file": "NIST_POS_Samp_10-03.mzXML",
+      "group": "biological",
+      "input_sha256": "f52c111621fee4d297b4ad82d84e03d4ea19533864034b9bb6a5fbbcaff4bc4f",
+      "features": 15962,
+      "counts": {
+        "ms1_detected": 15876,
+        "unsplit": 4922,
+        "split": 7792,
+        "guarded_unsplit": 3050,
+        "guarded_split": 112,
+        "ms2_seeded": 86,
+        "not_applicable": 86
+      },
+      "before_counts": {
+        "ms1_detected": 28194,
+        "ms2_seeded": 94
+      },
+      "elapsed_seconds": 0.9922079998068511,
+      "timings_seconds": {
+        "calibration": 0.31598012521862984,
+        "feature_extraction": 0.2934485203586519,
+        "ion_grouping": 0.10137383406981826,
+        "ms2_association": 0.025136541575193405,
+        "ms2_gapfill": 0.08735808311030269,
+        "table_write": 0.1561836670152843
+      },
+      "parquet_bytes": 704958,
+      "before_parquet_bytes": 1035600,
+      "tsv_bytes": 3554170
+    },
+    {
+      "file": "NIST_POS_Samp_11-01.mzXML",
+      "group": "biological",
+      "input_sha256": "a4541d9c3a0460a971b5716f9c93b82606378f8ab775618605964b34b9f26fc5",
+      "features": 14813,
+      "counts": {
+        "ms1_detected": 14683,
+        "unsplit": 5150,
+        "split": 6893,
+        "guarded_unsplit": 2577,
+        "guarded_split": 63,
+        "ms2_seeded": 130,
+        "not_applicable": 130
+      },
+      "before_counts": {
+        "ms1_detected": 24244,
+        "ms2_seeded": 139
+      },
+      "elapsed_seconds": 0.9229576666839421,
+      "timings_seconds": {
+        "calibration": 0.28328000009059906,
+        "feature_extraction": 0.28177644964307547,
+        "ion_grouping": 0.12717225030064583,
+        "ms2_association": 0.02349095931276679,
+        "ms2_gapfill": 0.06560433283448219,
+        "table_write": 0.13418470788747072
+      },
+      "parquet_bytes": 666016,
+      "before_parquet_bytes": 909814,
+      "tsv_bytes": 3333815
+    },
+    {
+      "file": "NIST_POS_Samp_11-02.mzXML",
+      "group": "biological",
+      "input_sha256": "d4deb4094064c6d383486272a3000b2225f2260e0d7ad0a1283359e23dbebea9",
+      "features": 15356,
+      "counts": {
+        "ms1_detected": 15258,
+        "unsplit": 5149,
+        "split": 7208,
+        "guarded_unsplit": 2819,
+        "guarded_split": 82,
+        "ms2_seeded": 98,
+        "not_applicable": 98
+      },
+      "before_counts": {
+        "ms1_detected": 26690,
+        "ms2_seeded": 111
+      },
+      "elapsed_seconds": 0.9352558748796582,
+      "timings_seconds": {
+        "calibration": 0.30721541680395603,
+        "feature_extraction": 0.28151090582832694,
+        "ion_grouping": 0.1198825417086482,
+        "ms2_association": 0.023248916026204824,
+        "ms2_gapfill": 0.06060758279636502,
+        "table_write": 0.13544504204764962
+      },
+      "parquet_bytes": 670846,
+      "before_parquet_bytes": 978908,
+      "tsv_bytes": 3294379
+    },
+    {
+      "file": "NIST_POS_Samp_12-01.mzXML",
+      "group": "biological",
+      "input_sha256": "7d150b8fd7dba10fd87f0ed4a1098a060238202c98553a67ed04d4215f381975",
+      "features": 14705,
+      "counts": {
+        "ms1_detected": 14540,
+        "unsplit": 4646,
+        "split": 7189,
+        "guarded_unsplit": 2577,
+        "guarded_split": 128,
+        "ms2_seeded": 165,
+        "not_applicable": 165
+      },
+      "before_counts": {
+        "ms1_detected": 24711,
+        "ms2_seeded": 175
+      },
+      "elapsed_seconds": 0.9732273747213185,
+      "timings_seconds": {
+        "calibration": 0.29755483428016305,
+        "feature_extraction": 0.2659280141815543,
+        "ion_grouping": 0.09245916688814759,
+        "ms2_association": 0.05022345809265971,
+        "ms2_gapfill": 0.09894458390772343,
+        "table_write": 0.1606541252695024
+      },
+      "parquet_bytes": 667734,
+      "before_parquet_bytes": 943568,
+      "tsv_bytes": 3341119
+    },
+    {
+      "file": "NIST_POS_Samp_12-02.mzXML",
+      "group": "biological",
+      "input_sha256": "8ff9d5ab0a8a8bcd47b488dcdd13b21c54b5fc9f70507ed945a4c6f6bdd8a5a7",
+      "features": 15511,
+      "counts": {
+        "ms1_detected": 15424,
+        "unsplit": 5103,
+        "split": 7406,
+        "guarded_unsplit": 2829,
+        "guarded_split": 86,
+        "ms2_seeded": 87,
+        "not_applicable": 87
+      },
+      "before_counts": {
+        "ms1_detected": 27320,
+        "ms2_seeded": 104
+      },
+      "elapsed_seconds": 0.9621688332408667,
+      "timings_seconds": {
+        "calibration": 0.3242403329350054,
+        "feature_extraction": 0.27374426973983645,
+        "ion_grouping": 0.1354618752375245,
+        "ms2_association": 0.024125291034579277,
+        "ms2_gapfill": 0.054806457832455635,
+        "table_write": 0.14265387505292892
+      },
+      "parquet_bytes": 684127,
+      "before_parquet_bytes": 1001430,
+      "tsv_bytes": 3404702
+    },
+    {
+      "file": "NIST_POS_Samp_12-03.mzXML",
+      "group": "biological",
+      "input_sha256": "c1c0b1315157cc1c02ddfe025eff5bfef8f04eb786044e71d87a39fc0b997aca",
+      "features": 15802,
+      "counts": {
+        "ms1_detected": 15713,
+        "unsplit": 4939,
+        "split": 7798,
+        "guarded_unsplit": 2877,
+        "guarded_split": 99,
+        "ms2_seeded": 89,
+        "not_applicable": 89
+      },
+      "before_counts": {
+        "ms1_detected": 27778,
+        "ms2_seeded": 98
+      },
+      "elapsed_seconds": 0.9669764577411115,
+      "timings_seconds": {
+        "calibration": 0.3041269169189036,
+        "feature_extraction": 0.27444284269586205,
+        "ion_grouping": 0.10263704229146242,
+        "ms2_association": 0.05286291614174843,
+        "ms2_gapfill": 0.05684816697612405,
+        "table_write": 0.16883533401414752
+      },
+      "parquet_bytes": 695146,
+      "before_parquet_bytes": 1015552,
+      "tsv_bytes": 3470192
+    },
+    {
+      "file": "NIST_POS_Samp_13-02.mzXML",
+      "group": "biological",
+      "input_sha256": "2cecc1a61f2810f060e7bad0b63521a9e93e2d6a81181cfaa4874504ef5b56f6",
+      "features": 15063,
+      "counts": {
+        "ms1_detected": 14971,
+        "unsplit": 4979,
+        "split": 6821,
+        "guarded_unsplit": 3086,
+        "guarded_split": 85,
+        "ms2_seeded": 92,
+        "not_applicable": 92
+      },
+      "before_counts": {
+        "ms1_detected": 27544,
+        "ms2_seeded": 100
+      },
+      "elapsed_seconds": 0.964312749914825,
+      "timings_seconds": {
+        "calibration": 0.3267606250010431,
+        "feature_extraction": 0.27669276110827923,
+        "ion_grouping": 0.12694658432155848,
+        "ms2_association": 0.02403691690415144,
+        "ms2_gapfill": 0.06310808286070824,
+        "table_write": 0.13898687483742833
+      },
+      "parquet_bytes": 653490,
+      "before_parquet_bytes": 984333,
+      "tsv_bytes": 3237333
+    },
+    {
+      "file": "NIST_POS_Samp_13-03.mzXML",
+      "group": "biological",
+      "input_sha256": "24163d7da8b59d727d0770787fda016d265beaffe440f670ecf899fa3b3f636e",
+      "features": 16791,
+      "counts": {
+        "ms1_detected": 16738,
+        "unsplit": 5453,
+        "split": 7647,
+        "guarded_unsplit": 3518,
+        "guarded_split": 120,
+        "ms2_seeded": 53,
+        "not_applicable": 53
+      },
+      "before_counts": {
+        "ms1_detected": 29460,
+        "ms2_seeded": 60
+      },
+      "elapsed_seconds": 0.9904006673023105,
+      "timings_seconds": {
+        "calibration": 0.3077897080220282,
+        "feature_extraction": 0.2935946201905608,
+        "ion_grouping": 0.1046338751912117,
+        "ms2_association": 0.023767666891217232,
+        "ms2_gapfill": 0.07447045762091875,
+        "table_write": 0.17845529224723577
+      },
+      "parquet_bytes": 731841,
+      "before_parquet_bytes": 1049996,
+      "tsv_bytes": 3580848
+    },
+    {
+      "file": "NIST_POS_Samp_14-01.mzXML",
+      "group": "biological",
+      "input_sha256": "b6fc8122bc290fddf57f0c3b9dbcfee4e380195db0d728f7b6be97b65f8e269d",
+      "features": 14844,
+      "counts": {
+        "ms1_detected": 14735,
+        "unsplit": 5121,
+        "split": 6650,
+        "guarded_unsplit": 2877,
+        "guarded_split": 87,
+        "ms2_seeded": 109,
+        "not_applicable": 109
+      },
+      "before_counts": {
+        "ms1_detected": 26043,
+        "ms2_seeded": 120
+      },
+      "elapsed_seconds": 0.9336106250993907,
+      "timings_seconds": {
+        "calibration": 0.31871304102241993,
+        "feature_extraction": 0.2672193027101457,
+        "ion_grouping": 0.11898316629230976,
+        "ms2_association": 0.022681207861751318,
+        "ms2_gapfill": 0.06494445819407701,
+        "table_write": 0.13378941593691707
+      },
+      "parquet_bytes": 643787,
+      "before_parquet_bytes": 949200,
+      "tsv_bytes": 3155603
+    },
+    {
+      "file": "NIST_POS_Samp_14-03.mzXML",
+      "group": "biological",
+      "input_sha256": "458edf67e81118f19c9beb4335b80bf6927fa5a8871ba2ae9475e3321537a128",
+      "features": 16731,
+      "counts": {
+        "ms1_detected": 16669,
+        "unsplit": 5168,
+        "split": 7681,
+        "guarded_unsplit": 3685,
+        "guarded_split": 135,
+        "ms2_seeded": 62,
+        "not_applicable": 62
+      },
+      "before_counts": {
+        "ms1_detected": 31503,
+        "ms2_seeded": 67
+      },
+      "elapsed_seconds": 0.9839341673068702,
+      "timings_seconds": {
+        "calibration": 0.3086195420473814,
+        "feature_extraction": 0.31235304195433855,
+        "ion_grouping": 0.10473962500691414,
+        "ms2_association": 0.023191208951175213,
+        "ms2_gapfill": 0.0768544590100646,
+        "table_write": 0.15077183302491903
+      },
+      "parquet_bytes": 729900,
+      "before_parquet_bytes": 1098520,
+      "tsv_bytes": 3574758
+    },
+    {
+      "file": "NIST_POS_Samp_15-01.mzXML",
+      "group": "biological",
+      "input_sha256": "67d5a5445d1962c5675f0e5d9d9ae9e2804ff32b8cf07f23f98f2570ff89a63e",
+      "features": 14859,
+      "counts": {
+        "ms1_detected": 14744,
+        "unsplit": 4853,
+        "split": 6911,
+        "guarded_unsplit": 2891,
+        "guarded_split": 89,
+        "ms2_seeded": 115,
+        "not_applicable": 115
+      },
+      "before_counts": {
+        "ms1_detected": 26327,
+        "ms2_seeded": 122
+      },
+      "elapsed_seconds": 0.9304522923193872,
+      "timings_seconds": {
+        "calibration": 0.3180409171618521,
+        "feature_extraction": 0.2641223627142608,
+        "ion_grouping": 0.12077245907858014,
+        "ms2_association": 0.02205600030720234,
+        "ms2_gapfill": 0.06693474994972348,
+        "table_write": 0.13121304102241993
+      },
+      "parquet_bytes": 651341,
+      "before_parquet_bytes": 964149,
+      "tsv_bytes": 3228216
+    },
+    {
+      "file": "NIST_POS_Samp_15-02.mzXML",
+      "group": "biological",
+      "input_sha256": "5a0204e86559ed9884854e0457b5f5c92caca1809224218699deaae68f283f89",
+      "features": 15959,
+      "counts": {
+        "ms1_detected": 15897,
+        "unsplit": 5542,
+        "split": 6995,
+        "guarded_unsplit": 3261,
+        "guarded_split": 99,
+        "ms2_seeded": 62,
+        "not_applicable": 62
+      },
+      "before_counts": {
+        "ms1_detected": 28673,
+        "ms2_seeded": 72
+      },
+      "elapsed_seconds": 0.9246891252696514,
+      "timings_seconds": {
+        "calibration": 0.3016890003345907,
+        "feature_extraction": 0.2804558244533837,
+        "ion_grouping": 0.09677624981850386,
+        "ms2_association": 0.023942625150084496,
+        "ms2_gapfill": 0.0736577077768743,
+        "table_write": 0.1409420003183186
+      },
+      "parquet_bytes": 679494,
+      "before_parquet_bytes": 1020165,
+      "tsv_bytes": 3376569
+    },
+    {
+      "file": "NIST_POS_Samp_16-01.mzXML",
+      "group": "biological",
+      "input_sha256": "fe55a75e799bc16b8c2246f731cf8ced521ce0973df0001aebd0fdfa13b78a31",
+      "features": 14143,
+      "counts": {
+        "ms1_detected": 14026,
+        "unsplit": 4610,
+        "split": 6390,
+        "guarded_unsplit": 2953,
+        "guarded_split": 73,
+        "ms2_seeded": 117,
+        "not_applicable": 117
+      },
+      "before_counts": {
+        "ms1_detected": 26145,
+        "ms2_seeded": 127
+      },
+      "elapsed_seconds": 0.9319701250642538,
+      "timings_seconds": {
+        "calibration": 0.297884332947433,
+        "feature_extraction": 0.28947080206125975,
+        "ion_grouping": 0.12082170927897096,
+        "ms2_association": 0.023801499977707863,
+        "ms2_gapfill": 0.06645070808008313,
+        "table_write": 0.1263596247881651
+      },
+      "parquet_bytes": 627242,
+      "before_parquet_bytes": 951795,
+      "tsv_bytes": 3071591
+    },
+    {
+      "file": "NIST_POS_Samp_16-02.mzXML",
+      "group": "biological",
+      "input_sha256": "c6030a719a42b1ccbab41197dcbdc0bacea0038b1d47bb0ea26dddb5b1faec9c",
+      "features": 15999,
+      "counts": {
+        "ms1_detected": 15926,
+        "unsplit": 4993,
+        "split": 7557,
+        "guarded_unsplit": 3258,
+        "guarded_split": 118,
+        "ms2_seeded": 73,
+        "not_applicable": 73
+      },
+      "before_counts": {
+        "ms1_detected": 29949,
+        "ms2_seeded": 81
+      },
+      "elapsed_seconds": 0.9426502077840269,
+      "timings_seconds": {
+        "calibration": 0.3146983329206705,
+        "feature_extraction": 0.2860016911290586,
+        "ion_grouping": 0.1215955838561058,
+        "ms2_association": 0.022146624978631735,
+        "ms2_gapfill": 0.05094749992713332,
+        "table_write": 0.14005512511357665
+      },
+      "parquet_bytes": 682376,
+      "before_parquet_bytes": 1054440,
+      "tsv_bytes": 3386432
+    },
+    {
+      "file": "NIST_POS_Samp_17-01.mzXML",
+      "group": "biological",
+      "input_sha256": "fda868cee4244ebb02d1cc4c97a73c119078ea4467afce5c78d08b3d1893775c",
+      "features": 14665,
+      "counts": {
+        "ms1_detected": 14557,
+        "unsplit": 4819,
+        "split": 6730,
+        "guarded_unsplit": 2920,
+        "guarded_split": 88,
+        "ms2_seeded": 108,
+        "not_applicable": 108
+      },
+      "before_counts": {
+        "ms1_detected": 25991,
+        "ms2_seeded": 115
+      },
+      "elapsed_seconds": 0.9248390421271324,
+      "timings_seconds": {
+        "calibration": 0.2929054591804743,
+        "feature_extraction": 0.26193736121058464,
+        "ion_grouping": 0.08796070795506239,
+        "ms2_association": 0.05179933272302151,
+        "ms2_gapfill": 0.06591470818966627,
+        "table_write": 0.1574640409089625
+      },
+      "parquet_bytes": 656173,
+      "before_parquet_bytes": 977783,
+      "tsv_bytes": 3285449
+    },
+    {
+      "file": "NIST_POS_Samp_17-02.mzXML",
+      "group": "biological",
+      "input_sha256": "c8568f63ae001fb76c5093f49a65047fc97b5fba825fe92292433d9eb4478ecc",
+      "features": 15607,
+      "counts": {
+        "ms1_detected": 15538,
+        "unsplit": 5208,
+        "split": 7093,
+        "guarded_unsplit": 3165,
+        "guarded_split": 72,
+        "ms2_seeded": 69,
+        "not_applicable": 69
+      },
+      "before_counts": {
+        "ms1_detected": 28223,
+        "ms2_seeded": 82
+      },
+      "elapsed_seconds": 0.9901317916810513,
+      "timings_seconds": {
+        "calibration": 0.331427083350718,
+        "feature_extraction": 0.2968965475447476,
+        "ion_grouping": 0.1334662907756865,
+        "ms2_association": 0.025511332787573338,
+        "ms2_gapfill": 0.04988100007176399,
+        "table_write": 0.14516670815646648
+      },
+      "parquet_bytes": 675506,
+      "before_parquet_bytes": 1012737,
+      "tsv_bytes": 3374820
+    },
+    {
+      "file": "NIST_POS_Samp_17-03.mzXML",
+      "group": "biological",
+      "input_sha256": "6a02d46efe87e03fbdaba55c560ce9d7c0111ad438b51ac94d982f7d612d2ccd",
+      "features": 16628,
+      "counts": {
+        "ms1_detected": 16553,
+        "unsplit": 5165,
+        "split": 7664,
+        "guarded_unsplit": 3626,
+        "guarded_split": 98,
+        "ms2_seeded": 75,
+        "not_applicable": 75
+      },
+      "before_counts": {
+        "ms1_detected": 31440,
+        "ms2_seeded": 87
+      },
+      "elapsed_seconds": 1.0308981672860682,
+      "timings_seconds": {
+        "calibration": 0.3121409169398248,
+        "feature_extraction": 0.31493765069171786,
+        "ion_grouping": 0.10446704085916281,
+        "ms2_association": 0.02517849998548627,
+        "ms2_gapfill": 0.08667724998667836,
+        "table_write": 0.1799357500858605
+      },
+      "parquet_bytes": 725971,
+      "before_parquet_bytes": 1106797,
+      "tsv_bytes": 3564756
+    },
+    {
+      "file": "NIST_POS_Samp_18-02.mzXML",
+      "group": "biological",
+      "input_sha256": "acc82d702f9d9324dd6e493518acda735558492683c82f618ea2cf5e84bc8731",
+      "features": 15679,
+      "counts": {
+        "ms1_detected": 15607,
+        "unsplit": 4878,
+        "split": 7302,
+        "guarded_unsplit": 3348,
+        "guarded_split": 79,
+        "ms2_seeded": 72,
+        "not_applicable": 72
+      },
+      "before_counts": {
+        "ms1_detected": 30459,
+        "ms2_seeded": 81
+      },
+      "elapsed_seconds": 0.9577766670845449,
+      "timings_seconds": {
+        "calibration": 0.3232235829345882,
+        "feature_extraction": 0.2981810583733022,
+        "ion_grouping": 0.12058187508955598,
+        "ms2_association": 0.022616249974817038,
+        "ms2_gapfill": 0.054495124612003565,
+        "table_write": 0.1313662501052022
+      },
+      "parquet_bytes": 670046,
+      "before_parquet_bytes": 1074681,
+      "tsv_bytes": 3328511
+    },
+    {
+      "file": "NIST_POS_Samp_18-03.mzXML",
+      "group": "biological",
+      "input_sha256": "2c8b56498614dcec78cb923fa02740d559be8b9421492826dec87fdbc7a5a165",
+      "features": 16506,
+      "counts": {
+        "ms1_detected": 16447,
+        "unsplit": 5036,
+        "split": 7676,
+        "guarded_unsplit": 3619,
+        "guarded_split": 116,
+        "ms2_seeded": 59,
+        "not_applicable": 59
+      },
+      "before_counts": {
+        "ms1_detected": 31854,
+        "ms2_seeded": 75
+      },
+      "elapsed_seconds": 0.9857998327352107,
+      "timings_seconds": {
+        "calibration": 0.3105392921715975,
+        "feature_extraction": 0.3020699960179627,
+        "ion_grouping": 0.09353941725566983,
+        "ms2_association": 0.056746500078588724,
+        "ms2_gapfill": 0.04586633434519172,
+        "table_write": 0.169512249995023
+      },
+      "parquet_bytes": 718716,
+      "before_parquet_bytes": 1103548,
+      "tsv_bytes": 3518373
+    },
+    {
+      "file": "Blank_00.mzXML",
+      "group": "blank",
+      "input_sha256": "5deeb04515087f05ede3260b5ad7b2a7697be9d65cc3ff05e11e98df97c15864",
+      "features": 13012,
+      "counts": {
+        "ms1_detected": 12955,
+        "unsplit": 3784,
+        "split": 4096,
+        "guarded_unsplit": 4986,
+        "guarded_split": 89,
+        "ms2_seeded": 57,
+        "not_applicable": 57
+      },
+      "before_counts": {
+        "ms1_detected": 34629,
+        "ms2_seeded": 65
+      },
+      "elapsed_seconds": 0.9591441247612238,
+      "timings_seconds": {
+        "calibration": 0.3271932499483228,
+        "feature_extraction": 0.32697898149490356,
+        "ion_grouping": 0.11342183407396078,
+        "ms2_association": 0.019083125051110983,
+        "ms2_gapfill": 0.05767875025048852,
+        "table_write": 0.10810291580855846
+      },
+      "parquet_bytes": 506701,
+      "before_parquet_bytes": 1104565,
+      "tsv_bytes": 2344304
+    },
+    {
+      "file": "Blank_Post_01-02.mzXML",
+      "group": "blank",
+      "input_sha256": "206b93641c3f979092e99c70c4441b1d01f415fb9f556097fef55c352c59f7fe",
+      "features": 11700,
+      "counts": {
+        "ms1_detected": 11674,
+        "unsplit": 1907,
+        "split": 3579,
+        "guarded_unsplit": 6028,
+        "guarded_split": 160,
+        "ms2_seeded": 26,
+        "not_applicable": 26
+      },
+      "before_counts": {
+        "ms1_detected": 46249,
+        "ms2_seeded": 53
+      },
+      "elapsed_seconds": 0.9325449173338711,
+      "timings_seconds": {
+        "calibration": 0.3548429594375193,
+        "feature_extraction": 0.38851173780858517,
+        "ion_grouping": 0.05446312529966235,
+        "ms2_association": 0.0148567920550704,
+        "ms2_gapfill": 0.021860750392079353,
+        "table_write": 0.09119141614064574
+      },
+      "parquet_bytes": 414692,
+      "before_parquet_bytes": 1352859,
+      "tsv_bytes": 1785531
+    },
+    {
+      "file": "Blank_Post_05-03.mzXML",
+      "group": "blank",
+      "input_sha256": "c0787aedc064c89871daac0a583cf0f872f1a7029b1dabbcb2633cfd9c21e055",
+      "features": 13606,
+      "counts": {
+        "ms1_detected": 13576,
+        "unsplit": 2100,
+        "split": 4285,
+        "guarded_unsplit": 6936,
+        "guarded_split": 255,
+        "ms2_seeded": 30,
+        "not_applicable": 30
+      },
+      "before_counts": {
+        "ms1_detected": 53608,
+        "ms2_seeded": 47
+      },
+      "elapsed_seconds": 1.0595370000228286,
+      "timings_seconds": {
+        "calibration": 0.35744949989020824,
+        "feature_extraction": 0.46188045805320144,
+        "ion_grouping": 0.057368624955415726,
+        "ms2_association": 0.045137875247746706,
+        "ms2_gapfill": 0.02521016588434577,
+        "table_write": 0.10540304239839315
+      },
+      "parquet_bytes": 461955,
+      "before_parquet_bytes": 1522222,
+      "tsv_bytes": 2048776
+    },
+    {
+      "file": "Blank_Post_10-02.mzXML",
+      "group": "blank",
+      "input_sha256": "02751930edb7f3e196384b95a6281a4d9e7458aa28964491e95b6f0c43e286e9",
+      "features": 12163,
+      "counts": {
+        "ms1_detected": 12136,
+        "unsplit": 1984,
+        "split": 3903,
+        "guarded_unsplit": 6098,
+        "guarded_split": 151,
+        "ms2_seeded": 27,
+        "not_applicable": 27
+      },
+      "before_counts": {
+        "ms1_detected": 46528,
+        "ms2_seeded": 48
+      },
+      "elapsed_seconds": 0.9857780407182872,
+      "timings_seconds": {
+        "calibration": 0.3478330001235008,
+        "feature_extraction": 0.41191967483609915,
+        "ion_grouping": 0.05513116670772433,
+        "ms2_association": 0.01587916724383831,
+        "ms2_gapfill": 0.0496294591575861,
+        "table_write": 0.098365250043571
+      },
+      "parquet_bytes": 433207,
+      "before_parquet_bytes": 1351250,
+      "tsv_bytes": 1881563
+    },
+    {
+      "file": "Blank_Post_14-03.mzXML",
+      "group": "blank",
+      "input_sha256": "20efca9168b21fd99094e4afe5bcc57980b00385737a22745765d1e7a9593a6c",
+      "features": 13476,
+      "counts": {
+        "ms1_detected": 13455,
+        "unsplit": 2135,
+        "split": 3909,
+        "guarded_unsplit": 7196,
+        "guarded_split": 215,
+        "ms2_seeded": 21,
+        "not_applicable": 21
+      },
+      "before_counts": {
+        "ms1_detected": 56591,
+        "ms2_seeded": 32
+      },
+      "elapsed_seconds": 1.0837404998019338,
+      "timings_seconds": {
+        "calibration": 0.35911241732537746,
+        "feature_extraction": 0.488413386978209,
+        "ion_grouping": 0.08580445917323232,
+        "ms2_association": 0.017426625359803438,
+        "ms2_gapfill": 0.01948125008493662,
+        "table_write": 0.105725166387856
+      },
+      "parquet_bytes": 458832,
+      "before_parquet_bytes": 1571736,
+      "tsv_bytes": 2047663
+    },
+    {
+      "file": "Blank_Post_18.mzXML",
+      "group": "blank",
+      "input_sha256": "3d2d50104c7913a7f055b058291d0868baf45779921b899f1c2e4dbbf993867e",
+      "features": 11379,
+      "counts": {
+        "ms1_detected": 11350,
+        "unsplit": 1684,
+        "split": 3428,
+        "guarded_unsplit": 6034,
+        "guarded_split": 204,
+        "ms2_seeded": 29,
+        "not_applicable": 29
+      },
+      "before_counts": {
+        "ms1_detected": 47157,
+        "ms2_seeded": 59
+      },
+      "elapsed_seconds": 0.9910444999113679,
+      "timings_seconds": {
+        "calibration": 0.3716575000435114,
+        "feature_extraction": 0.398247221019119,
+        "ion_grouping": 0.05269749974831939,
+        "ms2_association": 0.015373707748949528,
+        "ms2_gapfill": 0.02916366560384631,
+        "table_write": 0.11733691720291972
+      },
+      "parquet_bytes": 410151,
+      "before_parquet_bytes": 1359981,
+      "tsv_bytes": 1767986
+    },
+    {
+      "file": "QC_Mix_01.mzXML",
+      "group": "QC",
+      "input_sha256": "43cf20f3c0269ea1c40d7790596579ca1e1d888c46e55ffbfcb26afb27958912",
+      "features": 12646,
+      "counts": {
+        "ms1_detected": 12598,
+        "unsplit": 1815,
+        "split": 5120,
+        "guarded_unsplit": 5561,
+        "guarded_split": 102,
+        "ms2_seeded": 48,
+        "not_applicable": 48
+      },
+      "before_counts": {
+        "ms1_detected": 41729,
+        "ms2_seeded": 67
+      },
+      "elapsed_seconds": 0.8749817498028278,
+      "timings_seconds": {
+        "calibration": 0.3165408750064671,
+        "feature_extraction": 0.332719374448061,
+        "ion_grouping": 0.05739054223522544,
+        "ms2_association": 0.019360875245183706,
+        "ms2_gapfill": 0.04409212525933981,
+        "table_write": 0.09821495832875371
+      },
+      "parquet_bytes": 466776,
+      "before_parquet_bytes": 1226058,
+      "tsv_bytes": 2115441
+    },
+    {
+      "file": "QC_Mix_02.mzXML",
+      "group": "QC",
+      "input_sha256": "e922cb12feda5914509b2240be5ad399fd122bcd0891a530d3b8695aeb965620",
+      "features": 13744,
+      "counts": {
+        "ms1_detected": 13712,
+        "unsplit": 2501,
+        "split": 5040,
+        "guarded_unsplit": 6056,
+        "guarded_split": 115,
+        "ms2_seeded": 32,
+        "not_applicable": 32
+      },
+      "before_counts": {
+        "ms1_detected": 43992,
+        "ms2_seeded": 50
+      },
+      "elapsed_seconds": 0.943832416087389,
+      "timings_seconds": {
+        "calibration": 0.31715883407741785,
+        "feature_extraction": 0.3405664833262563,
+        "ion_grouping": 0.08341891691088676,
+        "ms2_association": 0.050634917337447405,
+        "ms2_gapfill": 0.03158450033515692,
+        "table_write": 0.1132565001025796
+      },
+      "parquet_bytes": 489543,
+      "before_parquet_bytes": 1277554,
+      "tsv_bytes": 2221632
+    },
+    {
+      "file": "QC_Mix_03.mzXML",
+      "group": "QC",
+      "input_sha256": "4bc4fc10527387c9fd9faad0c8087323fb12543748bd95c564683b4617f53263",
+      "features": 15930,
+      "counts": {
+        "ms1_detected": 15901,
+        "unsplit": 2986,
+        "split": 6062,
+        "guarded_unsplit": 6716,
+        "guarded_split": 137,
+        "ms2_seeded": 29,
+        "not_applicable": 29
+      },
+      "before_counts": {
+        "ms1_detected": 49378,
+        "ms2_seeded": 43
+      },
+      "elapsed_seconds": 1.0378885832615197,
+      "timings_seconds": {
+        "calibration": 0.34194649988785386,
+        "feature_extraction": 0.40545352455228567,
+        "ion_grouping": 0.0769506674259901,
+        "ms2_association": 0.05108729097992182,
+        "ms2_gapfill": 0.027661375235766172,
+        "table_write": 0.12724808370694518
+      },
+      "parquet_bytes": 544111,
+      "before_parquet_bytes": 1414597,
+      "tsv_bytes": 2550224
+    },
+    {
+      "file": "QC_Mix_04.mzXML",
+      "group": "QC",
+      "input_sha256": "606100539e427775ca15e23d63543e05e56b20095a2fba858886ff55b54b9ab8",
+      "features": 15444,
+      "counts": {
+        "ms1_detected": 15414,
+        "unsplit": 2110,
+        "split": 6279,
+        "guarded_unsplit": 6830,
+        "guarded_split": 195,
+        "ms2_seeded": 30,
+        "not_applicable": 30
+      },
+      "before_counts": {
+        "ms1_detected": 51241,
+        "ms2_seeded": 51
+      },
+      "elapsed_seconds": 1.0627947920002043,
+      "timings_seconds": {
+        "calibration": 0.33841416565701365,
+        "feature_extraction": 0.4427905841730535,
+        "ion_grouping": 0.06688904203474522,
+        "ms2_association": 0.01970295887440443,
+        "ms2_gapfill": 0.029539582785218954,
+        "table_write": 0.1583270002156496
+      },
+      "parquet_bytes": 530706,
+      "before_parquet_bytes": 1470342,
+      "tsv_bytes": 2443709
+    }
+  ],
+  "guard_off_v010_equality": [
+    {
+      "file": "Blank_00.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 34694
+    },
+    {
+      "file": "Blank_Post_01-02.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 46302
+    },
+    {
+      "file": "Blank_Post_05-03.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 53655
+    },
+    {
+      "file": "Blank_Post_10-02.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 46576
+    },
+    {
+      "file": "Blank_Post_14-03.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 56623
+    },
+    {
+      "file": "Blank_Post_18.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 47216
+    },
+    {
+      "file": "QC_Mix_01.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 41796
+    },
+    {
+      "file": "QC_Mix_02.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 44042
+    },
+    {
+      "file": "QC_Mix_03.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 49421
+    },
+    {
+      "file": "QC_Mix_04.mzXML",
+      "all_previous_columns_equal": true,
+      "rows": 51292
+    }
+  ],
+  "serial_50_file_processing_seconds": 47.70016749855131,
+  "serial_50_file_timing_note": "One warm default pass; validation and comparisons excluded; not repeated.",
+  "blank_qc_timings": [
+    {
+      "repeat": 1,
+      "guard": false,
+      "seconds": 16.28500829078257,
+      "stages_seconds": {
+        "calibration": 3.3479392915032804,
+        "feature_extraction": 5.173718287143856,
+        "ion_grouping": 2.605140251573175,
+        "ms2_association": 0.596258127130568,
+        "ms2_gapfill": 0.7715193312615156,
+        "table_write": 3.6782411239109933
+      }
+    },
+    {
+      "repeat": 1,
+      "guard": true,
+      "seconds": 10.02109283162281,
+      "stages_seconds": {
+        "calibration": 3.4952889177948236,
+        "feature_extraction": 4.033606029581279,
+        "ion_grouping": 0.7344302921555936,
+        "ms2_association": 0.2086018342524767,
+        "ms2_gapfill": 0.3353207907639444,
+        "table_write": 1.1418819562532008
+      }
+    },
+    {
+      "repeat": 2,
+      "guard": true,
+      "seconds": 9.77894062595442,
+      "stages_seconds": {
+        "calibration": 3.377161667216569,
+        "feature_extraction": 4.0120816165581346,
+        "ion_grouping": 0.6479587508365512,
+        "ms2_association": 0.23138604266569018,
+        "ms2_gapfill": 0.3570251241326332,
+        "table_write": 1.0812097913585603
+      }
+    },
+    {
+      "repeat": 2,
+      "guard": false,
+      "seconds": 16.279387834016234,
+      "stages_seconds": {
+        "calibration": 3.35614166688174,
+        "feature_extraction": 5.062375921756029,
+        "ion_grouping": 2.5843827920034528,
+        "ms2_association": 0.681230291724205,
+        "ms2_gapfill": 0.7177652106620371,
+        "table_write": 3.7649524989537895
+      }
+    },
+    {
+      "repeat": 3,
+      "guard": false,
+      "seconds": 16.350669918116182,
+      "stages_seconds": {
+        "calibration": 3.353276124689728,
+        "feature_extraction": 5.177470194175839,
+        "ion_grouping": 2.57021408341825,
+        "ms2_association": 0.5675489180721343,
+        "ms2_gapfill": 0.868284375872463,
+        "table_write": 3.6951098744757473
+      }
+    },
+    {
+      "repeat": 3,
+      "guard": true,
+      "seconds": 9.84819341590628,
+      "stages_seconds": {
+        "calibration": 3.331924830097705,
+        "feature_extraction": 3.9726137230172753,
+        "ion_grouping": 0.7961272913962603,
+        "ms2_association": 0.23747741943225265,
+        "ms2_gapfill": 0.3098303312435746,
+        "table_write": 1.1267483737319708
+      }
+    }
+  ],
+  "blank_qc_median_seconds_guard_on": 9.84819341590628,
+  "blank_qc_median_seconds_guard_off": 16.28500829078257,
+  "blank_qc_timing_note": "Three warm serial passes of all 10 blanks/QCs per setting, alternating order, same v0.11 code; guard-off includes the new shape reporting. Scientific outputs differ.",
+  "limitations": [
+    "One positive-mode centroid mzXML cohort; MS2/provenance correctness is not chemical peak ground truth.",
+    "A shape guard can merge poorly sampled, weak or irregular real peaks in noisy traces.",
+    "Original MassCube uses a 50,000 intensity floor and broader mass tolerance; counts are not an equal-sensitivity comparison."
+  ]
+}

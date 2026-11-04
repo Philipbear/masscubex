@@ -291,7 +291,7 @@ Detected rows are emitted in trace-completion order, followed by MS2-seeded
 rows in seed-creation order. IDs are local to each file. Retention times are
 always **seconds**. Parquet stores float64 values, nullable int64 scan IDs, native
 lists and relationship structs, using Zstd level 3 compression. Row groups contain
-at most 8,192 features. Output schema 6 has **27 columns**. Both formats round
+at most 8,192 features. Output schema 7 has **29 columns**. Both formats round
 m/z, seed m/z and mass radii to **5 decimal places**, all retention times in
 seconds to **2**, and every intensity/area/threshold to **2**. TSV writes trailing
 zeros; Parquet stores the same rounded numbers without text formatting. Nested
@@ -316,6 +316,8 @@ Missing scalars are null in Parquet and blank cells in TSV.
 | `peak_area` | Trapezoidal integral, intensity × seconds; seeded rows integrate refined local bounds or the fallback window |
 | `scan_count` | Number of observed nonzero MS1 samples |
 | `apex_noise_threshold` | Local MS1 threshold at the detected apex; regional reference for an imputed seed |
+| `gaussian_similarity` | Symmetric apex/FWHM Gaussian Pearson score on the original detected trace, 0–1, two decimals; null for MS2-seeded forced measurements |
+| `segmentation_status` | `split`, `unsplit`, `guarded_split`, `guarded_unsplit`, `disabled`, or `not_applicable` for seeds; `guarded_` means the noisy trace received extra shape checks |
 | `polarity` | `positive`, `negative`, or `unknown` |
 | `feature_origin` | `ms1_detected` or `ms2_seeded` |
 | `ms1_quant_status` | `detected`, `gap_filled`, `imputed_noise`, `no_ms1_signal`, `no_ms1_scans`, `ambiguous_polarity`, `no_local_ms1_signal`, `no_local_peak`, or `sampling_limit` |
@@ -343,6 +345,16 @@ candidate search compared the two highest local MS1 heights; a ratio below
 3 caused missing quantification. Overlapping candidate windows could count
 the same centroid twice. Version 0.10 uses one precursor-anchored EIC within
 the normal MS1 tolerance and removes that rule. See the [audit](../benchmarks/results/EIC_REVIEW.md).
+
+Schema 7 adds the two shape diagnostics. By default, traces with MassCube's
+noise score above 3 need supported peak shapes before splitting. Otherwise
+the whole trace is retained, with its original measurements and MS2 references.
+A low Gaussian similarity or a guarded status is not a contamination diagnosis.
+Use `--no-peak-shape-guard` for previous splitting behavior; thresholds are
+`--peak-noise-score-limit 3`, `--peak-min-snr 5`, and
+`--peak-min-gaussian-similarity 0.7`. The S/N check is across retention time;
+MS1 mass-axis noise remains μ + 3σ. See the [method](METHODS.md#shape-guard-introduced-in-011)
+and [real-file comparison](../benchmarks/results/PEAK_SHAPES.md).
 
 MS2 arrays are ordered by acquisition and correspond position by position.
 A native number is never invented from a spectrum index. Parquet lists are

@@ -34,6 +34,10 @@ class Config:
     max_gap_scans: int = 2
     max_gap_seconds: float = 15.0
     segment: bool = True
+    peak_shape_guard: bool = True
+    peak_noise_score_limit: float = 3.0
+    peak_min_gaussian_similarity: float = 0.7
+    peak_min_snr: float = 5.0
     smoothing_sigma: float = 0.6
     smoothing_seconds: float = 0.0
     peak_prominence: float = 0.1
@@ -93,6 +97,7 @@ class Config:
         booleans = {
             "auto_tune",
             "segment",
+            "peak_shape_guard",
             "assume_centroid",
             "associate_ms2",
             "ms2_seeded_features",
@@ -141,6 +146,9 @@ class Config:
             "gapfill_mz_tolerance_da",
             "gapfill_mz_tolerance_ppm",
             "gapfill_noise_fraction",
+            "peak_min_gaussian_similarity",
+            "peak_min_snr",
+            "peak_noise_score_limit",
         }
         excluded = (
             set(integer_minima)
@@ -179,6 +187,7 @@ class Config:
             raise ValueError("At least one gapfill m/z tolerance must be positive")
         for name in (
             "noise_fraction",
+            "peak_min_gaussian_similarity",
             "gapfill_noise_fraction",
             "group_min_correlation",
             "group_min_overlap",
