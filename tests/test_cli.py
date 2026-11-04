@@ -14,6 +14,8 @@ def test_default_quantification_and_numbered_catalog(capsys):
     assert config["quant_method"] == "peak_height"
     assert config["best_ms2"] == "fragment_intensity"
     assert config["associate_ms2"] is True
+    assert config["auto_tune"] is True
+    assert config["profile_mode"] == "centroid"
     assert config["ms2_max_isolation_width"] == 0
     assert config["ms2_seeded_features"] is True
     assert config["ms2_gapfill_rt_window"] == 5
@@ -154,8 +156,8 @@ def test_cli_area_selection_reaches_output(sample_file, tmp_path, capsys):
     with Path(result["output"]).open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
     assert "quant_method" not in row and "intensity" not in row
-    assert row["peak_area"] == "780.00"
-    assert row["peak_height"] == "100.00"
+    assert row["peak_area"] == "780.0"
+    assert row["peak_height"] == "100.0"
     metadata = json.loads(Path(result["output"] + ".json").read_text())
     assert metadata["config"]["quant_method"] == "peak_area"
     assert metadata["config"]["best_ms2"] == "apex"

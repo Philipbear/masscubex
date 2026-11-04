@@ -129,29 +129,41 @@ def test_separate_tuning_quantification_ms2_and_groups(
     assert neg["fwhm_seconds_p10_p50_p90"][1] == pytest.approx(
         2 * pos["fwhm_seconds_p10_p50_p90"][1], rel=0.03
     )
-    assert len(rows) == 48 and meta["ms2_assigned"] == 48 and meta["ms2_seeded_features"] == 0
+    detected = [row for row in rows if row["feature_origin"] == "ms1_detected"]
+    seeded = [row for row in rows if row["feature_origin"] == "ms2_seeded"]
+    assert len(detected) == 48 and meta["ms2_assigned"] == 48
+    assert meta["ms2_seeded_features"] == len(seeded)
+    assert meta["ms2_matched_detected"] + meta["ms2_seeded_scans"] == 48
     scans = {s.native_id: s for s in iter_scans(source) if hasattr(s, "precursor_mz")}
     for row in rows:
         polarity = row["polarity"]
-        assert row["feature_origin"] == "ms1_detected"
         assert all(
             scans[native].polarity == polarity for native in json.loads(row["ms2_native_ids"])
         )
-        assert int(row["ms2_count"]) == 1
+        assert int(row["ms2_count"]) in (0, 1)
+        for relation in json.loads(row["ion_relations"]):
+            assert rows[relation["partner_feature_id"] - 1]["polarity"] == polarity
+        if row["feature_origin"] == "ms2_seeded":
+            # Calibration can leave an MS2 outside its detected peak's mass
+            # window. Preserve it at the exact precursor, without cross-polarity evidence.
+            (native,) = json.loads(row["ms2_native_ids"])
+            assert float(row["mz"]) == round(scans[native].precursor_mz, 5)
+            assert row["ms1_quant_status"] in {"gap_filled", "no_local_ms1_signal"}
+            if row["ms1_quant_status"] == "no_local_ms1_signal":
+                assert row["peak_height"] == row["peak_area"] == ""
+            continue
         if polarity == "positive":
-            assert float(row["peak_height"]) == pytest.approx(100001, rel=1e-6)
+            assert float(row["peak_height"]) == 100001
             assert float(row["peak_area"]) == pytest.approx(
                 100000 * 3 * np.sqrt(2 * np.pi) + 169.5, rel=1e-5
             )
         else:
-            assert float(row["peak_height"]) == pytest.approx(
-                1 + 200000 * np.exp(-0.5 * (0.25 / 6) ** 2), rel=1e-6
+            assert float(row["peak_height"]) == int(
+                np.float32(1 + 200000 * np.exp(-0.5 * (0.25 / 6) ** 2))
             )
             assert float(row["peak_area"]) == pytest.approx(
                 200000 * 6 * np.sqrt(2 * np.pi) + 169, rel=1e-5
             )
-        for relation in json.loads(row["ion_relations"]):
-            assert rows[relation["partner_feature_id"] - 1]["polarity"] == polarity
     assert (
         process_file(source, tmp_path / "out.tsv", config=config, resume=True).status == "skipped"
     )
@@ -224,17 +236,21 @@ def test_tuned_pipeline_preserves_below_noise_seeds_and_distinct_local_peaks(tmp
             min_intensity=100, noise_mode="none", tuning_block_scans=2048, tuning_block_seconds=300
         ),
     )
-    seeds = [r for r in rows if r["feature_origin"] == "ms2_seeded"]
+    seeds = [
+        r for r in rows
+        if r["feature_origin"] == "ms2_seeded" and abs(float(r["mz"]) - 800.0001) < 1e-5
+    ]
     assert meta["parameter_tuning"]["polarities"]["positive"]["status"] == "tuned"
-    assert len(seeds) == 2 and meta["ms2_seeded_scans"] == 6
+    assert len(seeds) == 2 and sum(int(r["ms2_count"]) for r in seeds) == 6
+    assert meta["ms2_assigned"] == 54 and meta["ms2_unassigned"] == 0
     assert [int(r["ms2_count"]) for r in seeds] == [3, 3]
     assert [float(r["rt_apex_seconds"]) for r in seeds] == [40, 52]
     for row, height in zip(seeds, [4, 8]):
-        assert row["gapfill_status"] == "peak_bounds"
+        assert row["ms1_quant_status"] == "gap_filled"
         assert float(row["peak_height"]) == pytest.approx(height, rel=1e-5)
         assert float(row["peak_area"]) == pytest.approx(height * 2 * np.sqrt(2 * np.pi), rel=0.05)
-        assert float(row["mz"]) == float(row["seed_precursor_mz"]) == 800.0001
-        assert float(row["seed_precursor_mz"]) == 800.0001
+        assert float(row["mz"]) == 800.0001
+        assert "seed_precursor_mz" not in row and "seed_rt_seconds" not in row
 
 
 def test_grouping_on_by_default_stays_within_polarity(tmp_path):
@@ -244,12 +260,13 @@ def test_grouping_on_by_default_stays_within_polarity(tmp_path):
     spectra = []
     for i, value in enumerate([1, 3, 8, 12, 8, 3, 1]):
         spectra += [
-            mzml_spectrum(2 * i, i, [ions[1].mz(300), ions[2].mz(300)], [value, 2 * value]),
+            # Upstream's strongest-first anchor is assumed protonated/deprotonated.
+            mzml_spectrum(2 * i, i, [ions[1].mz(300), ions[2].mz(300)], [2 * value, value]),
             mzml_spectrum(
                 2 * i + 1,
                 i + 0.1,
                 [ions[5].mz(300), ions[6].mz(300)],
-                [value, 2 * value],
+                [2 * value, value],
                 polarity="negative",
             ),
         ]

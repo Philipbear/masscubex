@@ -24,8 +24,9 @@ class Config:
     tuning_block_seconds: float = 120.0
     tuning_locked: tuple[str, ...] = ()
     mass_regions: tuple[MassRegion, ...] = ()
-    mz_tolerance_ppm: float = 10.0
-    mz_tolerance_da: float = 0.002
+    mz_tolerance_ppm: float = 0.0
+    mz_tolerance_da: float = 0.01  # Upstream fallback; successful calibration supplies regional radii.
+    centroid_mz_tolerance_da: float = 0.002
     noise_mode: str = "adaptive"
     noise_estimator: str = "low_tail"
     noise_layout: str = "bins"
@@ -36,18 +37,17 @@ class Config:
     noise_iterations: int = 2
     noise_min_neighbors: int = 5
     min_intensity: float = 0.0
-    min_scans: int = 5
-    max_gap_scans: int = 2
-    max_gap_seconds: float = 15.0
+    min_scans: int = 1
+    max_gap_scans: int = 10
+    max_gap_seconds: float = 0.0  # Zero uses upstream's scan-count gap rule only.
     segment: bool = True
     peak_shape_guard: bool = True
     peak_noise_score_limit: float = 3.0
-    peak_min_gaussian_similarity: float = 0.7
-    peak_min_snr: float = 5.0
     smoothing_sigma: float = 0.6
     smoothing_seconds: float = 0.0
-    peak_prominence: float = 0.1
+    peak_prominence: float = 0.03
     peak_distance: int = 3
+    segmentation_passes: int = 2
     peak_distance_seconds: float = 0.0
     assume_centroid: bool = False
     profile_mode: str = "centroid"
@@ -55,9 +55,11 @@ class Config:
     profile_gap_factor: float = 4.0
     quant_method: str = "peak_height"
     associate_ms2: bool = True
-    ms2_mz_tolerance_ppm: float = 20.0
-    ms2_mz_tolerance_da: float = 0.01
-    ms2_rt_tolerance: float = 2.0
+    ms2_mz_tolerance_ppm: float = 0.0
+    ms2_mz_tolerance_da: float = 0.1
+    ms2_rt_tolerance: float = 0.0
+    ms2_min_intensity: float | None = None  # Upstream instrument default; explicit values override.
+    ms2_relative_intensity: float = 0.0
     ms2_max_isolation_width: float = 0.0
     ms2_seeded_features: bool = True
     ms2_gapfill_rt_window: float = 5.0
@@ -72,14 +74,14 @@ class Config:
     group_isf: bool = True
     adduct_ids: tuple[int, ...] = DEFAULT_ADDUCT_IDS
     custom_adducts: tuple[Adduct, ...] = ()
-    group_mz_tolerance_ppm: float = 10.0
-    group_mz_tolerance_da: float = 0.002
+    group_mz_tolerance_ppm: float = 0.0
+    group_mz_tolerance_da: float = 0.01
+    group_eic_mz_tolerance_da: float = 0.005
+    isotope_rel_int_limit: float = 1.5
     group_rt_tolerance: float = 3.0
-    group_min_scans: int = 5
     group_min_correlation: float = 0.9
-    group_min_overlap: float = 0.5
-    isf_min_relative_intensity: float = 0.05
-    isf_max_peaks: int = 100
+    isf_min_relative_intensity: float = 0.0
+    isf_max_peaks: int = 0  # Zero retains all products from the selected spectrum.
 
     def __post_init__(self):
         integer_minima = {
@@ -89,12 +91,12 @@ class Config:
             "tuning_block_scans": 16,
             "noise_iterations": 0,
             "noise_min_neighbors": 2,
-            "min_scans": 2,
+            "min_scans": 1,
             "max_gap_scans": 0,
             "peak_distance": 1,
             "profile_min_points": 3,
-            "group_min_scans": 3,
-            "isf_max_peaks": 1,
+            "isf_max_peaks": 0,
+            "segmentation_passes": 1,
         }
         for name, minimum in integer_minima.items():
             value = getattr(self, name)
@@ -160,6 +162,10 @@ class Config:
             raise ValueError("tuning_locked must contain valid tunable parameter names")
         nonnegative = {
             "scan_cache_mb",
+            "max_gap_seconds",
+            "centroid_mz_tolerance_da",
+            "ms2_min_intensity",
+            "ms2_relative_intensity",
             "min_intensity",
             "mz_tolerance_da",
             "mz_tolerance_ppm",
@@ -176,9 +182,7 @@ class Config:
             "gapfill_mz_tolerance_da",
             "gapfill_mz_tolerance_ppm",
             "gapfill_noise_fraction",
-            "peak_min_gaussian_similarity",
             "tuning_min_gaussian_similarity",
-            "peak_min_snr",
             "peak_noise_score_limit",
         }
         excluded = (
@@ -203,6 +207,8 @@ class Config:
             if field.name in excluded:
                 continue
             value = getattr(self, field.name)
+            if field.name == "ms2_min_intensity" and value is None:
+                continue
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError(f"{field.name} must be a finite number")
             if not math.isfinite(value) or (value < 0 if field.name in nonnegative else value <= 0):
@@ -221,17 +227,21 @@ class Config:
             raise ValueError("At least one gapfill m/z tolerance must be positive")
         for name in (
             "noise_fraction",
-            "peak_min_gaussian_similarity",
             "tuning_min_gaussian_similarity",
             "gapfill_noise_fraction",
             "group_min_correlation",
-            "group_min_overlap",
             "isf_min_relative_intensity",
         ):
             if getattr(self, name) > 1:
                 raise ValueError(f"{name} must be <= 1")
         if self.peak_prominence > 1:
             raise ValueError("peak_prominence must be <= 1")
+        if self.ms2_relative_intensity > 1:
+            raise ValueError("ms2_relative_intensity must be <= 1")
+        if self.smoothing_seconds or self.peak_distance_seconds:
+            raise ValueError(
+                "Upstream splitting uses scan units; use smoothing_sigma and peak_distance"
+            )
 
     def to_dict(self):
         result = asdict(self)
@@ -277,13 +287,10 @@ TUNABLE_FIELDS = frozenset(
         "gapfill_mz_tolerance_ppm",
         "gapfill_mz_tolerance_da",
         "max_gap_seconds",
-        "smoothing_seconds",
-        "peak_distance_seconds",
         "ms2_rt_tolerance",
         "ms2_gapfill_rt_window",
         "ms2_seed_rt_tolerance",
         "precursor_max_age_seconds",
         "gapfill_max_gap_seconds",
-        "group_rt_tolerance",
     }
 )

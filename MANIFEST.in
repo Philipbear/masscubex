@@ -1,5 +1,6 @@
 include LICENSE NOTICE README.md
-recursive-include benchmarks *.py *.json *.md
+recursive-include benchmarks *.py *.json *.md *.txt
+include benchmarks/baselines/*.tar.gz
 recursive-include benchmarks/figures *.png *.pdf *.tsv
-recursive-include tests *.py
+recursive-include tests *.py *.json
 recursive-include docs *.md

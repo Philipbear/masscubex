@@ -1,0 +1,607 @@
+{
+  "date": "2026-11-04",
+  "round": 2,
+  "upstream_version": "1.2.22",
+  "upstream_commit": "356748ede691862b9a87f67812db5e728a703b9d",
+  "summary": [
+    {
+      "file": "NIST_POS_Samp_14-03.mzXML",
+      "features": 93731,
+      "ms2_assigned": 2596,
+      "before_seconds": 15.307092249859124,
+      "after_seconds": 12.707876666914672,
+      "speedup": 1.204535789185898
+    },
+    {
+      "file": "QC_Mix_01.mzXML",
+      "features": 65652,
+      "ms2_assigned": 2058,
+      "before_seconds": 10.337314166128635,
+      "after_seconds": 8.517536958679557,
+      "speedup": 1.2136506382393428
+    }
+  ],
+  "stage_totals": {
+    "calibration": {
+      "before_seconds": 1.055919208098203,
+      "after_seconds": 1.0062087080441415,
+      "speedup": 1.0494037664916338
+    },
+    "feature_extraction": {
+      "before_seconds": 12.716686395928264,
+      "after_seconds": 10.94186042342335,
+      "speedup": 1.1622051373188353
+    },
+    "ion_grouping": {
+      "before_seconds": 9.142699209507555,
+      "after_seconds": 7.550993292126805,
+      "speedup": 1.2107942433269507
+    },
+    "ms2_association": {
+      "before_seconds": 0.40422312496230006,
+      "after_seconds": 0.37568254256621003,
+      "speedup": 1.0759699457982135
+    },
+    "ms2_gapfill": {
+      "before_seconds": 0.2939678323455155,
+      "after_seconds": 0.1843610005453229,
+      "speedup": 1.5945228734709926
+    },
+    "table_write": {
+      "before_seconds": 1.6737496671266854,
+      "after_seconds": 1.2382152490317822,
+      "speedup": 1.3517437040413351
+    }
+  },
+  "overall_speedup": 1.2081934829795251,
+  "cumulative_speedup_vs_before_round1": 3.5287395684001948,
+  "exact_parquet_match": true,
+  "scientific_metadata_match": true,
+  "matches_pre_round1_table_hashes": true,
+  "pinned_upstream_source_unchanged": true,
+  "modified_modules": [
+    "features.py",
+    "grouping.py",
+    "output.py"
+  ],
+  "focused_tests_passed": 151,
+  "baseline": {
+    "implementation_sha256": "7f12c37eb46b427842ba8c35c4402d34ed39a101251bc45dd4bcff91dd4a4bd8",
+    "dependencies": {
+      "numpy": "1.26.0",
+      "numba": "0.60.0",
+      "scipy": "1.13.1",
+      "lxml": "5.2.2",
+      "pyarrow": "17.0.0",
+      "pynumpress": "0.0.9"
+    },
+    "python": "3.10.12",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "config": {
+      "scan_cache_mb": 64.0,
+      "auto_tune": true,
+      "tuning_min_peaks": 20,
+      "tuning_max_peaks": 100,
+      "tuning_mz_regions": null,
+      "tuning_mz_breaks": [
+        200.0,
+        500.0
+      ],
+      "tuning_min_gaussian_similarity": 0.8,
+      "tuning_mass_sigma": 3.0,
+      "tuning_search_ppm": 50.0,
+      "tuning_search_da": 0.025,
+      "tuning_peak_limit": 128,
+      "tuning_block_scans": 512,
+      "tuning_block_seconds": 120.0,
+      "tuning_locked": [],
+      "mass_regions": [],
+      "mz_tolerance_ppm": 0.0,
+      "mz_tolerance_da": 0.01,
+      "centroid_mz_tolerance_da": 0.002,
+      "noise_mode": "adaptive",
+      "noise_estimator": "low_tail",
+      "noise_layout": "bins",
+      "noise_fraction": 0.1,
+      "noise_window_da": 100.0,
+      "noise_sigma": 3.0,
+      "noise_clip_sigma": 2.0,
+      "noise_iterations": 2,
+      "noise_min_neighbors": 5,
+      "min_intensity": 0.0,
+      "min_scans": 1,
+      "max_gap_scans": 10,
+      "max_gap_seconds": 0.0,
+      "segment": true,
+      "peak_shape_guard": true,
+      "peak_noise_score_limit": 3.0,
+      "smoothing_sigma": 0.6,
+      "smoothing_seconds": 0.0,
+      "peak_prominence": 0.03,
+      "peak_distance": 3,
+      "segmentation_passes": 2,
+      "peak_distance_seconds": 0.0,
+      "assume_centroid": false,
+      "profile_mode": "centroid",
+      "profile_min_points": 3,
+      "profile_gap_factor": 4.0,
+      "quant_method": "peak_height",
+      "associate_ms2": true,
+      "ms2_mz_tolerance_ppm": 0.0,
+      "ms2_mz_tolerance_da": 0.1,
+      "ms2_rt_tolerance": 0.0,
+      "ms2_min_intensity": null,
+      "ms2_relative_intensity": 0.0,
+      "ms2_max_isolation_width": 0.0,
+      "ms2_seeded_features": true,
+      "ms2_gapfill_rt_window": 5.0,
+      "ms2_seed_rt_tolerance": 5.0,
+      "gapfill_mz_tolerance_ppm": 10.0,
+      "gapfill_mz_tolerance_da": 0.002,
+      "gapfill_noise_fraction": 0.1,
+      "precursor_max_age_seconds": 15.0,
+      "gapfill_max_gap_seconds": 15.0,
+      "best_ms2": "fragment_intensity",
+      "group_ions": true,
+      "group_isf": true,
+      "adduct_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        22,
+        23
+      ],
+      "custom_adducts": [],
+      "group_mz_tolerance_ppm": 0.0,
+      "group_mz_tolerance_da": 0.01,
+      "group_eic_mz_tolerance_da": 0.005,
+      "isotope_rel_int_limit": 1.5,
+      "group_rt_tolerance": 3.0,
+      "group_min_correlation": 0.9,
+      "isf_min_relative_intensity": 0.0,
+      "isf_max_peaks": 0
+    },
+    "format": "parquet",
+    "workers": 1,
+    "repeats": 3,
+    "inputs": [
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "sha256": "458edf67e81118f19c9beb4335b80bf6927fa5a8871ba2ae9475e3321537a128"
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "sha256": "43cf20f3c0269ea1c40d7790596579ca1e1d888c46e55ffbfcb26afb27958912"
+      }
+    ],
+    "runs": [
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "repeat": 1,
+        "seconds": 15.601294416934252,
+        "stages": {
+          "calibration": 0.5881169172935188,
+          "feature_extraction": 7.739892487414181,
+          "ion_grouping": 5.625523959286511,
+          "ms2_association": 0.2484892918728292,
+          "ms2_gapfill": 0.15414145775139332,
+          "table_write": 1.1677290420047939
+        },
+        "features": 93731,
+        "ms2_assigned": 2596,
+        "output_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "output_bytes": 4376408
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "repeat": 1,
+        "seconds": 10.399506541900337,
+        "stages": {
+          "calibration": 0.5093943746760488,
+          "feature_extraction": 5.071619388181716,
+          "ion_grouping": 3.6192669589072466,
+          "ms2_association": 0.20848395815119147,
+          "ms2_gapfill": 0.14793645776808262,
+          "table_write": 0.7870853343047202
+        },
+        "features": 65652,
+        "ms2_assigned": 2058,
+        "output_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "output_bytes": 2794273
+      },
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "repeat": 2,
+        "seconds": 15.307092249859124,
+        "stages": {
+          "calibration": 0.5253678751178086,
+          "feature_extraction": 7.6450670077465475,
+          "ion_grouping": 5.642416707705706,
+          "ms2_association": 0.25307158287614584,
+          "ms2_gapfill": 0.16686537489295006,
+          "table_write": 0.9948085839860141
+        },
+        "features": 93731,
+        "ms2_assigned": 2596,
+        "output_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "output_bytes": 4376408
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "repeat": 2,
+        "seconds": 10.337314166128635,
+        "stages": {
+          "calibration": 0.5108852498233318,
+          "feature_extraction": 5.319496958516538,
+          "ion_grouping": 3.517175250221044,
+          "ms2_association": 0.11235400009900331,
+          "ms2_gapfill": 0.13982637459412217,
+          "table_write": 0.6789410831406713
+        },
+        "features": 65652,
+        "ms2_assigned": 2058,
+        "output_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "output_bytes": 2794273
+      },
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "repeat": 3,
+        "seconds": 14.245995374862105,
+        "stages": {
+          "calibration": 0.5465248334221542,
+          "feature_extraction": 7.169252859428525,
+          "ion_grouping": 5.238879582844675,
+          "ms2_association": 0.17829908290877938,
+          "ms2_gapfill": 0.09503991575911641,
+          "table_write": 0.9507380002178252
+        },
+        "features": 93731,
+        "ms2_assigned": 2596,
+        "output_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "output_bytes": 4376408
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "repeat": 3,
+        "seconds": 9.90406012488529,
+        "stages": {
+          "calibration": 0.4732196656987071,
+          "feature_extraction": 5.017147190403193,
+          "ion_grouping": 3.4620261657983065,
+          "ms2_association": 0.15573383308947086,
+          "ms2_gapfill": 0.07721725013107061,
+          "table_write": 0.665397958829999
+        },
+        "features": 65652,
+        "ms2_assigned": 2058,
+        "output_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "output_bytes": 2794273
+      }
+    ],
+    "notes": [
+      "Exactly two centroided positive-mode mzXML inputs; defaults unchanged.",
+      "One worker, warm filesystem/JIT; no profiler in measured repeats.",
+      "Table bytes compared exactly; timings and implementation provenance necessarily differ.",
+      "A third repetition was added for both versions after variable QC timing. All runs are retained."
+    ],
+    "medians": [
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "seconds": 15.307092249859124,
+        "stages": {
+          "calibration": 0.5465248334221542,
+          "feature_extraction": 7.6450670077465475,
+          "ion_grouping": 5.625523959286511,
+          "ms2_association": 0.2484892918728292,
+          "ms2_gapfill": 0.15414145775139332,
+          "table_write": 0.9948085839860141
+        }
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "seconds": 10.337314166128635,
+        "stages": {
+          "calibration": 0.5093943746760488,
+          "feature_extraction": 5.071619388181716,
+          "ion_grouping": 3.517175250221044,
+          "ms2_association": 0.15573383308947086,
+          "ms2_gapfill": 0.13982637459412217,
+          "table_write": 0.6789410831406713
+        }
+      }
+    ]
+  },
+  "optimized": {
+    "implementation_sha256": "ad8f3534c3a218cb9bf2c7571ddf006d295b73db7cbb3a2c1b715130ff1382a2",
+    "dependencies": {
+      "numpy": "1.26.0",
+      "numba": "0.60.0",
+      "scipy": "1.13.1",
+      "lxml": "5.2.2",
+      "pyarrow": "17.0.0",
+      "pynumpress": "0.0.9"
+    },
+    "python": "3.10.12",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "config": {
+      "scan_cache_mb": 64.0,
+      "auto_tune": true,
+      "tuning_min_peaks": 20,
+      "tuning_max_peaks": 100,
+      "tuning_mz_regions": null,
+      "tuning_mz_breaks": [
+        200.0,
+        500.0
+      ],
+      "tuning_min_gaussian_similarity": 0.8,
+      "tuning_mass_sigma": 3.0,
+      "tuning_search_ppm": 50.0,
+      "tuning_search_da": 0.025,
+      "tuning_peak_limit": 128,
+      "tuning_block_scans": 512,
+      "tuning_block_seconds": 120.0,
+      "tuning_locked": [],
+      "mass_regions": [],
+      "mz_tolerance_ppm": 0.0,
+      "mz_tolerance_da": 0.01,
+      "centroid_mz_tolerance_da": 0.002,
+      "noise_mode": "adaptive",
+      "noise_estimator": "low_tail",
+      "noise_layout": "bins",
+      "noise_fraction": 0.1,
+      "noise_window_da": 100.0,
+      "noise_sigma": 3.0,
+      "noise_clip_sigma": 2.0,
+      "noise_iterations": 2,
+      "noise_min_neighbors": 5,
+      "min_intensity": 0.0,
+      "min_scans": 1,
+      "max_gap_scans": 10,
+      "max_gap_seconds": 0.0,
+      "segment": true,
+      "peak_shape_guard": true,
+      "peak_noise_score_limit": 3.0,
+      "smoothing_sigma": 0.6,
+      "smoothing_seconds": 0.0,
+      "peak_prominence": 0.03,
+      "peak_distance": 3,
+      "segmentation_passes": 2,
+      "peak_distance_seconds": 0.0,
+      "assume_centroid": false,
+      "profile_mode": "centroid",
+      "profile_min_points": 3,
+      "profile_gap_factor": 4.0,
+      "quant_method": "peak_height",
+      "associate_ms2": true,
+      "ms2_mz_tolerance_ppm": 0.0,
+      "ms2_mz_tolerance_da": 0.1,
+      "ms2_rt_tolerance": 0.0,
+      "ms2_min_intensity": null,
+      "ms2_relative_intensity": 0.0,
+      "ms2_max_isolation_width": 0.0,
+      "ms2_seeded_features": true,
+      "ms2_gapfill_rt_window": 5.0,
+      "ms2_seed_rt_tolerance": 5.0,
+      "gapfill_mz_tolerance_ppm": 10.0,
+      "gapfill_mz_tolerance_da": 0.002,
+      "gapfill_noise_fraction": 0.1,
+      "precursor_max_age_seconds": 15.0,
+      "gapfill_max_gap_seconds": 15.0,
+      "best_ms2": "fragment_intensity",
+      "group_ions": true,
+      "group_isf": true,
+      "adduct_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        22,
+        23
+      ],
+      "custom_adducts": [],
+      "group_mz_tolerance_ppm": 0.0,
+      "group_mz_tolerance_da": 0.01,
+      "group_eic_mz_tolerance_da": 0.005,
+      "isotope_rel_int_limit": 1.5,
+      "group_rt_tolerance": 3.0,
+      "group_min_correlation": 0.9,
+      "isf_min_relative_intensity": 0.0,
+      "isf_max_peaks": 0
+    },
+    "format": "parquet",
+    "workers": 1,
+    "repeats": 3,
+    "inputs": [
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "sha256": "458edf67e81118f19c9beb4335b80bf6927fa5a8871ba2ae9475e3321537a128"
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "sha256": "43cf20f3c0269ea1c40d7790596579ca1e1d888c46e55ffbfcb26afb27958912"
+      }
+    ],
+    "runs": [
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "repeat": 1,
+        "seconds": 12.707876666914672,
+        "stages": {
+          "calibration": 0.4944179579615593,
+          "feature_extraction": 6.6304583377204835,
+          "ion_grouping": 4.482634209096432,
+          "ms2_association": 0.1860056254081428,
+          "ms2_gapfill": 0.10421158326789737,
+          "table_write": 0.7408441659063101
+        },
+        "features": 93731,
+        "ms2_assigned": 2596,
+        "output_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "output_bytes": 4376408,
+        "baseline_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "exact_table_match": true,
+        "scientific_metadata_match": true
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "repeat": 1,
+        "seconds": 11.478889666963369,
+        "stages": {
+          "calibration": 0.4918677918612957,
+          "feature_extraction": 6.749668574426323,
+          "ion_grouping": 3.2153898333199322,
+          "ms2_association": 0.22788899997249246,
+          "ms2_gapfill": 0.1465199999511242,
+          "table_write": 0.5760034997947514
+        },
+        "features": 65652,
+        "ms2_assigned": 2058,
+        "output_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "output_bytes": 2794273,
+        "baseline_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "exact_table_match": true,
+        "scientific_metadata_match": true
+      },
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "repeat": 2,
+        "seconds": 12.380125834140927,
+        "stages": {
+          "calibration": 0.5158817917108536,
+          "feature_extraction": 6.287233356386423,
+          "ion_grouping": 4.409867875277996,
+          "ms2_association": 0.23390300013124943,
+          "ms2_gapfill": 0.09828275023028255,
+          "table_write": 0.770609624683857
+        },
+        "features": 93731,
+        "ms2_assigned": 2596,
+        "output_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "output_bytes": 4376408,
+        "baseline_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "exact_table_match": true,
+        "scientific_metadata_match": true
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "repeat": 2,
+        "seconds": 8.351672207936645,
+        "stages": {
+          "calibration": 0.46464191656559706,
+          "feature_extraction": 4.311402085702866,
+          "ion_grouping": 2.8917486667633057,
+          "ms2_association": 0.1417795424349606,
+          "ms2_gapfill": 0.08014941727742553,
+          "table_write": 0.4146331250667572
+        },
+        "features": 65652,
+        "ms2_assigned": 2058,
+        "output_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "output_bytes": 2794273,
+        "baseline_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "exact_table_match": true,
+        "scientific_metadata_match": true
+      },
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "repeat": 3,
+        "seconds": 12.978824166115373,
+        "stages": {
+          "calibration": 0.5704410839825869,
+          "feature_extraction": 6.685770102310926,
+          "ion_grouping": 4.496731291990727,
+          "ms2_association": 0.27923866733908653,
+          "ms2_gapfill": 0.11166887497529387,
+          "table_write": 0.7651482080109417
+        },
+        "features": 93731,
+        "ms2_assigned": 2596,
+        "output_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "output_bytes": 4376408,
+        "baseline_sha256": "abcf52b9d0c4c274264ca6dd0fba230edb8aa8c26e42ee59cd751d7ba9cc088e",
+        "exact_table_match": true,
+        "scientific_metadata_match": true
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "repeat": 3,
+        "seconds": 8.517536958679557,
+        "stages": {
+          "calibration": 0.49032691633328795,
+          "feature_extraction": 4.218555292580277,
+          "ion_grouping": 3.068359083030373,
+          "ms2_association": 0.140323540661484,
+          "ms2_gapfill": 0.07961020804941654,
+          "table_write": 0.4730670410208404
+        },
+        "features": 65652,
+        "ms2_assigned": 2058,
+        "output_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "output_bytes": 2794273,
+        "baseline_sha256": "89ad9a7d112bcd69a5a0835b0e19b984b0f160cfa8d0b401db4ec29285e7b3f3",
+        "exact_table_match": true,
+        "scientific_metadata_match": true
+      }
+    ],
+    "notes": [
+      "Exactly two centroided positive-mode mzXML inputs; defaults unchanged.",
+      "One worker, warm filesystem/JIT; no profiler in measured repeats.",
+      "Table bytes compared exactly; timings and implementation provenance necessarily differ.",
+      "A third repetition was added for both versions after variable QC timing. All runs are retained."
+    ],
+    "medians": [
+      {
+        "name": "NIST_POS_Samp_14-03.mzXML",
+        "seconds": 12.707876666914672,
+        "stages": {
+          "calibration": 0.5158817917108536,
+          "feature_extraction": 6.6304583377204835,
+          "ion_grouping": 4.482634209096432,
+          "ms2_association": 0.23390300013124943,
+          "ms2_gapfill": 0.10421158326789737,
+          "table_write": 0.7651482080109417
+        }
+      },
+      {
+        "name": "QC_Mix_01.mzXML",
+        "seconds": 8.517536958679557,
+        "stages": {
+          "calibration": 0.49032691633328795,
+          "feature_extraction": 4.311402085702866,
+          "ion_grouping": 3.068359083030373,
+          "ms2_association": 0.1417795424349606,
+          "ms2_gapfill": 0.08014941727742553,
+          "table_write": 0.4730670410208404
+        }
+      }
+    ]
+  },
+  "example_tsv": {
+    "file": "examples/NIST_POS_Samp_14-03.features.tsv",
+    "exact_match": true,
+    "sha256": "15a83773ef2b2bdbb7e0dcc119de4ca503589e61592c5e6caf641eaa864e91f9"
+  }
+}

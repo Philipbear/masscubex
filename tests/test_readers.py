@@ -81,8 +81,15 @@ def test_referenceable_params_and_sanitizing(tmp_path):
         groups=group,
     )
     (scan,) = iter_ms1(path)
-    np.testing.assert_array_equal(scan.mz, [100, 200])
-    np.testing.assert_array_equal(scan.intensity, [12, 8])
+    # Raw reading preserves duplicate centroids; upstream preprocessing merges them.
+    np.testing.assert_array_equal(scan.mz, [100, 100, 200])
+    np.testing.assert_array_equal(scan.intensity, [5, 7, 8])
+    from masscubex import Config
+    from masscubex.upstream_adapter import preprocess_ms1
+
+    masses, intensities, _ = preprocess_ms1(scan, Config(noise_mode="none"))
+    np.testing.assert_array_equal(masses, [100, 200])
+    np.testing.assert_array_equal(intensities, [12, 8])
 
 
 def test_global_centroid_flag(tmp_path):

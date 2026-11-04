@@ -1,0 +1,82 @@
+{
+  "utc": "2026-11-04T19:42:08.464797+00:00",
+  "implementation_sha256": "fca3d76939fc32766261a865252ba33710f8f90f5abbe89ff5790748268d8a8e",
+  "python_modules": 35,
+  "pytest": {
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_upstream_defaults.py",
+      "tests/test_summary_reuse.py",
+      "tests/test_grouping.py",
+      "tests/test_grouping_fast_path.py",
+      "tests/test_peak_shapes.py",
+      "tests/test_parquet.py",
+      "tests/test_interval_engine.py",
+      "tests/test_grouping_queries.py",
+      "tests/test_fast_summarization.py",
+      "tests/test_tuning.py",
+      "tests/test_measurements.py",
+      "tests/test_worker_resources.py",
+      "tests/test_reporting.py",
+      "tests/test_cli.py",
+      "tests/test_pipeline.py::test_failed_parse_leaves_no_outputs_and_preserves_old_result",
+      "tests/test_pipeline.py::test_cli_continues_after_file_error",
+      "--junitxml=validation/overnight-focused.xml"
+    ],
+    "returncode": 0,
+    "wall_seconds": 22.624969124794006,
+    "suites": [
+      {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "265",
+        "time": "21.508",
+        "timestamp": "2026-11-05T03:39:19.185601+08:00"
+      }
+    ]
+  },
+  "ruff": {
+    "command": [
+      ".venv/bin/ruff",
+      "check",
+      "src",
+      "tests",
+      "benchmarks"
+    ],
+    "returncode": 0
+  },
+  "git_diff_check": {
+    "returncode": 0
+  },
+  "timed_runtime_comparison": {
+    "changed_modules": [
+      "cli.py"
+    ],
+    "note": "Only the recycle default/help changed after explicit-setting trials; no scheduler/worker body change.",
+    "identical_function_bodies": {
+      "run_batch": true,
+      "_job": true,
+      "_initialize_worker": true,
+      "_worker_ready": true
+    }
+  },
+  "cli_sha256": "b9a91b62e8e6552008c23e1990d3d853d6d2db8dc0c583e5aa4cc6f30cac4297",
+  "worker_runtime_sha256": "ea7411898e2cad15ac6af8bbed08a591f32657d95960e01dcb253709bfc866f5",
+  "example": {
+    "file": "examples/NIST_POS_Samp_14-03.features.tsv",
+    "features": 93731,
+    "table_sha256": "15a83773ef2b2bdbb7e0dcc119de4ca503589e61592c5e6caf641eaa864e91f9",
+    "matches_pre_round_bytes": true
+  },
+  "release_matrix_run": false,
+  "existing_test_debt": {
+    "previous_ms2_seeding_polarity_audit": "upstream-speed-five-files-2026-11-04.json",
+    "reader_assertion": "tests/test_readers.py::test_referenceable_params_and_sanitizing",
+    "note": "The previous MS2 audit found the same 52 failures and 32 passes before/after that round. The additional raw-reader duplicate-merging assertion was reproduced against the before-overnight snapshot. This is targeted development validation, not a clean full-suite claim."
+  }
+}

@@ -222,6 +222,10 @@ def test_broken_worker_pool_is_replaced_without_losing_undispatched_inputs(
             instances.append(self)
 
         def submit(self, fn, *args):
+            if fn is cli._worker_ready:
+                future = Future()
+                future.set_result(True)
+                return future
             if self.first and self.submissions:
                 raise BrokenProcessPool("fixture: worker exited")
             self.submissions += 1
@@ -247,6 +251,86 @@ def test_broken_worker_pool_is_replaced_without_losing_undispatched_inputs(
     assert results[0]["status"] == "error" and results[0]["stage"] == "worker"
     assert all(r["status"] == "ok" for r in results[1:])
     assert {Path(r["input"]) for r in results} == set(files)
+
+
+def test_failed_numerical_initializer_does_not_consume_or_mislabel_inputs(tmp_path, monkeypatch):
+    consumed, closed = [], []
+
+    class Pool:
+        def __init__(self, **kwargs):
+            pass
+
+        def submit(self, fn, *args):
+            assert fn is cli._worker_ready
+            future = Future()
+            future.set_exception(BrokenProcessPool("fixture: numerical initializer failed"))
+            return future
+
+        def shutdown(self, **kwargs):
+            closed.append(True)
+
+    def paths():
+        consumed.append(True)
+        yield tmp_path / "input.mzML"
+
+    monkeypatch.setattr(cli, "ProcessPoolExecutor", Pool)
+    with pytest.raises(BrokenProcessPool, match="numerical initializer"):
+        list(cli.run_batch(paths(), tmp_path / "out", Config(), workers=2))
+    assert not consumed
+    assert closed == [True]
+
+
+@pytest.mark.parametrize("count,expected", [(6, [2, 2, 2]), (7, [2, 2, 2, 1])])
+def test_worker_recycling_drains_every_job_before_replacing_pool(tmp_path, monkeypatch, count, expected):
+    pools = []
+
+    class Pool:
+        def __init__(self, **kwargs):
+            self.jobs = []
+            self.closed = False
+            pools.append(self)
+
+        def submit(self, fn, *args):
+            assert not self.closed
+            future = Future()
+            if fn is cli._worker_ready:
+                future.set_result(True)
+            else:
+                self.jobs.append(args[0])
+                future.set_result({"input": str(args[0]), "status": "ok"})
+            return future
+
+        def shutdown(self, **kwargs):
+            self.closed = True
+
+    monkeypatch.setattr(cli, "ProcessPoolExecutor", Pool)
+    paths = [tmp_path / f"{i}.mzML" for i in range(count)]
+    rows = list(cli.run_batch(paths, tmp_path / "out", Config(), workers=2, worker_recycle_files=1))
+    assert len(rows) == count
+    assert {r["input"] for r in rows} == {str(p) for p in paths}
+    assert [len(p.jobs) for p in pools] == expected
+    assert all(p.closed for p in pools)
+
+
+def test_resume_hits_do_not_trigger_worker_recycling(tmp_path, monkeypatch):
+    pools = []
+
+    class Pool:
+        def __init__(self, **kwargs):
+            pools.append(self)
+
+        def submit(self, fn, *args):
+            future = Future()
+            future.set_result(True if fn is cli._worker_ready else {"status": "skipped"})
+            return future
+
+        def shutdown(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(cli, "ProcessPoolExecutor", Pool)
+    paths = [tmp_path / f"{i}.mzML" for i in range(20)]
+    rows = list(cli.run_batch(paths, tmp_path / "out", Config(), workers=2, worker_recycle_files=1))
+    assert len(rows) == 20 and len(pools) == 1
 
 
 def test_abrupt_child_exit_does_not_prevent_remaining_files(tmp_path, monkeypatch):

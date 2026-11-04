@@ -9,15 +9,13 @@ use the file-wide fallback.
 from dataclasses import dataclass, fields
 import math
 
-import numpy as np
-from numba import njit
-
-
 def calibration_edges(config, mass_range=None):
     """Use one layout for pilot sampling and the subsequent regional mass fits."""
     if config.tuning_mz_regions is None:
         return [0.0, *config.tuning_mz_breaks, None]
     if mass_range is not None:
+        import numpy as np
+
         low, high = mass_range
         if np.isfinite(low) and np.isfinite(high) and 0 <= low < high:
             return np.linspace(low, high, config.tuning_mz_regions + 1).tolist()
@@ -78,6 +76,8 @@ def mass_radius(mass, config, kind="ms1"):
 
 def ms1_region_array(config):
     """Pack once per tracker, avoiding Python calls in the centroid hot loop."""
+    import numpy as np
+
     return np.array(
         [
             (r.lower, np.inf if r.upper is None else r.upper, r.mz_tolerance_da, r.mz_tolerance_ppm)
@@ -87,12 +87,12 @@ def ms1_region_array(config):
     ).reshape(-1, 4)
 
 
-@njit(cache=True, inline="always")
-def ms1_radius(mass, da, ppm, regions):
-    for index in range(len(regions)):
-        if regions[index, 0] <= mass and (
-            mass < regions[index, 1] or index == len(regions) - 1 and mass == regions[index, 1]
-        ):
-            da, ppm = regions[index, 2], regions[index, 3]
-            break
-    return max(da, mass * ppm * 1e-6)
+def __getattr__(name):
+    # Config/CLI discovery use only lightweight tolerance definitions. Keep the
+    # numerical kernel available at its existing import path without loading
+    # NumPy, Numba and LLVM into the batch coordinator.
+    if name == "ms1_radius":
+        from .mass_tolerance_kernels import ms1_radius
+
+        return ms1_radius
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

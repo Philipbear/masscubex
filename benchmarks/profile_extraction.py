@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import time
 
-from masscubex import __version__, pipeline, gapfill, grouping, features
+from masscubex import __version__, pipeline, gapfill, grouping, features, upstream_adapter
 from masscubex.features import warmup
 from masscubex.pipeline import implementation_id
 
@@ -60,10 +60,9 @@ def instrument():
     else:
         # The same bounded source supplies calibration, extraction and gapfill.
         patch(pipeline.ScanSource, "scans", "shared.scan_reading_and_replay", True)
-    patch(pipeline, "estimate_noise", "extraction.noise")
+    patch(upstream_adapter, "estimate_noise", "extraction.noise")
     if hasattr(pipeline.TraceTracker, "add_features"):
-        patch(features, "_drain_candidates", "extraction.peak_summarization")
-        patch(features, "_candidate_features", "extraction.peak_summarization", True)
+        patch(features, "summarize_trace", "extraction.peak_summarization", True)
         # Includes calibration; finishing/segmentation has its own timer above.
         patch(pipeline.TraceTracker, "_advance", "shared.trace_tracking")
     else:

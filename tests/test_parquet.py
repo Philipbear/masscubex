@@ -42,6 +42,11 @@ def example():
         ms2_native_ids=("spectrum=α", "scan=9223372036854775807"),
         ms2_spectrum_indices=(0, 1),
         best_ms2_scan_number=9223372036854775807,
+        adduct="[M+H]+",
+        group_id=1,
+        is_isotope=False,
+        isotope_state="M+0",
+        is_in_source_fragment=True,
         ion_relations=(
             {
                 "relation": "in_source_fragment",
@@ -67,19 +72,33 @@ def example():
 
 
 def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_path):
-    features = [example(), replace(example(), ion_relations=(), ms2_scan_numbers=())]
+    features = [
+        example(),
+        replace(
+            example(),
+            ion_relations=(),
+            ms2_scan_numbers=(),
+            adduct=None,
+            is_in_source_fragment=False,
+        ),
+        replace(example(), is_in_source_fragment=None),
+    ]
     a, b = tmp_path / "table.tsv", tmp_path / "table.parquet"
-    assert write_features(a, features, "tsv") == write_features(b, features, "parquet") == 2
+    assert write_features(a, features, "tsv") == write_features(b, features, "parquet") == 3
     assert list(iter_feature_rows(a)) == list(iter_feature_rows(b))
     table = pq.read_table(b)
     assert table.schema.field("mz").type == pa.float64()
     assert pa.types.is_list(table.schema.field("ms2_scan_numbers").type)
     assert pa.types.is_struct(table.schema.field("ion_relations").type.value_type)
+    assert table.schema.field("adduct").type == pa.string()
+    assert table.schema.field("is_in_source_fragment").type == pa.bool_()
+    assert table["is_in_source_fragment"].to_pylist() == [True, False, None]
+    assert table["adduct"][0].as_py() == "[M+H]+"
     assert table["mz"][0].as_py() == 100.12346
     assert table["peak_height"][0].as_py() is None
     assert table["ms2_scan_numbers"][0].as_py() == [None, 9223372036854775807]
     assert pq.read_metadata(b).row_group(0).column(0).compression == "ZSTD"
-    assert table.schema.metadata[b"masscubex.table_schema"] == b"7"
+    assert table.schema.metadata[b"masscubex.table_schema"] == b"10"
     assert json.loads(table.schema.metadata[b"masscubex.output_precision"]) == OUTPUT_PRECISION
     assert set(FEATURE_COLUMNS).isdisjoint(
         {
@@ -88,21 +107,38 @@ def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_
             "best_ms2_selection_method",
             "best_ms2_score",
             "apex_threshold_ratio",
+            "best_ms2_native_id",
+            "best_ms2_spectrum_index",
+            "gapfill_status",
+            "gapfill_mz_radius_da",
+            "best_ms2_fragment_intensity",
+            "best_ms2_precursor_intensity_source",
+            "best_ms2_precursor_intensity",
+            "seed_precursor_mz",
+            "seed_rt_seconds",
         }
     )
-    assert len(FEATURE_COLUMNS) == 29
+    assert len(FEATURE_COLUMNS) == 25
 
 
 def test_rounding_is_output_only_and_tsv_has_fixed_decimal_places(tmp_path):
     feature = replace(
         example(),
         rt_apex_seconds=12.3456789,
-        peak_height=2.675,  # Decimal-looking halfway case; Python rounds this to 2.67.
+        peak_height=2.675,
         peak_area=123456789012.3456,
         seed_precursor_mz=999.999996,
         best_ms2_fragment_intensity=123.4567,
         best_ms2_precursor_intensity=5.125,
         gapfill_mz_radius_da=0.001234567,
+        gaussian_similarity=0.9123456,
+        ion_relations=(
+            {
+                **example().ion_relations[0],
+                "correlation": 0.9876543,
+                "fragment_relative_intensity": 0.56789,
+            },
+        ),
     )
     before = deepcopy(feature)
     tsv, parquet = tmp_path / "sample.tsv", tmp_path / "sample.parquet"
@@ -117,8 +153,12 @@ def test_rounding_is_output_only_and_tsv_has_fixed_decimal_places(tmp_path):
             assert len(row[name].split(".")[1]) == digits
     assert row["mz"] == "100.12346"
     assert row["rt_apex_seconds"] == "12.35"
-    assert row["peak_height"] == "2.67"
-    assert row["seed_precursor_mz"] == "1000.00000"
+    assert row["peak_height"] == "2.7"
+    assert row["gaussian_similarity"] == "0.9123"
+    relation = json.loads(row["ion_relations"])[0]
+    assert relation["correlation"] == 0.9877
+    assert relation["fragment_relative_intensity"] == 0.6
+    assert "seed_precursor_mz" not in row and "seed_rt_seconds" not in row
     assert list(iter_feature_rows(tsv)) == list(iter_feature_rows(parquet))
 
 
@@ -138,7 +178,7 @@ def test_default_parquet_explicit_tsv_and_format_mismatch(sample_file, tmp_path)
     assert result.output.endswith(".features.parquet")
     metadata = json.loads(Path(result.output + ".json").read_text())
     assert metadata["output_format"] == "parquet"
-    assert metadata["schema_version"] == 7
+    assert metadata["schema_version"] == 10
     assert metadata["output_precision"] == OUTPUT_PRECISION
     assert metadata["output_bytes"] == Path(result.output).stat().st_size
     assert len(metadata["output_sha256"]) == 64
@@ -243,5 +283,16 @@ def test_legacy_tsv_reader_keeps_removed_measurements_typed(tmp_path):
             "intensity": 1.2345,
             "best_ms2_score": 6.789,
             "quant_method": "peak_height",
+        }
+    ]
+    path.write_text(
+        "best_ms2_native_id\tbest_ms2_spectrum_index\tbest_ms2_precursor_intensity\n"
+        "scan=7\t6\t123.4567\n"
+    )
+    assert list(iter_feature_rows(path)) == [
+        {
+            "best_ms2_native_id": "scan=7",
+            "best_ms2_spectrum_index": 6,
+            "best_ms2_precursor_intensity": 123.4567,
         }
     ]

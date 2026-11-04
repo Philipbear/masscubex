@@ -1,0 +1,6 @@
+{
+  "before_import_bytes": 20627456,
+  "after_cli_import_bytes": 29016064,
+  "after_pool_startup_bytes": 29360128,
+  "numerical_modules_in_parent": []
+}

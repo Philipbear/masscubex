@@ -1,0 +1,41 @@
+         19088092 function calls (18986479 primitive calls) in 9.766 seconds
+
+   Ordered by: cumulative time
+   List reduced from 2366 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.011    0.011    9.851    9.851 pipeline.py:208(process_file)
+    93723    0.044    0.000    4.390    0.000 pipeline.py:165(_timed_extraction)
+134866/134684    0.021    0.000    4.357    0.000 {built-in method builtins.next}
+    93723    0.018    0.000    4.322    0.000 pipeline.py:95(extract_features)
+    94740    0.075    0.000    3.826    0.000 pipeline.py:101(with_edges)
+    94740    0.033    0.000    3.520    0.000 features.py:328(_finish_features)
+   164706    0.206    0.000    3.439    0.000 features.py:391(summarize_trace)
+        1    0.651    0.651    3.109    3.109 grouping.py:175(group_ions)
+    68446    0.326    0.000    2.563    0.000 summary.py:85(summarize_intervals)
+        1    0.000    0.000    1.258    1.258 output.py:261(write_features)
+        1    0.003    0.003    1.258    1.258 output.py:244(_write_parquet)
+       12    0.086    0.007    1.070    0.089 output.py:210(_parquet_batch)
+    45592    0.370    0.000    0.727    0.000 measurements.py:37(gaussian_similarity)
+       57    0.001    0.000    0.725    0.013 __init__.py:1(<module>)
+        1    0.008    0.008    0.692    0.692 tuning.py:387(calibrate_file)
+    20381    0.099    0.000    0.642    0.000 summary.py:43(maxima)
+    33974    0.117    0.000    0.639    0.000 grouping.py:160(_positive_correlation)
+    48130    0.368    0.000    0.612    0.000 features.py:486(_short_trace_feature)
+   150623    0.325    0.000    0.562    0.000 grouping.py:258(matches)
+    22989    0.024    0.000    0.475    0.000 function_base.py:3763(_ureduce)
+    19458    0.175    0.000    0.431    0.000 measurements.py:63(pearson_correlation)
+    95880    0.176    0.000    0.429    0.000 _methods.py:101(_mean)
+    21228    0.010    0.000    0.424    0.000 function_base.py:3845(median)
+    21228    0.058    0.000    0.388    0.000 function_base.py:3931(_median)
+    54034    0.140    0.000    0.353    0.000 measurements.py:12(integrated_area)
+  544/103    0.001    0.000    0.351    0.003 <frozen importlib._bootstrap>:1022(_find_and_load)
+    448/7    0.001    0.000    0.350    0.050 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+    355/7    0.001    0.000    0.350    0.050 <frozen importlib._bootstrap>:664(_load_unlocked)
+    512/8    0.000    0.000    0.348    0.044 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+    298/6    0.001    0.000    0.347    0.058 <frozen importlib._bootstrap_external>:877(exec_module)
+    315/6    0.001    0.000    0.345    0.058 {built-in method builtins.exec}
+    74652    0.017    0.000    0.342    0.000 {method 'mean' of 'numpy.ndarray' objects}
+        1    0.334    0.334    0.334    0.334 grouping_queries.py:35(static_query_index)
+       96    0.096    0.001    0.312    0.003 output.py:229(<listcomp>)
+     8246    0.005    0.000    0.297    0.000 scan_cache.py:55(scans)

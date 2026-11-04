@@ -43,7 +43,7 @@ class ScanSource:
         self.options = dict(
             assume_centroid=config.assume_centroid,
             include_ms2=config.associate_ms2,
-            decode_ms2=config.group_ions and config.group_isf,
+            decode_ms2=config.associate_ms2,
             sum_ms2=config.best_ms2 == "fragment_intensity",
         )
         self.budget = int(config.scan_cache_mb * 1024**2)

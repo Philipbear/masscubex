@@ -1,0 +1,44 @@
+Implementation SHA256: da4d382e1609a392fa09765a31c96c851e1de21ccab6eb8defa7281d81167a68
+Profiler-only diagnostic; excluded from benchmark timings.
+
+         23573308 function calls (23471904 primitive calls) in 11.808 seconds
+
+   Ordered by: cumulative time
+   List reduced from 2484 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.012    0.012   11.890   11.890 pipeline.py:205(process_file)
+    93723    0.046    0.000    5.122    0.000 pipeline.py:162(_timed_extraction)
+187530/187431    0.029    0.000    5.098    0.000 {built-in method builtins.next}
+    93723    0.018    0.000    5.050    0.000 pipeline.py:92(extract_features)
+    94740    0.078    0.000    4.549    0.000 pipeline.py:98(with_edges)
+        1    0.624    0.624    4.255    4.255 grouping.py:172(group_ions)
+    94740    0.037    0.000    4.235    0.000 features.py:328(_finish_features)
+   164706    0.248    0.000    4.150    0.000 features.py:391(summarize_trace)
+    68446    0.363    0.000    3.111    0.000 summary.py:84(summarize_intervals)
+        1    0.000    0.000    1.401    1.401 output.py:261(write_features)
+        1    0.003    0.003    1.400    1.400 output.py:244(_write_parquet)
+       12    0.086    0.007    1.142    0.095 output.py:210(_parquet_batch)
+       57    0.001    0.000    1.135    0.020 __init__.py:1(<module>)
+    45592    0.426    0.000    0.991    0.000 upstream.py:19(calculate_gaussian_similarity)
+    33974    0.124    0.000    0.832    0.000 grouping.py:157(_positive_correlation)
+        1    0.009    0.009    0.721    0.721 tuning.py:387(calibrate_file)
+   150623    0.442    0.000    0.700    0.000 grouping.py:249(matches)
+    19458    0.073    0.000    0.609    0.000 function_base.py:2757(corrcoef)
+    20381    0.099    0.000    0.584    0.000 summary.py:42(maxima)
+   528/87    0.001    0.000    0.573    0.007 <frozen importlib._bootstrap>:1022(_find_and_load)
+    448/7    0.001    0.000    0.572    0.082 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+    355/7    0.001    0.000    0.570    0.081 <frozen importlib._bootstrap>:664(_load_unlocked)
+    512/8    0.000    0.000    0.567    0.071 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+    298/6    0.000    0.000    0.566    0.094 <frozen importlib._bootstrap_external>:877(exec_module)
+    48130    0.323    0.000    0.566    0.000 features.py:485(_short_trace_feature)
+    315/6    0.001    0.000    0.564    0.094 {built-in method builtins.exec}
+   706004    0.286    0.000    0.519    0.000 grouping.py:309(indexed_matches)
+    54936    0.152    0.000    0.518    0.000 upstream.py:77(calculate_noise_score)
+    33974    0.177    0.000    0.493    0.000 grouping_spectra.py:59(eic)
+    95880    0.182    0.000    0.478    0.000 _methods.py:101(_mean)
+    19458    0.144    0.000    0.439    0.000 function_base.py:2530(cov)
+    22989    0.023    0.000    0.422    0.000 function_base.py:3763(_ureduce)
+    54034    0.174    0.000    0.403    0.000 function_base.py:4857(trapz)
+   460512    0.390    0.000    0.390    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+    74652    0.016    0.000    0.389    0.000 {method 'mean' of 'numpy.ndarray' objects}

@@ -1,16 +1,18 @@
 """Exercise optional grouping on a sample, blank and QC from the 50-file run.
 
-Run validate_repository.py first. Verify that grouping preserves MS1 values,
+Generate fresh ungrouped controls. Verify that grouping preserves MS1 values,
 MS2 assignments and ranking, and that every relationship is symmetric and
 every claimed MS2 fragment is present in the independently decoded source.
 Candidate counts are not validated compound identifications.
 """
 
 from pathlib import Path
+from dataclasses import replace
 import argparse
 import csv
 import json
 import time
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
@@ -36,7 +38,12 @@ def verify_links(path, rows, config):
     with mzxml.MzXML(str(path), use_index=False) as reader:
         for scan in reader:
             if str(scan["num"]) in needed:
-                fragments[str(scan["num"])] = (scan["m/z array"], scan["intensity array"])
+                # Promote before subtracting rounded exported m/z values; raw
+                # float32 subtraction can exceed the 5-decimal rounding bound.
+                fragments[str(scan["num"])] = (
+                    np.asarray(scan["m/z array"], dtype=np.float64),
+                    np.asarray(scan["intensity array"], dtype=np.float64),
+                )
     assert set(fragments) == needed
     count = support = 0
     links = [json.loads(row["ion_relations"]) for row in rows]
@@ -45,14 +52,16 @@ def verify_links(path, rows, config):
             count += 1
             partner = link["partner_feature_id"] - 1
             assert partner != index and 0 <= partner < len(rows)
-            assert link["status"] == "candidate"
+            assert link["status"] == "assigned"
             assert row["polarity"] == rows[partner]["polarity"]
-            assert link["shared_scans"] >= config.group_min_scans
-            assert link["correlation"] >= config.group_min_correlation
-            assert (
-                abs(float(row["rt_apex_seconds"]) - float(rows[partner]["rt_apex_seconds"]))
-                <= config.group_rt_tolerance + 1e-8
-            )
+            assert row["group_id"] == rows[partner]["group_id"]
+            if link["relation"] != "isotope":
+                # Export rounds correlation to four decimals and RT to two.
+                assert link["correlation"] >= config.group_min_correlation - 0.00005
+                assert (
+                    abs(float(row["rt_apex_seconds"]) - float(rows[partner]["rt_apex_seconds"]))
+                    <= config.group_rt_tolerance + 0.01
+                )
             assert any(
                 other["partner_feature_id"] == index + 1 and other["relation"] == link["relation"]
                 for other in links[partner]
@@ -63,19 +72,20 @@ def verify_links(path, rows, config):
                 child = rows[link["fragment_feature_id"] - 1]
                 assert link["evidence_ms2_native_id"] in json.loads(parent["ms2_native_ids"])
                 assert link["evidence_ms2_scan_number"] == int(link["evidence_ms2_native_id"])
+                assert link["evidence_ms2_scan_number"] == int(parent["best_ms2_scan_number"])
                 mz, intensity = fragments[link["evidence_ms2_native_id"]]
-                matches = np.flatnonzero(mz == link["fragment_mz"])
+                matches = np.flatnonzero(np.abs(mz - link["fragment_mz"]) <= 0.0000051)
                 assert len(matches)
-                relative = float(intensity[matches[0]] / intensity.max())
-                np.testing.assert_allclose(relative, link["fragment_relative_intensity"], rtol=1e-6)
-                assert relative >= config.isf_min_relative_intensity - 1e-8
+                relative = intensity[matches] / intensity.max()
+                assert np.any(np.abs(relative - link["fragment_relative_intensity"]) <= 0.050001)
+                assert np.any(relative >= config.isf_min_relative_intensity - 1e-8)
                 assert (
                     abs(float(child["mz"]) - link["fragment_mz"])
                     <= max(
                         config.group_mz_tolerance_da,
                         link["fragment_mz"] * config.group_mz_tolerance_ppm * 1e-6,
                     )
-                    + 1e-8
+                    + 0.00001
                 )
     return {
         "symmetric_link_rows": count,
@@ -105,12 +115,23 @@ def main():
         start = time.perf_counter()
         result = process_file(source, output, config=config, overwrite=True)
         elapsed = time.perf_counter() - start
-        baseline = read_table(output.parent.parent / "features" / output.name)
+        with TemporaryDirectory(dir=args.directory) as temporary:
+            control = Path(temporary) / "ungrouped.tsv"
+            process_file(source, control, config=replace(config, group_ions=False))
+            baseline = read_table(control)
         grouped = read_table(output)
         assert len(grouped) == len(baseline)
+        labels = {
+            "ion_relations",
+            "adduct",
+            "group_id",
+            "is_isotope",
+            "isotope_state",
+            "is_in_source_fragment",
+        }
         for before, after in zip(baseline, grouped):
-            assert {k: v for k, v in before.items() if k != "ion_relations"} == {
-                k: v for k, v in after.items() if k != "ion_relations"
+            assert {k: v for k, v in before.items() if k not in labels} == {
+                k: v for k, v in after.items() if k not in labels
             }
         checked = verify_links(source, grouped, config)
         assert process_file(source, output, config=config, resume=True).status == "skipped"

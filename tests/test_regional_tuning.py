@@ -80,8 +80,10 @@ def test_sparse_region_falls_back_without_relaxing_quality_or_minimum_count():
         assert region.mz_tolerance_da == config.mz_tolerance_da
         assert region.mz_tolerance_ppm == config.mz_tolerance_ppm
         assert details["ms2_status"] == "file_wide_fallback"
-        assert region.ms2_mz_tolerance_da == 0.01
-        assert region.ms2_mz_tolerance_ppm == 20
+        assert region.ms2_mz_tolerance_da == Config().ms2_mz_tolerance_da
+        assert region.ms2_mz_tolerance_ppm == max(
+            Config().ms2_mz_tolerance_ppm, region.mz_tolerance_ppm,
+        )
 
 
 def test_high_mass_da_error_is_not_copied_into_low_mass_fallback():
@@ -111,6 +113,7 @@ def test_high_mass_da_error_is_not_copied_into_low_mass_fallback():
 def test_overrides_are_applied_to_every_region_and_gapfill_is_capped(polarity):
     base = Config(
         mz_tolerance_da=0.001,
+        mz_tolerance_ppm=10,
         ms2_mz_tolerance_da=0.02,
         gapfill_mz_tolerance_da=0.04,
         tuning_mz_regions=5,
@@ -132,7 +135,8 @@ def test_overrides_are_applied_to_every_region_and_gapfill_is_capped(polarity):
 
 def test_lookup_edges_and_real_tracker_match_across_region_boundary():
     config = Config(
-        min_scans=2, segment=False, mass_regions=(model(100, 200, 0.001), model(200, 300, 0.01))
+        min_scans=2, segment=False, mz_tolerance_da=0.002, mz_tolerance_ppm=10,
+        mass_regions=(model(100, 200, 0.001), model(200, 300, 0.01)),
     )
     array = ms1_region_array(config)
     for mass, expected in [
@@ -212,7 +216,11 @@ def test_repeated_ms2_does_not_satisfy_distinct_anchor_minimum():
     )
     assert info["regions"][0]["ms2_representative_count"] == 1
     assert all(r["ms2_status"] == "file_wide_fallback" for r in info["regions"])
-    assert all(r.ms2_mz_tolerance_ppm >= 20 for r in config.mass_regions)
+    assert all(
+        r.ms2_mz_tolerance_ppm == max(Config().ms2_mz_tolerance_ppm, r.mz_tolerance_ppm)
+        for r in config.mass_regions
+    )
+    assert all(r.ms2_mz_tolerance_da == Config().ms2_mz_tolerance_da for r in config.mass_regions)
 
 
 def test_range_windows_union_and_observed_extension(tmp_path):

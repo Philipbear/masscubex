@@ -200,11 +200,6 @@ def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None)
     locked = set(config.tuning_locked) | {
         key for key in TUNABLE_FIELDS if getattr(config, key) != getattr(defaults, key)
     }
-    # Legacy scan-unit overrides also protect the corresponding physical setting.
-    if config.smoothing_sigma != defaults.smoothing_sigma:
-        locked.add("smoothing_seconds")
-    if config.peak_distance != defaults.peak_distance:
-        locked.add("peak_distance_seconds")
     info = {"status": "insufficient_representatives", "protected_parameters": sorted(locked)}
     updates = {}
     intervals = np.asarray(intervals, dtype=float)
@@ -213,12 +208,6 @@ def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None)
         intervals = intervals[_inliers(intervals)]
     dt = float(np.median(intervals)) if len(intervals) else None
     info["ms1_interval_seconds"] = dt
-    if dt is not None:
-        # With insufficient peaks, only translate legacy scan units to seconds.
-        updates.update(
-            smoothing_seconds=config.smoothing_sigma * dt,
-            peak_distance_seconds=config.peak_distance * dt,
-        )
     qualified = [p for p in peaks if p.gaussian_similarity >= config.tuning_min_gaussian_similarity]
     selected, before = _screen_representatives(qualified, config)
     info["representatives_before_outlier_screen"] = before
@@ -241,9 +230,6 @@ def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None)
             mz_tolerance_ppm=ppm,
             gapfill_mz_tolerance_da=da,
             gapfill_mz_tolerance_ppm=ppm,
-            smoothing_seconds=max(0.5 * dt, 0.08 * fast),
-            peak_distance_seconds=max(dt, 0.5 * fast),
-            max_gap_seconds=cycle_high * (config.max_gap_scans + 1) * 1.25,
             precursor_max_age_seconds=cycle_high * 2,
             gapfill_max_gap_seconds=cycle_high * (config.max_gap_scans + 1) * 1.25,
             ms2_rt_tolerance=max(cycle_high, 0.15 * typical),
@@ -251,7 +237,6 @@ def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None)
                 config.tuning_block_seconds, max(3 * cycle_high, float(np.quantile(widths, 0.9)))
             ),
             ms2_seed_rt_tolerance=max(dt, 0.5 * fast),
-            group_rt_tolerance=max(dt, 0.25 * typical),
         )
         info["fwhm_seconds_p10_p50_p90"] = np.quantile(fwhm, [0.1, 0.5, 0.9]).tolist()
         info["mass_range"] = [min(p.mz for p in selected), max(p.mz for p in selected)]
@@ -352,7 +337,7 @@ def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, upd
             )
             if prefix in ("", "gapfill_"):
                 # A sparse region borrows a fit from other ions. Its incoming
-                # mass and running trace center can both fluctuate. Combine
+                # mass and previously observed mass can both fluctuate. Combine
                 # their error scales in quadrature for this fallback only;
                 # apply the usual 5 ppm floor and pilot cap afterwards.
                 statistics = [info["ms1_error_statistics"]] + [

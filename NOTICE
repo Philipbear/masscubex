@@ -6,19 +6,20 @@ This product is licensed under the Apache License, Version 2.0.
 MassCubeX
 Copyright 2026 MassCubeX contributors
 
-Derived from Philipbear/masscube, commit
-356748ede691862b9a87f67812db5e728a703b9d (upstream MassCube by Huaxu Yu).
-MassCubeX replaces the processing implementation with streaming mzML/mzXML
-MS1 extraction, profile mass detection, compiled numerical kernels, adaptive
-local noise estimation, MS/MS provenance, MS2-seeded features with raw-MS1
-gap filling, robust per-polarity parameter estimation, physical-time segmentation,
-and default-on candidate ion relationships,
-and a configurable per-file Parquet/TSV command-line workflow. Packaging and documentation have been rewritten;
-vendor readers, alignment, annotation, statistics, and plotting are removed.
+Derived from huaxuyu/masscube, commit
+356748ede691862b9a87f67812db5e728a703b9d (MassCube 1.2.22 by Huaxu Yu).
+MassCubeX provides streaming mzML/mzXML input, adaptive MS1 noise estimation,
+MS/MS provenance and per-file Parquet/TSV output. Core scientific algorithms
+follow upstream; original function bodies for feature finalization, segmentation,
+scores and centroid merging are retained in src/masscubex/upstream.py.
+An optimized trace tracker preserves upstream matching and ordering rules.
+Automatic calibration, profile MS1 mass detection and MS2-seeded raw-MS1 gap
+filling are configurable extensions enabled by default. Greedy grouping derives from upstream
+feature_grouping.py and uses the selected configurable ion catalog.
+Packaging and documentation have been rewritten. Vendor readers, alignment,
+library annotation, statistics and plotting are outside the extraction command.
 The original Apache License 2.0 and attribution above are retained.
-The Gaussian-similarity and trace noise-score concepts in peak_shapes.py derive
-from upstream MassCube's feature_evaluation.py. The temporal-noise, sampling
-support and asymmetric-template split guard are MassCubeX additions.
+Unmodified reference functions are also retained in tests/upstream_masscube.py.
 
 SciPy compatibility algorithms
 The Gaussian reflection, plateau detection, distance selection and prominence
@@ -28,3 +29,7 @@ scipy/signal/_peak_finding_utils.pyx), adapted to readable Numba kernels.
 Copyright (c) 2001-2002 Enthought, Inc. 2003-2024, SciPy Developers.
 Copyright (c) 2003-2005, Peter J. Verveer.
 The applicable BSD 3-Clause notice is retained in licenses/SCIPY-BSD-3-Clause.txt.
+
+The specialized covariance/correlation arithmetic in measurements.py is adapted
+from NumPy 1.26, copyright (c) 2005-2023, NumPy Developers, under BSD-3-Clause.
+See licenses/NUMPY-BSD-3-Clause.txt.

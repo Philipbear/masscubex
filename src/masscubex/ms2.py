@@ -8,6 +8,7 @@ import numpy as np
 from .readers import MS2Scan
 from .tuning import config_for
 from .mass_tolerance import mass_radius
+from .upstream_adapter import preprocess_ms2
 
 
 class MS2Collector:
@@ -32,6 +33,7 @@ class MS2Collector:
                         scan.polarity = parents[0].polarity
                         scan.polarity_source = "precursor_reference"
             effective = config_for(scan.polarity, self.config, self.configs)
+            preprocess_ms2(scan, effective)
             if scan.precursor_intensity is not None and scan.precursor_intensity > 0:
                 scan.intensity_source = "metadata"
             else:
@@ -69,7 +71,7 @@ class MS2Collector:
                 keep = np.flatnonzero(
                     scan.intensity >= scan.intensity.max() * self.config.isf_min_relative_intensity
                 )
-                if len(keep) > self.config.isf_max_peaks:
+                if self.config.isf_max_peaks and len(keep) > self.config.isf_max_peaks:
                     order = np.argsort(-scan.intensity[keep], kind="stable")
                     keep = np.sort(keep[order[: self.config.isf_max_peaks]])
                 scan.mz, scan.intensity = scan.mz[keep], scan.intensity[keep]
@@ -84,9 +86,7 @@ class MS2Assignment:
 
 def ineligible_reason(scan, config):
     """Return only metadata/explicit-policy exclusions, never a guessed DIA label."""
-    if scan.precursor_count > 1:
-        return "multiple_precursors"
-    if scan.precursor_count != 1 or scan.precursor_mz is None:
+    if scan.precursor_count < 1 or scan.precursor_mz is None:
         return "missing_precursor_mz"
     if scan.rt is None:
         return "missing_retention_time"
@@ -105,9 +105,22 @@ def associate_ms2(features, records, config, stats, configs=None):
     Isolation width is unrestricted by default. Return an outcome for every
     record so unmatched scans can seed features or be reported explicitly.
     """
+    if not records:
+        apply_ms2_assignments(features, records, [], config, stats)
+        return []
     masses = np.array([feature.mz for feature in features])
     order = np.argsort(masses, kind="stable")
     sorted_masses = masses[order]
+    # These float32 minute bounds and heights are invariant across all MS2
+    # queries. Keep scalar comparisons below, preserving NumPy's installed
+    # scalar-promotion rules, but do not rebuild an array for every candidate.
+    edges = np.asarray(
+        [
+            f._peak_edges or (f.rt_start_seconds / 60.0, f.rt_end_seconds / 60.0)
+            for f in features
+        ], dtype=np.float32,
+    ).reshape(-1, 2)
+    heights = np.asarray([f.peak_height or 0.0 for f in features], dtype=np.float32)
     assignments = []
     polarities = set(stats.get("ms1_polarities", [f.polarity for f in features]))
     mixed = len(polarities) > 1 or (
@@ -142,13 +155,15 @@ def associate_ms2(features, records, config, stats, configs=None):
                 features[i].polarity == scan.polarity
                 or (not mixed and (scan.polarity == "unknown" or features[i].polarity == "unknown"))
             )
+            and abs(features[i].mz - scan.precursor_mz) < tolerance
         ]
+
         candidates = [
             i
             for i in polarity_candidates
-            if features[i].rt_start_seconds - effective.ms2_rt_tolerance
-            <= scan.rt
-            <= features[i].rt_end_seconds + effective.ms2_rt_tolerance
+            if edges[i, 0] - effective.ms2_rt_tolerance / 60.0
+            <= scan.rt / 60.0
+            <= edges[i, 1] + effective.ms2_rt_tolerance / 60.0
         ]
         if (
             scan.polarity == "unknown"
@@ -167,17 +182,7 @@ def associate_ms2(features, records, config, stats, configs=None):
             assignments.append(MS2Assignment(None, reason))
             continue
 
-        def score(i):
-            feature = features[i]
-            return (
-                not feature.rt_start_seconds <= scan.rt <= feature.rt_end_seconds,
-                abs(feature.mz - scan.precursor_mz),
-                abs(feature.rt_apex_seconds - scan.rt),
-                -(feature.peak_height or 0.0),
-                i,
-            )
-
-        best = min(candidates, key=score)
+        best = candidates[int(np.argmax(heights[candidates]))]
         assignments.append(MS2Assignment(best, "matched"))
     apply_ms2_assignments(features, records, assignments, config, stats)
     return assignments
@@ -234,6 +239,10 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
     # whose missing intensity required the documented nearest-apex fallback.
     fallback_ids = []
     stats["best_ms2_apex_fallback_feature_ids"] = fallback_ids
+    # The table keeps only the best native scan number. Preserve a resolvable
+    # reference for the exceptional files where that number is absent/ambiguous.
+    identifier_fallbacks = []
+    stats["best_ms2_identifier_fallbacks"] = identifier_fallbacks
     for feature_id, (feature, indices) in enumerate(zip(features, assigned), 1):
         if not indices and feature.ms2_count == 0:
             # Fresh unassigned features already have empty provenance. Avoid
@@ -271,13 +280,21 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
             return (
                 (-distance, intensity, -scan.spectrum_index)
                 if config.best_ms2 == "apex"
-                else (intensity, -distance, -scan.spectrum_index)
+                else (intensity, -scan.spectrum_index)
             )
 
         best = records[max(indices, key=ranking)]
         feature.best_ms2_scan_number = best.scan_number
         feature.best_ms2_native_id = best.native_id
         feature.best_ms2_spectrum_index = best.spectrum_index
+        if best.scan_number is None or feature.ms2_scan_numbers.count(best.scan_number) > 1:
+            identifier_fallbacks.append(
+                {
+                    "feature_id": feature_id,
+                    "native_id": best.native_id,
+                    "spectrum_index": best.spectrum_index,
+                }
+            )
         method = config.best_ms2
         if method != "apex" and value(best) is None:
             method = "apex_fallback"

@@ -11,6 +11,8 @@ from conftest import mzml_spectrum, write_mzml
 from test_ms2 import precursor_mzml
 from test_ms2_seeding import outputs
 from test_polarity_switching import switching_file
+from test_summary_reuse import reference_segments
+import numpy as np
 
 
 @pytest.mark.parametrize("executor", ["process", "thread"])
@@ -77,7 +79,14 @@ def test_batched_polarity_switching_does_not_bridge_acquisition_gaps(tmp_path, a
     for row in rows:
         expected = 10 if row["polarity"] == "positive" else 100
         assert float(row["peak_height"]) == expected
-        assert float(row["peak_area"]) == 2 * expected
+        start = float(row["rt_start_seconds"])
+        assert start in ({0, 10} if row["polarity"] == "positive" else {5, 15})
+        trace = np.column_stack((
+            np.full(3, 100), np.full(3, expected),
+            np.arange(start, start + 3), np.zeros(3),
+        ))
+        _, (peak,) = reference_segments(trace, Config(segment=False))
+        assert float(row["peak_area"]) == peak.peak_area
 
 
 def test_late_parse_error_preserves_previous_outputs_and_removes_partials(tmp_path):

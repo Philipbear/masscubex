@@ -22,7 +22,20 @@ from masscubex import Config, __version__, process_file
 from masscubex.cli import run_batch
 from masscubex.features import warmup
 from masscubex.readers import MS2Scan, iter_scans
-from masscubex.output import FEATURE_COLUMNS, FLOAT_COLUMNS, NESTED_COLUMNS, write_features
+from masscubex.output import FEATURE_COLUMNS, LEGACY_FLOAT_COLUMNS, NESTED_COLUMNS, write_features
+
+
+AUDIT_ONLY_COLUMNS = (
+    "best_ms2_native_id",
+    "best_ms2_spectrum_index",
+    "best_ms2_fragment_intensity",
+    "best_ms2_precursor_intensity",
+    "best_ms2_precursor_intensity_source",
+    "gapfill_status",
+    "gapfill_mz_radius_da",
+    "seed_precursor_mz",
+    "seed_rt_seconds",
+)
 
 
 def reference_mass_radius(mass, settings, prefix=""):
@@ -46,18 +59,21 @@ def process_for_audit(path, output, **options):
     tolerances. This wrapper is for serial/process workers, not shared threads.
     """
     rows = []
+    audit_columns = FEATURE_COLUMNS[1:] + [
+        name for name in AUDIT_ONLY_COLUMNS if name not in FEATURE_COLUMNS
+    ]
 
     def capture(destination, features, output_format):
         features = list(features)
         for index, feature in enumerate(features, 1):
             row = {"feature_id": str(index)}
-            for name in FEATURE_COLUMNS[1:]:
+            for name in audit_columns:
                 value = getattr(feature, name)
                 row[name] = (
                     ""
                     if value is None
                     else format(value, ".17g")
-                    if name in FLOAT_COLUMNS
+                    if name in LEGACY_FLOAT_COLUMNS
                     else json.dumps(value)
                     if name in NESTED_COLUMNS
                     else str(value)

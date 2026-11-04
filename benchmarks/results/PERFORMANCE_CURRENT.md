@@ -1,8 +1,15 @@
-# MassCubeX 0.15.0 processing speed
+# Historical MassCubeX 0.15.0 processing speed
+
+These measurements predate restoration of the pinned upstream tracing,
+short-trace retention, splitting and quantification rules. They do **not**
+describe the current workflow, despite the unchanged development version number.
+See the [current 100-file speed/RAM study](OVERNIGHT_OPTIMIZATION.md) and
+[five-file upstream benchmark](UPSTREAM_SPEED.md). The original
+measurements and projections below are retained as historical results only.
 
 Measured 2026-11-04 on an Apple M2 Max (32 GB), macOS 26.6.2, Python 3.10.12.
 The same 50 public MSV000086989 positive centroid-mzXML files total 604.1 MB.
-Current defaults include adaptive MS1 noise, policy-5 calibration, MS2 association
+That implementation's defaults included adaptive MS1 noise, policy-5 calibration, MS2 association
 and seeded gap filling, ion grouping, and compressed Parquet output.
 
 | Workers | 50 files, median wall time | Effective seconds/file | Files/hour | 2 million similar files |

@@ -15,8 +15,11 @@ import sys
 
 from . import __version__
 from .config import Config, TUNABLE_FIELDS
-from .readers import file_format
+from .formats import file_format
 from .reporting import BatchReport, InputFailure, error_result, retry_sources
+
+
+DEFAULT_WORKER_RECYCLE_FILES = 8
 
 
 def _supported(path):
@@ -131,6 +134,17 @@ def _job(source, output_dir, config, resume, overwrite, output_format="parquet")
         return error_result(source, error)
 
 
+def _initialize_worker(output_format="parquet"):
+    from .worker_runtime import initialize
+
+    initialize(output_format)
+
+
+def _worker_ready():
+    """Return only after this process's numerical initializer has succeeded."""
+    return True
+
+
 def run_batch(
     paths,
     output_dir,
@@ -141,6 +155,7 @@ def run_batch(
     resume=False,
     overwrite=False,
     output_format="parquet",
+    worker_recycle_files=DEFAULT_WORKER_RECYCLE_FILES,
 ):
     """Yield each outcome as soon as ready, with at most 2 * workers futures."""
     if type(workers) is not int or workers < 1:
@@ -149,6 +164,8 @@ def run_batch(
         raise ValueError("executor must be process or thread")
     if output_format not in {"parquet", "tsv"}:
         raise ValueError("Output format must be parquet or tsv")
+    if type(worker_recycle_files) is not int or worker_recycle_files < 0:
+        raise ValueError("worker_recycle_files must be a nonnegative integer")
     if workers == 1:
         for path in paths:
             yield (
@@ -157,32 +174,49 @@ def run_batch(
                 else _job(path, output_dir, config, resume, overwrite, output_format)
             )
         return
-    from .features import warmup
-
-    # Validate compilation in the parent so a broken environment is not treated
-    # as a sequence of corrupt files. Child workers load these cached kernels.
-    warmup()
+    if executor == "thread":
+        _initialize_worker(output_format)
 
     def new_pool():
-        return (
+        pool = (
             ThreadPoolExecutor(max_workers=workers)
             if executor == "thread"
             else ProcessPoolExecutor(
                 max_workers=workers,
-                initializer=warmup,
+                initializer=_initialize_worker,
+                initargs=(output_format,),
                 mp_context=multiprocessing.get_context("spawn"),
             )
         )
+        if executor == "process":
+            try:
+                # Validate before input jobs; keep the numerical runtime in a
+                # useful worker rather than in the lightweight coordinator.
+                pool.submit(_worker_ready).result()
+            except BaseException:
+                pool.shutdown(wait=True, cancel_futures=True)
+                raise
+        return pool
 
-    pool = new_pool()
     iterator = iter(paths)
+    pool = new_pool()
     pending = {}
+    missing = object()
+    deferred = missing
+    processed_in_pool = 0
+    pool_limit = worker_recycle_files * workers if executor == "process" else 0
     try:
         exhausted = False
         while pending or not exhausted:
-            while not exhausted and len(pending) < 2 * workers:
+            while (
+                not exhausted and len(pending) < 2 * workers
+                and (not pool_limit or processed_in_pool + len(pending) < pool_limit)
+            ):
                 try:
-                    path = next(iterator)
+                    if deferred is missing:
+                        path = next(iterator)
+                    else:
+                        path, deferred = deferred, missing
                 except StopIteration:
                     exhausted = True
                     break
@@ -204,6 +238,7 @@ def run_batch(
                     pending.clear()
                     pool.shutdown(wait=True, cancel_futures=True)
                     pool = new_pool()
+                    processed_in_pool = 0
                     future = pool.submit(
                         _job, path, output_dir, config, resume, overwrite, output_format
                     )
@@ -213,9 +248,32 @@ def run_batch(
                 for future in done:
                     path = pending.pop(future)
                     try:
-                        yield future.result()
+                        result = future.result()
+                        # Resume hits do not allocate the extraction graph;
+                        # count attempted extraction jobs, not skipped files.
+                        processed_in_pool += result.get("status") != "skipped"
+                        yield result
                     except Exception as error:
+                        processed_in_pool += 1
                         yield error_result(path, error, stage="worker")
+            elif not exhausted and pool_limit and processed_in_pool >= pool_limit:
+                # Drain before recycling: no file is interrupted or retried.
+                # A whole-pool bound supports Python 3.10 as well as newer
+                # versions; average files per worker is at most the setting.
+                pool.shutdown(wait=True, cancel_futures=True)
+                # Peek once so an exact final batch does not start an empty
+                # replacement pool. A single deferred path avoids accumulating
+                # nested iterator wrappers across millions of files.
+                for path in iterator:
+                    if isinstance(path, InputFailure):
+                        yield path.result
+                        continue
+                    deferred = path
+                    pool = new_pool()
+                    processed_in_pool = 0
+                    break
+                else:
+                    exhausted = True
     finally:
         pool.shutdown(wait=True, cancel_futures=True)
 
@@ -233,6 +291,7 @@ _SETTING_FLAGS = (
     ("tuning_block_seconds", "--tuning-block-seconds", float),
     ("mz_tolerance_ppm", "--mz-ppm", float),
     ("mz_tolerance_da", "--mz-da", float),
+    ("centroid_mz_tolerance_da", "--centroid-mz-da", float),
     ("quant_method", "--quant-method", str),
     ("noise_mode", "--noise", str),
     ("noise_estimator", "--noise-estimator", str),
@@ -252,16 +311,15 @@ _SETTING_FLAGS = (
     ("profile_min_points", "--profile-min-points", int),
     ("profile_gap_factor", "--profile-gap-factor", float),
     ("smoothing_sigma", "--smoothing-sigma", float),
-    ("smoothing_seconds", "--smoothing-seconds", float),
-    ("peak_distance_seconds", "--peak-distance-seconds", float),
     ("peak_prominence", "--peak-prominence", float),
-    ("peak_min_gaussian_similarity", "--peak-min-gaussian-similarity", float),
-    ("peak_min_snr", "--peak-min-snr", float),
     ("peak_noise_score_limit", "--peak-noise-score-limit", float),
     ("peak_distance", "--peak-distance", int),
+    ("segmentation_passes", "--segmentation-passes", int),
     ("ms2_mz_tolerance_ppm", "--ms2-mz-ppm", float),
     ("ms2_mz_tolerance_da", "--ms2-mz-da", float),
     ("ms2_rt_tolerance", "--ms2-rt-tolerance", float),
+    ("ms2_min_intensity", "--ms2-min-intensity", float),
+    ("ms2_relative_intensity", "--ms2-relative-intensity", float),
     ("ms2_max_isolation_width", "--ms2-max-isolation-width", float),
     ("ms2_gapfill_rt_window", "--ms2-gapfill-rt-window", float),
     ("ms2_seed_rt_tolerance", "--ms2-seed-rt-tolerance", float),
@@ -274,9 +332,9 @@ _SETTING_FLAGS = (
     ("group_mz_tolerance_ppm", "--group-mz-ppm", float),
     ("group_mz_tolerance_da", "--group-mz-da", float),
     ("group_rt_tolerance", "--group-rt-tolerance", float),
-    ("group_min_scans", "--group-min-scans", int),
+    ("group_eic_mz_tolerance_da", "--group-eic-mz-da", float),
+    ("isotope_rel_int_limit", "--isotope-rel-int-limit", float),
     ("group_min_correlation", "--group-min-correlation", float),
-    ("group_min_overlap", "--group-min-overlap", float),
     ("isf_min_relative_intensity", "--isf-min-relative-intensity", float),
     ("isf_max_peaks", "--isf-max-peaks", int),
 )
@@ -318,10 +376,6 @@ def _resolve_config(args):
         values["tuning_mz_regions"] = None
     locked = set(values.get("tuning_locked", []))
     locked.update(name for name in TUNABLE_FIELDS if hasattr(args, name))
-    if hasattr(args, "smoothing_sigma"):
-        locked.add("smoothing_seconds")
-    if hasattr(args, "peak_distance"):
-        locked.add("peak_distance_seconds")
     values["tuning_locked"] = sorted(locked)
     if args.adducts:
         custom = tuple(Adduct(**row) for row in values.get("custom_adducts", []))
@@ -349,6 +403,13 @@ def _parser():
     )
     extract.add_argument("--workers", type=int, default=1, help="File workers (default: 1)")
     extract.add_argument("--executor", choices=("process", "thread"), default="process")
+    extract.add_argument(
+        "--worker-recycle-files", type=int, default=DEFAULT_WORKER_RECYCLE_FILES,
+        help=(
+            "Recycle process pools after N * workers extraction attempts "
+            f"(default: {DEFAULT_WORKER_RECYCLE_FILES}; 0 disables; workers >1; skips excluded)"
+        ),
+    )
     extract.add_argument(
         "--format",
         choices=("parquet", "tsv"),
@@ -382,7 +443,9 @@ def _parser():
     for name, flag, type_ in _SETTING_FLAGS:
         help_ = name.replace("_", " ") + f" (default: {getattr(defaults, name)})"
         if name in TUNABLE_FIELDS:
-            help_ += "; calibrated unless overridden; shown value is the fallback"
+            help_ += "; calibrated only with --auto-tune unless explicitly overridden"
+        if name == "ms2_min_intensity":
+            help_ = "Fixed MS2 floor (default: 10000 for an orbitrap header keyword, otherwise 500)"
         if name in {"ms2_rt_tolerance", "group_rt_tolerance"}:
             help_ += "; seconds"
         if name == "ms2_max_isolation_width":
@@ -413,10 +476,14 @@ def _parser():
         (
             "auto_tune",
             "--auto-tune",
-            "Estimate mass/timing settings independently for each polarity",
+            "Calibrate mass/MS2 timing parameters independently for each polarity (default: on)",
         ),
         ("segment", "--segment", "Split chromatographic peaks"),
-        ("peak_shape_guard", "--peak-shape-guard", "Require shape and noise evidence for splits"),
+        (
+            "peak_shape_guard",
+            "--peak-shape-guard",
+            "Keep traces unsplit above the trace-noise limit",
+        ),
         (
             "assume_centroid",
             "--assume-centroid",
@@ -426,7 +493,7 @@ def _parser():
         (
             "ms2_seeded_features",
             "--ms2-seeded-features",
-            "Create unmatched MS2 precursor features and gap-fill their MS1 measurements",
+            "Create unmatched MS2 precursor features and gap-fill raw MS1 (default: on)",
         ),
         (
             "group_ions",
@@ -494,6 +561,8 @@ def main(argv=None):
         parser.error("Provide --output-dir")
     if args.workers < 1:
         parser.error("--workers must be positive")
+    if args.worker_recycle_files < 0:
+        parser.error("--worker-recycle-files cannot be negative")
     report_root = args.report_dir or Path(args.output_dir) / "reports"
     options = {
         "inputs": args.inputs,
@@ -502,6 +571,7 @@ def main(argv=None):
         "output_dir": str(Path(args.output_dir).absolute()),
         "workers": args.workers,
         "executor": args.executor,
+        "worker_recycle_files": args.worker_recycle_files,
         "output_format": args.format,
         "resume": args.resume,
         "overwrite": args.overwrite,
@@ -516,6 +586,7 @@ def main(argv=None):
                     config,
                     workers=args.workers,
                     executor=args.executor,
+                    worker_recycle_files=args.worker_recycle_files,
                     output_format=args.format,
                     resume=args.resume,
                     overwrite=args.overwrite,

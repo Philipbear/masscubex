@@ -1,0 +1,41 @@
+         17870412 function calls (17770469 primitive calls) in 9.182 seconds
+
+   Ordered by: cumulative time
+   List reduced from 2117 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.011    0.011    9.267    9.267 pipeline.py:208(process_file)
+    93723    0.045    0.000    3.868    0.000 pipeline.py:165(_timed_extraction)
+   134230    0.021    0.000    3.834    0.000 {built-in method builtins.next}
+    93723    0.018    0.000    3.798    0.000 pipeline.py:95(extract_features)
+    94740    0.075    0.000    3.296    0.000 pipeline.py:101(with_edges)
+        1    0.682    0.682    3.068    3.068 grouping.py:177(group_ions)
+    94740    0.032    0.000    2.954    0.000 features.py:330(_finish_features)
+   164706    0.142    0.000    2.871    0.000 features.py:393(summarize_trace)
+    68446    0.345    0.000    2.142    0.000 summary.py:114(summarize_intervals)
+        1    0.000    0.000    1.228    1.228 output.py:261(write_features)
+        1    0.002    0.002    1.227    1.227 output.py:244(_write_parquet)
+       12    0.081    0.007    1.041    0.087 output.py:210(_parquet_batch)
+    45592    0.379    0.000    0.740    0.000 measurements.py:40(gaussian_similarity)
+       57    0.001    0.000    0.701    0.012 __init__.py:1(<module>)
+        1    0.008    0.008    0.686    0.686 tuning.py:387(calibrate_file)
+    33974    0.121    0.000    0.654    0.000 grouping.py:162(_positive_correlation)
+   150623    0.335    0.000    0.581    0.000 grouping.py:260(matches)
+    48130    0.328    0.000    0.556    0.000 features.py:486(_short_trace_feature)
+    19458    0.178    0.000    0.440    0.000 measurements.py:66(pearson_correlation)
+    54034    0.142    0.000    0.359    0.000 measurements.py:15(integrated_area)
+    74652    0.018    0.000    0.353    0.000 {method 'mean' of 'numpy.ndarray' objects}
+    448/7    0.001    0.000    0.342    0.049 <frozen importlib._bootstrap>:1022(_find_and_load)
+    448/7    0.001    0.000    0.342    0.049 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+    355/7    0.001    0.000    0.341    0.049 <frozen importlib._bootstrap>:664(_load_unlocked)
+    512/8    0.000    0.000    0.340    0.043 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+    75499    0.127    0.000    0.340    0.000 _methods.py:101(_mean)
+    298/6    0.000    0.000    0.338    0.056 <frozen importlib._bootstrap_external>:877(exec_module)
+    315/6    0.001    0.000    0.337    0.056 {built-in method builtins.exec}
+       96    0.097    0.001    0.305    0.003 output.py:229(<listcomp>)
+     8246    0.005    0.000    0.303    0.000 scan_cache.py:55(scans)
+    54936    0.120    0.000    0.265    0.000 measurements.py:24(noise_score_at_apex)
+       12    0.012    0.001    0.261    0.022 output.py:223(<listcomp>)
+    71943    0.022    0.000    0.255    0.000 grouping.py:172(isotope_targets)
+    93731    0.105    0.000    0.249    0.000 output.py:161(_rounded_relations)
+   187444    0.116    0.000    0.245    0.000 pipeline.py:145(_nearest_acquisition)

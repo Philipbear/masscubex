@@ -1,4 +1,8 @@
-"""Compare schema-6 output to the independently retained full-precision baseline."""
+"""Historical schema-9 compact-output audit against a full-precision baseline.
+
+Schema 10 changes the splitting/grouping algorithms, so old feature rows are
+not a valid numerical baseline. Use fresh paired TSV/Parquet runs for schema 10.
+"""
 
 import argparse
 from collections import Counter
@@ -16,7 +20,23 @@ REMOVED = {
     "best_ms2_selection_method",
     "best_ms2_score",
     "apex_threshold_ratio",
+    "best_ms2_native_id",
+    "best_ms2_spectrum_index",
+    "gapfill_status",
+    "gapfill_mz_radius_da",
+    "best_ms2_fragment_intensity",
+    "best_ms2_precursor_intensity_source",
+    "best_ms2_precursor_intensity",
+    "seed_precursor_mz",
+    "seed_rt_seconds",
 }
+INTENSITY_FIELDS = {
+    "peak_height",
+    "peak_area",
+    "apex_noise_threshold",
+    "fragment_relative_intensity",
+}
+CORRELATION_FIELDS = {"correlation", "gaussian_similarity"}
 MASS_FIELDS = {"mz", "seed_precursor_mz", "gapfill_mz_radius_da", "neutral_mass", "fragment_mz"}
 
 
@@ -31,15 +51,24 @@ def without_operational_fields(value, ignored):
 
 
 def expected_row(row):
-    """Independent specification: all remaining scalar floats use 2 decimals,
-    except masses (5) and evidence correlation (6). IDs/lists stay exact.
+    """Independent precision policy: masses 5, intensities 1, correlations 4,
+    and other floats 2 decimals. IDs/lists stay exact.
     """
     if isinstance(row, list):
         return [expected_row(item) for item in row]
     if not isinstance(row, dict):
         return row
     return {
-        name: round(value, 5 if name in MASS_FIELDS else 6 if name == "correlation" else 2)
+        name: round(
+            value,
+            5
+            if name in MASS_FIELDS
+            else 4
+            if name in CORRELATION_FIELDS
+            else 1
+            if name in INTENSITY_FIELDS
+            else 2,
+        )
         if isinstance(value, float)
         else expected_row(value)
         for name, value in row.items()
@@ -64,23 +93,60 @@ def main():
         tsv = args.tsv / name.removesuffix(".parquet")
         tsv = tsv.with_name(tsv.name + ".tsv")
         old_tsv = args.reference_tsv / tsv.name
+        old_meta = json.loads(Path(str(old) + ".json").read_text())
+        new_meta = json.loads(Path(str(new) + ".json").read_text())
+        if new_meta["schema_version"] != 9:
+            raise ValueError("This historical baseline comparison requires schema 9 outputs")
         counts = Counter()
         fallback_ids = []
+        identifier_fallbacks = []
         for baseline, parquet, text in zip_longest(
             iter_feature_rows(old), iter_feature_rows(new), iter_feature_rows(tsv)
         ):
             assert baseline is not None and parquet is not None and text is not None, name
-            assert expected_row(baseline) == parquet == text, (name, baseline["feature_id"])
+            expected = expected_row(baseline)
+            # Independently derive the new labels from unchanged relationship
+            # evidence, without calling the production grouping summarizer.
+            forms = set()
+            fragment = False
+            for link in baseline["ion_relations"]:
+                form = (
+                    link.get("ion")
+                    if link["relation"] == "adduct"
+                    else link.get(link["role"] + "_ion")
+                )
+                if form is not None:
+                    forms.add(form)
+                fragment |= link.get("role") == "fragment"
+            expected["adduct"] = sorted(forms)
+            checked = (
+                old_meta["config"]["group_ions"]
+                and old_meta["config"]["group_isf"]
+                and baseline["polarity"] in {"positive", "negative"}
+            )
+            expected["is_in_source_fragment"] = fragment if checked else None
+            assert expected == parquet == text, (name, baseline["feature_id"])
+            best = baseline["best_ms2_scan_number"]
+            if baseline["ms2_count"] and (
+                best is None or baseline["ms2_scan_numbers"].count(best) > 1
+            ):
+                identifier_fallbacks.append(
+                    {
+                        "feature_id": baseline["feature_id"],
+                        "native_id": baseline["best_ms2_native_id"],
+                        "spectrum_index": baseline["best_ms2_spectrum_index"],
+                    }
+                )
             if baseline["best_ms2_selection_method"] == "apex_fallback":
                 fallback_ids.append(baseline["feature_id"])
             counts["features"] += 1
             counts[parquet["feature_origin"]] += 1
             counts["associated_ms2"] += parquet["ms2_count"]
             counts["ion_relationship_entries"] += len(parquet["ion_relations"])
-        old_meta = json.loads(Path(str(old) + ".json").read_text())
         for output in (new, tsv):
             meta = json.loads(Path(str(output) + ".json").read_text())
             assert meta["best_ms2_apex_fallback_feature_ids"] == fallback_ids
+            assert meta["best_ms2_identifier_fallbacks"] == identifier_fallbacks
             # Every scientific diagnostic and effective parameter must match.
             ignored = {
                 "schema_version",
@@ -95,6 +161,7 @@ def main():
                 "tsv_sha256",
                 "output_precision",
                 "best_ms2_apex_fallback_feature_ids",
+                "best_ms2_identifier_fallbacks",
             }
             assert without_operational_fields(meta, ignored) == without_operational_fields(
                 old_meta, ignored
@@ -115,7 +182,7 @@ def main():
         "files": len(rows),
         "totals": dict(totals),
         "rows": rows,
-        "criteria": "Every row equals the old full-precision row after only specified rounding and five column removals; all scientific sidecar fields unchanged.",
+        "criteria": "Every row equals the full-precision baseline after specified rounding, column removals and labels derived from unchanged ion relationships; scientific diagnostics and settings are unchanged.",
     }
     args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report["totals"]))

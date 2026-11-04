@@ -1,0 +1,614 @@
+"""Pinned MassCube scientific functions, with unmodified bodies.
+
+Copyright 2024-2026 Huaxu Yu. Apache-2.0.
+Source: huaxuyu/masscube commit 356748ede691862b9a87f67812db5e728a703b9d.
+MassCubeX adapters supply streaming input, adaptive MS1 thresholds and exports.
+Do not edit these bodies: compare changes with the pinned source first.
+"""
+
+# ruff: noqa
+# fmt: off
+import bisect
+from copy import deepcopy
+import numpy as np
+from numpy import dot
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal import find_peaks
+
+# Source: src/masscube/feature_evaluation.py:14
+def calculate_gaussian_similarity(x, y, len_tol=5):
+    """
+    calculate the gaussian similarity using Pearson correlation coefficient.
+
+    Parameters
+    ----------
+    x: numpy array
+        Retention times.
+    y: numpy array
+        MS1 signal intensities.
+    len_tol: int
+        Minimum length of the peak to calculate the similarity score. 
+        If the length of the peak is less than this value, return 0.
+    
+    Returns
+    -------
+    float
+        similarity score
+    """
+
+    if not isinstance(x, np.ndarray):
+        x = np.array(x)
+    if not isinstance(y, np.ndarray):
+        y = np.array(y)
+
+    # if the length of the peak is less than the tolerance, return 0
+    if len(x) < len_tol or np.max(y) <= 0:
+        return 0.0
+
+    # Estimate the parameters of the Gaussian function
+    # a: amplitude, b: mean, c: standard deviation
+    a = np.max(y)
+    idx = np.argmax(y)
+    b = x[idx]
+
+    # Compute approximate FWHM using half-height
+    right_idx = np.where(y[idx:] < a / 2)[0]
+    left_idx = np.where(y[:idx] < a / 2)[0]
+
+    c1 = (x[right_idx[0] + idx] - b) if len(right_idx) > 0 else (x[-1] - b)
+    c2 = (b - x[left_idx[-1]]) if len(left_idx) > 0 else (b - x[0])
+
+    fwhm = c1 + c2
+    c = fwhm / 2.355 if fwhm > 0 else 1e-6  # Avoid division by zero
+
+    # Generate fitted Gaussian curve
+    y_fit = a * np.exp(-0.5 * ((x - b) / c) ** 2)
+
+    # Fast correlation using dot product
+    y = y.astype(float)
+    y_fit = y_fit.astype(float)
+    y -= y.mean()
+    y_fit -= y_fit.mean()
+    similarity = dot(y, y_fit) / (np.linalg.norm(y) * np.linalg.norm(y_fit) + 1e-12)
+    
+    return max(0, similarity)
+
+# Source: src/masscube/feature_evaluation.py:72
+def calculate_noise_score(
+        y: np.ndarray, 
+        rel_int_tol: float = 0.05, 
+        len_tol: int = 5
+    ) -> float:
+    """
+    Noise score ranges from 0 to infinity and reflects the fluctuation of the peak. 
+    A higher noise score indicates a noisier peak.
+
+    Parameters
+    ----------
+    y: np.ndarray
+        Intensity values of the peak.
+    rel_int_tol: float
+        Relative intensity threshold (filter low signals).
+    len_tol: int
+        Minimum length of the peak to calculate the noise score. 
+        If the length of the peak is less than this value, return 0.
+    
+    Returns
+    -------
+    float
+        Noise score (0 = no noise, higher = noiser)
+    """
+
+    y = np.asarray(y, dtype=float).copy()
+
+    if len(y) < len_tol or np.max(y) <= 0:
+        return 0.0
+
+    y[y < rel_int_tol * np.max(y)] = 0  # Filter low signals
+
+    total_variation = np.abs(np.diff(y)).sum()
+    total_variation += y[0] + y[-1]
+
+    return total_variation / (2 * y.max()) - 1
+
+# Source: src/masscube/feature_evaluation.py:110
+def calculate_asymmetry_factor(y: np.ndarray, threshold_ratio: float = 0.1) -> float:
+    """
+    Calculate peak asymmetry at a given threshold level (default: 10%).
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Intensity values
+    threshold_ratio : float
+        Fraction of peak height to define tails (default = 0.1 = 10%)
+
+    Returns
+    -------
+    float
+        Asymmetry factor:
+        - ~1 = symmetric
+        - >1 = right-skewed
+        - <1 = left-skewed
+        - np.inf = undefined
+    """
+
+    y = np.array(y, dtype=float) if not isinstance(y, np.ndarray) else y
+
+    if len(y) < 5 or np.max(y) <= 0:
+        return np.inf
+
+    idx = np.argmax(y)
+
+    # Define threshold
+    threshold = y[idx] * threshold_ratio
+
+    # Find last point before peak below threshold (left tail)
+    left_candidates = np.where(y[:idx] < threshold)[0]
+    left_idx = left_candidates[-1] if len(left_candidates) else 0
+
+    # Find first point after peak below threshold (right tail)
+    right_candidates = np.where(y[idx:] < threshold)[0]
+    right_idx = (right_candidates[0] + idx) if len(right_candidates) else (len(y) - 1)
+
+    # Avoid division by zero
+    if idx == left_idx:
+        return 99.0
+
+    return (right_idx - idx) / (idx - left_idx)
+
+# Source: src/masscube/feature_detection.py:20
+class Feature:
+    """
+    A class to store a feature characterized by a unique pair of m/z and retention time.
+    """
+
+    def __init__(self):
+
+        # chromatographic peak
+        self.rt_seq = []                     # retention time sequence
+        self.signals = []                    # signal sequence (m/z, intensity)
+        self.scan_idx_seq = []               # scan index sequence
+        self.ms2_seq = []                    # MS2 spectra
+        self.gap_counter = 0                 # count the number of consecutive zeros in the end of the peak
+        self.peak_shape = None               # peak shape ([[rt, intensity], ...]) 
+        self.peak_edges = None               # retention time edges for the peak baseline: (left_rt, right_rt)
+
+        # summary
+        self.id = None                       # feature id
+        self.feature_group_id = None         # peak group id
+        self.mz = None                       # m/z
+        self.rt = None                       # retention time
+        self.scan_idx = None                 # scan index of the peak apex
+        self.peak_height = None              # peak height
+        self.peak_area = None                # peak area
+        self.top_average = None              # average of the highest three intensities
+        self.ms2 = None                      # representative MS2 spectrum (default: highest total intensity)
+        self.length = 0                      # number of valid scans in the feature
+        self.gaussian_similarity = 0.0       # Gaussian similarity
+        self.noise_score = 0.0               # noise score
+        self.asymmetry_factor = 0.0          # asymmetry factor
+        self.sse = 0.0                       # squared error to the smoothed curve
+        self.is_segmented = False            # whether the feature is segmented from a larger feature
+        self.is_isotope = False              # whether the feature is an isotope
+        self.charge_state = 1                # charge state of the feature
+        self.isotope_signals = None          # isotope signals [[mz, intensity], ...]
+        self.is_in_source_fragment = False   # whether the feature is an in-source fragment
+        self.adduct_type = None              # adduct type
+        self.isotope_state = "M+0"           # isotope state, e.g., M+0, M+1, M+2, etc.
+        self.scan_scan_cor = None            # scan-scan correlation to the most abundant ion in the same feature group
+
+        self.annotation_algorithm = None     # annotation algorithm. Not used now.
+        self.search_mode = None              # 'identity search', 'fuzzy search', or 'mzrt_search'
+        self.similarity = None               # similarity score (0-1)
+        self.annotation = None               # name of annotated compound
+        self.formula = None                  # molecular formula
+        self.matched_peak_number = None      # number of matched peaks
+        self.smiles = None                   # SMILES
+        self.inchikey = None                 # InChIKey
+        self.matched_precursor_mz = None     # matched precursor m/z
+        self.matched_ms2 = None              # matched ms2 spectra
+        self.matched_adduct_type = None      # matched adduct type
+
+
+    def extend(self, rt, signal, scan_idx):
+        """
+        Function to extend the chromatographic peak by providing the retention time, 
+        signal and scan index.
+
+        Parameters
+        ----------
+        rt: float
+            Retention time.
+        signal: list or numpy array
+            [mz, intensity] of the signal.
+        scan_idx: int
+            Scan index.
+        """
+
+        self.rt_seq.append(rt)
+        self.signals.append(signal)
+        self.scan_idx_seq.append(scan_idx)
+
+
+    def get_mz_error(self):
+        """
+        Function to calculate the 3*sigma error of the feature's m/z.
+
+        Returns
+        -------
+        float
+            The 3*sigma error of the feature's m/z.
+        """
+
+        return 3 * np.std(self.signals[:, 0])
+    
+
+    def get_rt_error(self):
+        """
+        Function to calculate the 3*sigma error of the feature's retention time.
+
+        Returns
+        -------
+        float
+            The 3*sigma error of the feature's retention time.
+        """
+
+        return 3 * np.std(self.rt_seq)
+
+
+    def finalize(self, ph=True, pa=True, ta=True, g_score=True, n_score=True, a_score=True):
+        """
+        Finalize the feature by calculating the summary statistics, including peak height, 
+        peak area, top average, Gaussian similarity, noise score, and asymmetry factor.
+
+        Parameters
+        ----------
+        ph: bool
+            Whether to calculate the peak height.
+        pa: bool
+            Whether to calculate the peak area.
+        ta: bool
+            Whether to calculate the top average.
+        g_score: bool
+            Whether to calculate the Gaussian similarity.
+        n_score: bool
+            Whether to calculate the noise score.
+        a_score: bool
+            Whether to calculate the asymmetry factor.
+        """
+
+        self.signals = np.array(self.signals, dtype=np.float32)
+        original_rt_seq = self.rt_seq
+        first,last = _trim_signals(self.signals)
+        if last > first:
+            left_edge_idx = first - 1 if first > 0 else first
+            right_edge_idx = last if last < len(original_rt_seq) else last - 1
+            self.peak_edges = (original_rt_seq[left_edge_idx], original_rt_seq[right_edge_idx])
+        self.signals = self.signals[first:last]
+        self.rt_seq = self.rt_seq[first:last]
+        self.scan_idx_seq = self.scan_idx_seq[first:last]
+        
+        apx = np.argmax(self.signals[:, 1])
+        self.mz = self.signals[apx, 0]
+        self.rt = self.rt_seq[apx]
+        self.scan_idx = self.scan_idx_seq[apx]
+        self.length = np.sum(self.signals[:, 1] > 0)
+        self.peak_shape = np.array([[self.rt_seq[i], self.signals[i, 1]] for i in range(len(self.signals))])
+
+        if ph:
+            self.peak_height = int(self.signals[apx, 1])
+        if pa:
+            self.peak_area = int(np.trapz(y=self.signals[:, 1], x=self.rt_seq) * 60)
+        if ta:
+            self.top_average = int(np.mean(np.sort(self.signals[:, 1])[-3:]))
+        if n_score:
+            self.noise_score = calculate_noise_score(self.signals[:, 1])
+        if g_score:
+            self.gaussian_similarity = calculate_gaussian_similarity(self.rt_seq, self.signals[:, 1])
+        if a_score:
+            self.asymmetry_factor = calculate_asymmetry_factor(self.signals[:, 1])
+
+
+    def subset(self, start, end, finalize=True):
+        """
+        Keep the subset of the feature by providing the start and end positions. Note that the 
+        summary statistics will be recalculated in this function by default.
+
+        Parameters
+        ----------
+        start: int
+            The start position.
+        end: int
+            The end position. The data point at the end position is not included.
+        finalize: bool
+            Whether to finalize the feature after subsetting. If True, the summary statistics will be recalculated.
+        """
+        
+        self.rt_seq = self.rt_seq[start:end]
+        self.signals = self.signals[start:end]
+        self.scan_idx_seq = self.scan_idx_seq[start:end]
+        self.ms2_seq = [ms2 for ms2 in self.ms2_seq if ms2.raw_file_id > self.scan_idx_seq[0] and ms2.raw_file_id < self.scan_idx_seq[-1]]
+
+        if finalize:
+            self.finalize(pa=False, ta=False, g_score=False, a_score=False)
+
+# Source: src/masscube/feature_detection.py:201
+def detect_features(d):
+    """
+    Detect features in the MS data.
+
+    Parameters
+    ----------
+    d: MSData object
+        An MSData object that contains the MS data.
+
+    Returns
+    -------
+    final_features: list
+        A list of detected features.
+    """
+
+    # A list to store the rois in progress
+    features = []
+    # A list for the finally detected ROIs
+    final_features = []
+
+    # Initiate a set of rois using the first MS1 scan
+    s = d.scans[d.ms1_idx_arr[0]]    # The first scan
+
+    for i in range(len(s.signals)):
+        feature = Feature()
+        feature.extend(rt=s.time, signal=s.signals[i], scan_idx=d.ms1_idx_arr[0])
+        features.append(feature)
+
+    # Loop over all MS1 scans
+    for ms1_idx in d.ms1_idx_arr[1:]:
+        s = d.scans[ms1_idx]                                  # The current MS1 scan
+        avlb_signals = np.ones(len(s.signals), dtype=bool)    # available signals to assign to features
+        to_be_moved = []                                      # features to be moved to final_features
+        
+        for i, feature in enumerate(features):
+            min_idx = None
+            if len(s.signals) > 0:
+                min_idx = _find_closest_index_ordered(
+                    array=s.signals[:, 0],
+                    target=feature.signals[-1][0],
+                    tol=d.params.mz_tol_ms1,
+                )
+            if min_idx is not None and avlb_signals[min_idx]:
+                feature.extend(rt=s.time, signal=s.signals[min_idx], scan_idx=ms1_idx)
+                feature.gap_counter = 0
+                avlb_signals[min_idx] = False
+            else:
+                feature.extend(rt=s.time, signal=[feature.signals[-1][0], 0], scan_idx=ms1_idx)
+                feature.gap_counter = feature.gap_counter + 1
+                if feature.gap_counter > d.params.feature_gap_tol:
+                    to_be_moved.append(i)
+
+        # Move the features that have not been visited for a long time to final_features
+        for i in to_be_moved[::-1]:
+            final_features.append(features.pop(i))
+        
+        # Create new rois for the remaining signals
+        for i, signal in enumerate(s.signals):
+            if avlb_signals[i]:
+                feature = Feature()
+                feature.extend(rt=s.time, signal=signal, scan_idx=ms1_idx)
+                features.append(feature)
+
+        features.sort(key=lambda x: x.signals[-1][1], reverse=True)
+
+    # Move all features to final_features
+    for feature in features:
+        final_features.append(feature)
+    
+    # finalize features
+    for feature in final_features:
+        feature.finalize(pa=False, g_score=False, a_score=False)
+    
+    # sort by m/z
+    final_features.sort(key=lambda x: x.mz)
+
+    return final_features
+
+# Source: src/masscube/feature_detection.py:280
+def segment_feature(feature, method="gf-prominence", length_tol=5, noise_tol=3):
+    """
+    Function to segment a feature into multiple features based on the edge detection.
+
+    Parameters
+    ----------
+    sigma: float
+        The sigma value for Gaussian filter.
+    prominence_ratio: float
+        The prominence ratio for finding peaks. prom = np.max(y)*prominence_ratio
+    distance: int
+        The minimum distance between peaks.
+    peak_height_tol: float
+        The peak height tolerance for segmentation.
+    length_tol: int
+        The length tolerance for segmentation.
+    sse_tol: float
+        The squared error tolerance for segmentation.
+
+    Returns
+    -------
+    segmented_features: list
+        A list of segmented features.
+    """
+
+    # if the number of valid data points is less than length_tol, skip segmentation
+    arr = feature.signals[:,1]
+    dp = np.sum(arr > 0)
+    if dp < length_tol:
+        return [feature]
+    
+    noise_score = calculate_noise_score(arr)
+    if noise_score > noise_tol:
+        return [feature]
+
+    if method == "gf-prominence":
+        peaks = gaussian_filter_and_prominence_method(arr)
+
+    if len(peaks) < 2:
+        return [feature]
+    
+    positions = [0]
+    for i in range(len(peaks)-1):
+        # get the index of the lowest intensity point between peaks[i] and peaks[i+1]
+        lowest_int_idx = peaks[i] + np.argmin(arr[peaks[i]:peaks[i+1]])
+        positions.append(lowest_int_idx)
+    positions.append(len(feature.signals)-1)
+    
+    segmented_features = []
+    for i in range(len(positions)-1):
+        tmp = deepcopy(feature)
+        tmp.subset(start=positions[i], end=positions[i+1]+1)
+        tmp.is_segmented = True
+        segmented_features.append(tmp)
+
+    return segmented_features
+
+# Source: src/masscube/feature_detection.py:338
+def gaussian_filter_and_prominence_method(arr, sigma=0.6, prominence_ratio=0.03, distance=3):
+    """
+    Peak segmentation using Gaussian filter coupled with peak prominence.
+
+    Parameters
+    ----------
+    arr: numpy array
+        1D array of intensity values.
+    sigma: float
+        The sigma value for Gaussian filter.
+    prominence_ratio: float
+        The prominence ratio for finding peaks. prom = np.max(y)*prominence_ratio
+    distance: int
+        The minimum distance between peaks.
+
+    Returns
+    -------
+    peaks: numpy array
+        Indices of detected peaks.
+    """
+    
+    # add zero to the front and the end of the signal to facilitate the edge detection
+    a = np.zeros(len(arr)+2)
+    a[1:-1] = arr
+    ss = gaussian_filter1d(a, sigma=sigma)
+    prominence = np.max(ss)*prominence_ratio
+
+    peaks, _ = find_peaks(ss, prominence=prominence, distance=distance)
+
+    peaks = peaks - 1   # correct the index
+    
+    # the resulting peaks should have peak height larger than the baseline
+    peaks = peaks[arr[peaks] > np.median(arr)]
+
+    return peaks
+
+# Source: src/masscube/feature_detection.py:380
+def _find_closest_index_ordered(array, target, tol=0.01):
+    """
+    Function to find the index of the closest value in an ordered array.
+
+    Parameters
+    ----------
+    array: list or numpy array
+        An ordered array.
+    target: float
+        The target value.
+    tol: float
+        The tolerance for the closest value.
+
+    Returns
+    -------
+    idx: int
+        The index of the closest value.
+    """
+
+    idx = bisect.bisect_left(array, target)
+    
+    if idx == 0:
+        if array[idx] - target < tol:
+            return 0
+        else:
+            return None
+    if idx == len(array):
+        if target - array[idx - 1] < tol:
+            return len(array) - 1
+        else:
+            return None
+    
+    before = array[idx - 1]
+    after = array[idx]
+    
+    if after - target < target - before and after - target < tol:
+        return idx
+    elif after - target > target - before and target - before < tol:
+        return idx - 1
+    else:
+        return None
+
+# Source: src/masscube/feature_detection.py:423
+def _trim_signals(signals: np.ndarray) -> tuple:
+    """
+    Return a (first, last) half-open slice that removes leading/trailing zeros
+    in the intensity column (assumed to be column index 1).
+
+    Parameters
+    ----------
+    signals : np.ndarray
+        A 2D numpy array of signals shaped like [[mz, intensity], ...].
+
+    Returns
+    -------
+    first : int
+        Index of the first non-zero intensity.
+    last : int
+        One past the index of the last non-zero intensity (half-open slice).
+        If all intensities are zero, returns (0, 0).
+    """
+
+    non_zero_indices = np.where(signals[:, 1] != 0)[0]
+    if non_zero_indices.size == 0:
+        return 0, 0
+    else:
+        return non_zero_indices[0], non_zero_indices[-1] + 1
+
+# Source: src/masscube/utils_functions.py:473
+def centroid_signals(signals, mz_tol=0.002):
+    """
+    Function to centroid signals in a mass spectrum.
+
+    Parameters
+    ----------
+    signals: numpy array
+        MS signals for a scan as 2D numpy array in float32, organized as [[m/z, intensity], ...].
+    mz_tol: float
+        m/z tolerance for centroiding. Default is 0.002 Da.
+
+    Returns
+    -------
+    signals: numpy array
+        Centroided signals.
+    """
+
+    if mz_tol is None or len(signals) <= 1:
+        return signals
+
+    # Assume signals sorted by m/z
+    signals = signals[signals[:, 0].argsort()]
+    mz = signals[:, 0]
+    intensity = signals[:, 1]
+
+    diff = np.diff(mz)
+    group_starts = np.where(diff >= mz_tol)[0] + 1
+    group_boundaries = np.r_[0, group_starts, len(signals)]
+
+    sum_intensity = np.add.reduceat(intensity, group_boundaries[:-1])
+    weighted_mz = np.add.reduceat(mz * intensity, group_boundaries[:-1]) / sum_intensity
+
+    merged_signals = np.column_stack((weighted_mz, sum_intensity)).astype(np.float32)
+    
+    return merged_signals

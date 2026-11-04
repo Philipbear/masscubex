@@ -1,7 +1,5 @@
 """Deterministic randomized checks against independent numerical references."""
 
-import math
-
 import numpy as np
 import pytest
 
@@ -10,6 +8,8 @@ from masscubex.noise import estimate_noise
 from masscubex.pipeline import extract_features
 from masscubex.readers import Scan
 from test_noise import brute_force_low_tail
+from test_summary_reuse import reference_segments
+import upstream_masscube as original
 
 
 @pytest.mark.parametrize("seed", range(24))
@@ -51,10 +51,14 @@ def oracle_segments(t, y, masses, max_scans, max_seconds):
         if len(indices) < 2:
             continue
         first, last = indices[0], indices[-1]
-        values = y[first : last + 1]
-        area = math.fsum((t[i + 1] - t[i]) * (y[i] + y[i + 1]) / 2 for i in range(first, last))
-        center = np.average(masses[indices], weights=y[indices])
-        result.append((first, last, max(values), area, center, len(indices)))
+        trace = np.column_stack((
+            masses[first:last + 1], y[first:last + 1],
+            t[first:last + 1], np.zeros(last - first + 1),
+        ))
+        # Independent pinned finalization supplies float32 apex mass and
+        # integer height/area; the partition above remains a hand-built oracle.
+        _, (peak,) = reference_segments(trace, Config(segment=False))
+        result.append((first, last, peak))
     return result
 
 
@@ -81,19 +85,32 @@ def test_randomized_isolated_traces_preserve_mass_height_area_and_gaps(seed):
         for rt, mass, values in zip(t, masses, y)
     ]
     found = list(extract_features(scans, config))
+    normalized_masses = masses.astype(np.float32)
+    normalized_intensity = y.astype(np.float32)
+    for i, (mass, values) in enumerate(zip(masses, y)):
+        keep = values > 0
+        # In a multi-ion scan, upstream applies its float32 weighted-centroid
+        # arithmetic even to isolated groups. A whole singleton scan is exempt.
+        signals = original.centroid_signals(
+            np.column_stack((mass[keep], values[keep])).astype(np.float32)
+        )
+        normalized_masses[i, keep] = signals[:, 0]
+        normalized_intensity[i, keep] = signals[:, 1]
     for ion in range(6):
-        expected = oracle_segments(t, y[:, ion], masses[:, ion], 2, 3.2)
+        expected = oracle_segments(t, normalized_intensity[:, ion], normalized_masses[:, ion], 2, 3.2)
         actual = sorted(
             [f for f in found if abs(f.mz - (100 + 10 * ion)) < 0.01],
             key=lambda f: f.rt_start_seconds,
         )
         assert len(actual) == len(expected)
-        for f, (first, last, height, area, center, count) in zip(actual, expected):
+        for f, (first, last, peak) in zip(actual, expected):
             assert (f.rt_start_seconds, f.rt_end_seconds, f.scan_count) == (
-                t[first],
-                t[last],
-                count,
+                peak.rt_seq[0] * 60,
+                peak.rt_seq[-1] * 60,
+                peak.length,
             )
-            np.testing.assert_allclose([f.peak_height, f.peak_area], [height, area], rtol=1e-12)
-            assert f.mz == pytest.approx(center, abs=1e-11)
+            assert f.peak_height == peak.peak_height
+            assert f.peak_area == peak.peak_area
+            assert f.mz == float(peak.mz)
+            assert f.rt_apex_seconds == peak.rt * 60
             assert f.rt_start_seconds <= f.rt_apex_seconds <= f.rt_end_seconds

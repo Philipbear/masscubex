@@ -10,12 +10,12 @@ description = "Streaming mzML/mzXML to per-file MS1 feature tables"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0 AND BSD-3-Clause"
-license-files = ["LICENSE", "NOTICE", "licenses/SCIPY-BSD-3-Clause.txt"]
+license-files = ["LICENSE", "NOTICE", "licenses/SCIPY-BSD-3-Clause.txt", "licenses/NUMPY-BSD-3-Clause.txt"]
 dependencies = ["numpy>=1.24", "numba>=0.60", "scipy>=1.10", "lxml>=4.9", "pyarrow>=17"]
 
 [project.optional-dependencies]
 numpress = ["pynumpress>=0.0.9,<0.1"]
-dev = ["pytest>=8", "build", "ruff"]
+dev = ["pytest>=8", "build", "ruff", "psutil>=5.9"]
 
 [project.scripts]
 masscubex = "masscubex.cli:main"
@@ -24,7 +24,7 @@ masscubex = "masscubex.cli:main"
 Repository = "https://github.com/Philipbear/masscubex"
 Documentation = "https://github.com/Philipbear/masscubex/tree/main/docs"
 Issues = "https://github.com/Philipbear/masscubex/issues"
-Upstream = "https://github.com/Philipbear/masscube"
+Upstream = "https://github.com/huaxuyu/masscube"
 
 [tool.setuptools.packages.find]
 where = ["src"]

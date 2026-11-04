@@ -1,0 +1,42 @@
+{
+  "calculate_gaussian_similarity": {
+    "source": "src/masscube/feature_evaluation.py",
+    "sha256": "5763ebd12474c02d58531c57bbd6399cd43ddc67b12486893a04551f1064f988"
+  },
+  "calculate_noise_score": {
+    "source": "src/masscube/feature_evaluation.py",
+    "sha256": "623c1062b7f87729228f99becc243661cd9381dade9f6c23153e14f6679beeb4"
+  },
+  "calculate_asymmetry_factor": {
+    "source": "src/masscube/feature_evaluation.py",
+    "sha256": "2db03898f56dab243f74edfbe7aac5bfb38598f1b0b862f58240cc280b1dc793"
+  },
+  "Feature": {
+    "source": "src/masscube/feature_detection.py",
+    "sha256": "359f8e7d1243af27068d25bbb905e9e9d2f3a7e3fe91a3c7e1735302602202bb"
+  },
+  "detect_features": {
+    "source": "src/masscube/feature_detection.py",
+    "sha256": "c69b5165a2fe1e497fb79e01d9bf02e8212ddecd732653d1a233a076deff01c7"
+  },
+  "segment_feature": {
+    "source": "src/masscube/feature_detection.py",
+    "sha256": "3bd1f0353643c28dd4c4f997e398faa3084a93dfb274de3e16026039150e2e58"
+  },
+  "gaussian_filter_and_prominence_method": {
+    "source": "src/masscube/feature_detection.py",
+    "sha256": "4b67a2b79061fdd104986bda382717ccc82d0c21593d0227618b458283568427"
+  },
+  "_find_closest_index_ordered": {
+    "source": "src/masscube/feature_detection.py",
+    "sha256": "8fa08184083fecab861f0baceebaa9245408366f3960b3c6244c1f6f6966ca6a"
+  },
+  "_trim_signals": {
+    "source": "src/masscube/feature_detection.py",
+    "sha256": "e72aaf6190e78cfcdfa1fa6147361907afc5f75d41633dcf969ffffd489695cd"
+  },
+  "centroid_signals": {
+    "source": "src/masscube/utils_functions.py",
+    "sha256": "c6dc2839ce204519f5c555d71ee608b3b4c271f76d02e8fd67c0cb3a09937192"
+  }
+}

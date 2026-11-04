@@ -3,6 +3,7 @@
 import csv
 from dataclasses import fields
 from functools import lru_cache
+from itertools import islice
 import json
 import math
 import os
@@ -18,9 +19,15 @@ FEATURE_COLUMNS = ["feature_id"] + [f.name for f in FEATURE_FIELDS]
 FLOAT_COLUMNS = {f.name for f in FEATURE_FIELDS if float in (get_args(f.type) or (f.type,))}
 # Historical TSVs must still parse as typed values, including removed columns.
 LEGACY_FLOAT_COLUMNS = {f.name for f in ALL_FIELDS if float in (get_args(f.type) or (f.type,))}
-NESTED_COLUMNS = {"ms2_scan_numbers", "ms2_native_ids", "ms2_spectrum_indices", "ion_relations"}
+NESTED_COLUMNS = {
+    "ms2_scan_numbers",
+    "ms2_native_ids",
+    "ms2_spectrum_indices",
+    "ion_relations",
+}
+BOOLEAN_COLUMNS = {f.name for f in FEATURE_FIELDS if bool in (get_args(f.type) or (f.type,))}
 ROW_GROUP_SIZE = 8192
-TABLE_SCHEMA_VERSION = 7
+TABLE_SCHEMA_VERSION = 10
 # Named policies avoid accidentally rounding an identifier or a new measurement
 # as though it were an intensity. Both writers use Python binary64 half-even
 # rounding, including halfway cases; the in-memory Feature is never modified.
@@ -29,22 +36,17 @@ DECIMAL_PLACES = {
     "rt_apex_seconds": 2,
     "rt_start_seconds": 2,
     "rt_end_seconds": 2,
-    "peak_height": 2,
-    "peak_area": 2,
-    "apex_noise_threshold": 2,
-    "best_ms2_fragment_intensity": 2,
-    "best_ms2_precursor_intensity": 2,
-    "seed_precursor_mz": 5,
-    "seed_rt_seconds": 2,
-    "gapfill_mz_radius_da": 5,
-    "gaussian_similarity": 2,
+    "peak_height": 1,
+    "peak_area": 1,
+    "apex_noise_threshold": 1,
+    "gaussian_similarity": 4,
 }
 RELATION_DECIMAL_PLACES = {
     "neutral_mass": 5,
     "mass_error_ppm": 2,
-    "correlation": 6,
+    "correlation": 4,
     "fragment_mz": 5,
-    "fragment_relative_intensity": 2,
+    "fragment_relative_intensity": 1,
 }
 OUTPUT_PRECISION = {
     "columns": DECIMAL_PLACES,
@@ -74,6 +76,7 @@ RELATION_COLUMNS = frozenset(
         "evidence_ms2_spectrum_index",
         "fragment_mz",
         "fragment_relative_intensity",
+        "isotope_state",
     }
 )
 
@@ -120,6 +123,7 @@ def parquet_schema():
         "evidence_ms2_spectrum_index": pa.int64(),
         "fragment_mz": pa.float64(),
         "fragment_relative_intensity": pa.float64(),
+        "isotope_state": pa.string(),
     }
     nested = {
         "ms2_scan_numbers": pa.list_(pa.int64()),
@@ -132,7 +136,15 @@ def parquet_schema():
         types = get_args(field.type) or (field.type,)
         dtype = nested.get(field.name)
         if dtype is None:
-            dtype = pa.float64() if float in types else pa.int64() if int in types else pa.string()
+            dtype = (
+                pa.float64()
+                if float in types
+                else pa.int64()
+                if int in types
+                else pa.bool_()
+                if bool in types
+                else pa.string()
+            )
         schema.append(pa.field(field.name, dtype))
     return pa.schema(
         schema,
@@ -186,7 +198,7 @@ def _write_tsv(path, features):
                     else format(float(row[name]), f".{DECIMAL_PLACES[name]}f")
                     if name in FLOAT_COLUMNS
                     else json.dumps(row[name], separators=(",", ":"), allow_nan=False)
-                    if name in NESTED_COLUMNS
+                    if name in NESTED_COLUMNS or name in BOOLEAN_COLUMNS
                     else row[name]
                     for name in FEATURE_COLUMNS
                 ]
@@ -202,26 +214,29 @@ def _parquet_batch(features, first_id, schema):
 
     columns = [pa.array(range(first_id, first_id + len(features)), type=pa.int64())]
     for field in schema:
-        if field.name == "feature_id":
+        # Arrow exposes field.name through a property. Resolve it once per
+        # column, rather than once for every row in the batch.
+        name = field.name
+        if name == "feature_id":
             continue
-        if field.name == "ion_relations":
+        if name == "ion_relations":
             values = [
                 _rounded_relations(feature.ion_relations, index)
                 for index, feature in enumerate(features, first_id)
             ]
-        elif field.name in FLOAT_COLUMNS:
-            digits = DECIMAL_PLACES[field.name]
+        elif name in FLOAT_COLUMNS:
+            digits = DECIMAL_PLACES[name]
             values = [
                 None
-                if (value := getattr(feature, field.name)) is None
+                if (value := getattr(feature, name)) is None
                 else round(float(value), digits)
                 for feature in features
             ]
         else:
-            values = [getattr(feature, field.name) for feature in features]
+            values = [getattr(feature, name) for feature in features]
         column = pa.array(values, type=field.type)
-        if field.name in FLOAT_COLUMNS and pc.all(pc.is_finite(column)).as_py() is False:
-            raise ValueError(f"Non-finite feature value (numerical overflow) in {field.name}")
+        if name in FLOAT_COLUMNS and pc.all(pc.is_finite(column)).as_py() is False:
+            raise ValueError(f"Non-finite feature value (numerical overflow) in {name}")
         columns.append(column)
     return pa.Table.from_arrays(columns, schema=schema)
 
@@ -236,14 +251,8 @@ def _write_parquet(path, features):
     with pq.ParquetWriter(
         path, schema, compression="zstd", compression_level=3, use_dictionary=categories
     ) as writer:
-        batch = []
-        for feature in features:
-            batch.append(feature)
-            if len(batch) == ROW_GROUP_SIZE:
-                writer.write_table(_parquet_batch(batch, count + 1, schema))
-                count += len(batch)
-                batch.clear()
-        if batch:
+        iterator = iter(features)
+        while batch := list(islice(iterator, ROW_GROUP_SIZE)):
             writer.write_table(_parquet_batch(batch, count + 1, schema))
             count += len(batch)
     return count
@@ -279,7 +288,7 @@ def iter_feature_rows(path):
                     for relation in row["ion_relations"]:
                         keep_null = (
                             {"parent_ion", "fragment_ion"}
-                            if relation["relation"] != "adduct"
+                            if relation["relation"] in {"in_source_fragment", "neutral_loss"}
                             else set()
                         )
                         if relation.get("ms2_supported"):
@@ -290,7 +299,7 @@ def iter_feature_rows(path):
                     yield row
     else:
         integer_columns = {"feature_id"} | {
-            f.name for f in FEATURE_FIELDS if int in (get_args(f.type) or (f.type,))
+            f.name for f in ALL_FIELDS if int in (get_args(f.type) or (f.type,))
         }
         with path.open(encoding="utf-8", newline="") as stream:
             for row in csv.DictReader(stream, delimiter="\t"):
@@ -304,6 +313,8 @@ def iter_feature_rows(path):
                         if name in integer_columns
                         else json.loads(value)
                         if name in NESTED_COLUMNS
+                        or name in BOOLEAN_COLUMNS
+                        or (name == "adduct" and (value.startswith('["') or value == "[]"))
                         else value
                     )
                 yield row

@@ -10,6 +10,7 @@ from masscubex.features import Feature
 from masscubex.ms2 import MS2Collector, associate_ms2
 from masscubex.readers import MS2Scan, Scan, iter_scans
 from conftest import mzml_spectrum, mzxml_scan, write_mzml, write_mzxml
+from test_summary_reuse import reference_segments
 
 
 def precursor_mzml(mass=100, intensity=200, charge=1, width=2, ref="scan=10"):
@@ -137,7 +138,7 @@ def test_best_ms2_is_precursor_intensity_or_configurable_apex_and_all_ids_surviv
     assert stats["ms2_assigned"] == 3
 
 
-def test_missing_intensities_rank_by_apex_then_acquisition_order():
+def test_missing_fragment_intensities_keep_first_acquisition():
     f = feature()
     records = [
         ms2(30, rt=4, intensity=None),
@@ -146,13 +147,29 @@ def test_missing_intensities_rank_by_apex_then_acquisition_order():
     ]
     associate_ms2([f], records, Config(), {})
     assert f.ms2_scan_numbers == (10, 20, 30)
-    assert f.best_ms2_scan_number == 20
+    assert f.best_ms2_scan_number == 10
     assert f.best_ms2_precursor_intensity is None
     assert f.best_ms2_precursor_intensity_source == "unavailable"
     assert f.best_ms2_selection_method == "apex_fallback"
     associate_ms2([f], [], Config(), {})
     assert f.ms2_count == 0 and f.best_ms2_scan_number is None
     assert f.best_ms2_score is None
+
+
+@pytest.mark.parametrize("number", [None, 19, 42])
+def test_best_scan_identifier_fallback_only_for_missing_or_duplicate_numbers(number):
+    f = feature()
+    records = [ms2(19, rt=1), ms2(42, rt=3)]
+    records[1].scan_number = number
+    records[1].native_id = "cycle=2 experiment=1"
+    stats = {}
+    associate_ms2([f], records, Config(best_ms2="apex"), stats)
+    assert f.best_ms2_spectrum_index == 42
+    assert stats["best_ms2_identifier_fallbacks"] == (
+        [{"feature_id": 1, "native_id": "cycle=2 experiment=1", "spectrum_index": 42}]
+        if number in (None, 19)
+        else []
+    )
 
 
 @pytest.mark.parametrize("format_", ["mzml", "mzxml"])
@@ -192,8 +209,10 @@ def test_default_best_ms2_uses_actual_fragment_sum_before_pruning(tmp_path, form
         path = write_mzxml(tmp_path / "tic.mzXML", scans)
     records = list(iter_scans(path, sum_ms2=True))
     assert [r.fragment_intensity for r in records] == [100, 210]
-    assert all(r.mz is None for r in records)  # Only scalar scores are retained.
-    config = Config(isf_max_peaks=1)
+    assert all(r.mz is None for r in records)  # Scalar-only requests discard arrays.
+    # Toy intensities are below the instrument default; isolate selection and
+    # evidence pruning with an explicit zero MS2 floor.
+    config = Config(isf_max_peaks=1, ms2_min_intensity=0)
     collector = MS2Collector(config)
     list(collector.ms1_stream(iter_scans(path, decode_ms2=True, sum_ms2=True)))
     assert all(len(r.mz) == 1 for r in collector.records)
@@ -205,7 +224,7 @@ def test_default_best_ms2_uses_actual_fragment_sum_before_pruning(tmp_path, form
     assert f.best_ms2_precursor_intensity == 100
 
 
-def test_profile_ms2_score_does_not_supply_centroid_fragment_evidence(tmp_path):
+def test_profile_ms2_sum_request_preserves_decoded_samples_for_preprocessing(tmp_path):
     path = write_mzml(
         tmp_path / "profile.mzML",
         [
@@ -222,7 +241,8 @@ def test_profile_ms2_score_does_not_supply_centroid_fragment_evidence(tmp_path):
     )
     (record,) = iter_scans(path, decode_ms2=True, sum_ms2=True)
     assert record.fragment_intensity == 30
-    assert record.mz is None
+    np.testing.assert_array_equal(record.mz, [49.99, 50, 50.01])
+    np.testing.assert_array_equal(record.intensity, [0, 10, 20])
 
 
 def test_preceding_ms1_fallback_checks_parent_polarity_time_and_mass():
@@ -253,7 +273,7 @@ def test_profile_precursor_fallback_uses_apex_not_sum():
     assert record.precursor_intensity == 100
 
 
-def test_assignment_handles_split_peaks_and_excludes_wide_multiple_or_unknown_metadata():
+def test_assignment_handles_split_peaks_explicit_width_guard_and_usable_precursors():
     features = [feature(start=0, end=4, apex=2), feature(start=4, end=9, apex=7)]
     records = [
         ms2(1, rt=1),
@@ -268,11 +288,11 @@ def test_assignment_handles_split_peaks_and_excludes_wide_multiple_or_unknown_me
     ]
     stats = {}
     associate_ms2(features, records, Config(ms2_max_isolation_width=4), stats)
-    assert features[0].ms2_scan_numbers == (1, 3)
+    assert features[0].ms2_scan_numbers == (1, 3, 5)
     assert features[1].ms2_scan_numbers == (2,)
-    assert stats["ms2_assigned"] == 3 and stats["ms2_unassigned"] == 6
+    assert stats["ms2_assigned"] == 4 and stats["ms2_unassigned"] == 5
     assert stats["ms2_skipped_wide_isolation"] == 1
-    assert stats["ms2_skipped_multiprecursor"] == 1
+    assert stats["ms2_skipped_multiprecursor"] == 0
     assert stats["ms2_missing_metadata"] == 2
 
 
@@ -289,7 +309,7 @@ def test_every_unassigned_record_has_a_reason_and_original_identity():
     records = [
         ms2(10, mz=None),
         ms2(11, rt=None),
-        replace(ms2(12), precursor_count=2),
+        replace(ms2(12), precursor_count=2, precursor_mz=None),
         ms2(13, isolation_width=25),
         ms2(14, mz=200),
         ms2(15, rt=100),
@@ -301,7 +321,7 @@ def test_every_unassigned_record_has_a_reason_and_original_identity():
     expected = [
         "missing_precursor_mz",
         "missing_retention_time",
-        "multiple_precursors",
+        "missing_precursor_mz",
         "isolation_width_limit",
         "no_feature_mz",
         "no_feature_rt",
@@ -341,13 +361,17 @@ def test_end_to_end_ms2_and_quantification_tsv_resume(tmp_path):
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
     assert float(row["peak_height"]) == 100
-    assert float(row["peak_area"]) == 330
+    trace = np.column_stack((
+        np.full(7, 100), [10, 40, 70, 100, 70, 40, 10], np.arange(7), np.zeros(7),
+    ))
+    _, (reference,) = reference_segments(trace, Config(segment=False))
+    assert float(row["peak_area"]) == reference.peak_area
     assert "intensity" not in row and "quant_method" not in row
     assert json.loads(row["ms2_scan_numbers"]) == [101, None, 103]
     assert json.loads(row["ms2_spectrum_indices"]) == [2, 4, 6]
     assert row["best_ms2_scan_number"] == "101"
-    assert row["best_ms2_precursor_intensity"] == "900.00"
-    assert row["best_ms2_precursor_intensity_source"] == "metadata"
+    assert "best_ms2_precursor_intensity" not in row
+    assert "best_ms2_precursor_intensity_source" not in row
     assert "trace" not in row and "_ms2_records" not in row
     assert process_file(path, output, config=config, resume=True).status == "skipped"
     process_file(
@@ -358,5 +382,5 @@ def test_end_to_end_ms2_and_quantification_tsv_resume(tmp_path):
     )
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
-    assert row["peak_height"] == "100.00" and row["peak_area"] == "330.00"
+    assert row["peak_height"] == "100.0" and row["peak_area"] == f"{reference.peak_area:.1f}"
     assert row["ms2_count"] == "0" and row["best_ms2_scan_number"] == ""

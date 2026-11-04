@@ -1,15 +1,15 @@
-<!-- Modified for MassCubeX; replaces the upstream MassCube README. -->
 # MassCubeX
 
-**One mzML or mzXML file → one compressed Parquet feature table, with MS/MS scan references.**
-MassCubeX rewrites [MassCube](https://github.com/Philipbear/masscube) for public
-LC-MS repositories: streaming input, Numba-accelerated extraction, profile MS1
-centroiding, adaptive noise filtering, and independent file workers.
-Dataset alignment remains a separate downstream task.
+**One mzML or mzXML file → one compressed feature table, with MS/MS scan references.**
+
+MassCubeX adapts [MassCube](https://github.com/huaxuyu/masscube) for large public
+LC-MS repositories. It provides accelerated extraction, adaptive MS1 noise
+filtering, automatic mass-tolerance calibration, profile MS1 centroiding and
+parallel file processing. Dataset alignment is a separate downstream task.
 
 ## Install
 
-Python 3.10 or newer, with a Python/NumPy combination supported by Numba:
+Python 3.10 or newer:
 
 ```bash
 git clone https://github.com/Philipbear/masscubex.git
@@ -20,68 +20,71 @@ python -m pip install -e .
 masscubex warmup
 ```
 
-For MS-Numpress-encoded mzML, install `python -m pip install -e '.[numpress]'`.
-Python 3.13 needs the [Numpress installation steps](docs/USAGE.md#optional-numpress-decoder).
-Processing runs offline. The package, import and command are named `masscubex`;
-this fork is not API-compatible with `masscube`.
+MS-Numpress-encoded mzML also needs `python -m pip install -e '.[numpress]'`.
+See [installation details](docs/USAGE.md#optional-numpress-decoder), including
+the Python 3.13 build instructions. Processing runs offline.
 
 ## Extract features
 
 ```bash
-# One file
 masscubex extract sample.mzML -o features
-
-# A directory tree, or a manifest with one path per line
-masscubex extract /data/study -o features --workers 8 --resume
-masscubex extract --manifest files.txt -o features --workers 8 --resume
-
-# Important options
+masscubex extract /data/study -o features --workers 4 --resume
+masscubex extract --manifest files.txt -o features --workers 4 --resume
 masscubex extract sample.mzML -o features --format tsv
-masscubex extract sample.mzML -o features --quant-method peak_area
-masscubex extract sample.mzML -o features --no-auto-tune
-masscubex extract sample.mzML -o features --no-group-ions
 masscubex defaults > params.json
-masscubex extract /data/study -o features --config params.json --workers 8
 masscubex extract --help
 ```
 
-Both `.mzML` and `.mzXML`, including `.gz`, are supported. Manifest paths are
-relative to the manifest directory unless absolute. Workers use processes by
-default; `--executor thread` is also available.
+Directories are searched recursively. Manifest entries are relative to the
+manifest directory; `.mzML`, `.mzXML` and their gzip forms are supported.
+File workers use processes. Pools recycle by default to release retained memory;
+three workers are a lower-memory alternative to the four-worker example.
 
-## Defaults and outputs
+## Speed compared with MassCube
 
-- **Quantification:** peak height; both height and area are always included.
-- **Automatic calibration:** broad initial mass search, then at least 20 qualified
-  well-shaped peaks per polarity; sample the strongest 128 centroids per scan
-  in each m/z region (0–200 / 200–500 / 500+), with mean + 3 SD mass margins;
-  explicit fallbacks when evidence is insufficient. Polarity-switching files
-  use separate streams.
-- **MS1 noise:** fixed 100 Da bins, lowest 10% of positive samples, minimum 5,
-  threshold μ + 3σ. Profile MS1 is centroided automatically.
-- **Peak splitting:** noisy traces require supported peak shapes before splitting;
-  retained traces include Gaussian similarity and segmentation status.
-- **MS/MS:** all associated scan IDs and the best scan, selected by summed
-  fragment intensity. The isolation-width cutoff is disabled.
-- **Unmatched MS/MS:** create a marked precursor feature and gap-fill raw MS1
-  height and area using local peak boundaries when calibration is supported.
-  Mass windows never exceed the normal MS1 tolerance. If no ion is found,
-  height is imputed as 0.1× regional noise and labelled; area remains missing.
-  The fallback time window is ±5 seconds. Unusable
-  precursor metadata is reported with scan IDs and reasons in the JSON sidecar.
-- **Ion grouping:** on by default; selected adducts and water-loss candidates are
-  listed by `masscubex adducts`.
+Five public sample/blank/QC files, one process, Apple M2 Max:
 
-Each input produces a **Parquet table by default** (Zstd compression), with
-compact measurements (m/z: 5 decimals; RT in seconds and intensities: 2 decimals)
-and native lists for MS/MS scan references. Calculations remain float64. Use
-`--format tsv` for text output. A JSON sidecar records settings, provenance,
-stage timings, counts and unresolved MS/MS scans. Output names include an
-input-path hash to avoid basename collisions. `--resume` verifies completed outputs before skipping.
-See the [usage and output reference](docs/USAGE.md) for columns, scan lookup,
-Python usage and configuration options.
+| Matched configuration | MassCube 1.2.22 | MassCubeX | Speedup |
+| --- | ---: | ---: | ---: |
+| Same adaptive MS1 filter | 396.99 s | 23.97 s | **16.56×** |
+| Same fixed Orbitrap intensity floors | 34.66 s | 6.89 s | **5.03×** |
 
-Corrupted or missing input files **do not stop the remaining files**. Each run saves:
+Both engines use identical preprocessing and the selected ion catalog/grouping.
+Calibration, profile centroiding and MS2 seeding are disabled for this comparison
+because upstream lacks those extensions. MassCubeX timings include Parquet writing;
+original timings exclude serialization. Scientific results match in both controls.
+See [parameters, parity checks and raw measurements](benchmarks/results/UPSTREAM_SPEED.md).
+
+With normal MassCubeX defaults, sustained four-process extraction reached
+**1,921 files/hour at 2.85 GiB summed peak RSS** on this Mac. All 100 unique
+feature tables and 1,800 successful repeated jobs matched the pre-optimization
+version. These measurements use positive centroid mzXML; other file sizes and
+acquisition modes need their own capacity measurements.
+[Speed, stage timings and RAM](benchmarks/results/OVERNIGHT_OPTIMIZATION.md).
+
+## What is inherited, and what is new?
+
+The scientific reference is **MassCube 1.2.22**, commit
+[`356748ede691862b9a87f67812db5e728a703b9d`](https://github.com/huaxuyu/masscube/tree/356748ede691862b9a87f67812db5e728a703b9d).
+Trace priority/matching, peak splitting, Gaussian diagnostics, quantification and
+isotope/adduct/in-source-fragment grouping follow this pinned version.
+
+Enabled additions are adaptive MS1 noise thresholds, regional mass-tolerance
+calibration, profile MS1 centroiding and labelled MS2-seeded features with raw-MS1
+gap filling. The selected adduct catalog is configurable. These additions can
+change feature counts relative to stock MassCube.
+[Algorithm comparison](docs/UPSTREAM_COMPARISON.md) · [Complete methods](docs/METHODS.md).
+
+## Outputs and failed files
+
+Each successful input produces a **Zstd-compressed Parquet table** and JSON
+provenance sidecar. TSV is optional. Tables contain height and area, RT in seconds,
+MS/MS scan numbers and the best scan, origin labels and ion-group assignments.
+Output precision is five decimals for m/z, two for RT, one for intensity and four
+for correlations. Output paths include a source-path hash; `--resume` verifies
+completed results before skipping them.
+
+Corrupted or missing files are recorded while the remaining inputs continue:
 
 ```text
 features/reports/<run-id>/summary.json
@@ -89,38 +92,22 @@ features/reports/<run-id>/errors.tsv
 features/reports/<run-id>/files.jsonl
 ```
 
-Retry repaired inputs using `--retry-errors path/to/errors.tsv` with the original
-processing settings. A batch with file failures returns a nonzero exit code after
-processing the other files. Global setup/storage failures can still abort a run.
+Use `--retry-errors path/to/errors.tsv` after repairing failed inputs. A batch
+with file errors finishes with a nonzero exit code. Global setup/storage errors
+can abort a run. [Commands, columns and restart behavior](docs/USAGE.md).
 
-## Documentation
+## Documentation and development
 
-- [Implemented methods and changes from MassCube](docs/METHODS.md)
-- [Automatic calibration, gap filling and polarity switching](docs/AUTO_TUNING.md)
-- [Commands, output columns, MS/MS lookup and restart behavior](docs/USAGE.md)
-- [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
-- [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
-- [Compact output and feature-count comparison with original MassCube](benchmarks/results/OUTPUT_AND_COUNTS.md)
-- [Blank/QC EIC review, noise bins and strict MS1 gap filling](benchmarks/results/EIC_REVIEW.md)
-- [Preventing background over-splitting: methods, EICs and validation](benchmarks/results/PEAK_SHAPES.md)
-- [Current processing times and two-million-file estimates](benchmarks/results/PERFORMANCE_CURRENT.md)
-- [Example feature table (TSV)](examples/NIST_POS_Samp_14-03.features.tsv)
-- [Code structure and numerical development checks](docs/DEVELOPMENT.md)
+- [Calibration and gap filling](docs/AUTO_TUNING.md)
+- [Adducts and in-source fragments](docs/ION_GROUPING.md)
+- [Example TSV](examples/NIST_POS_Samp_14-03.features.tsv)
+- [Benchmarks and validation](benchmarks/README.md)
+- [Code structure and development checks](docs/DEVELOPMENT.md)
 
-DIA classification/deconvolution, mobility-resolved feature extraction, library
-annotation and dataset alignment are not implemented.
+DIA classification/deconvolution, mobility-resolved extraction, library
+annotation and dataset alignment are not implemented. The package and command
+are named `masscubex`; the Python API differs from `masscube`.
 
-## Development and license
-
-```bash
-python -m pip install -e '.[dev]'
-pytest -q
-ruff check src tests benchmarks
-python -m build
-```
-
-Install the optional Numpress decoder above to include its encoding tests.
-
-Apache License 2.0, with BSD-licensed SciPy compatibility portions; see
-[LICENSE](LICENSE), [NOTICE](NOTICE) and [third-party notice](licenses/SCIPY-BSD-3-Clause.txt).
+Apache License 2.0, with retained BSD notices for SciPy/NumPy compatibility
+portions. See [LICENSE](LICENSE), [NOTICE](NOTICE) and [third-party licenses](licenses).
 Original MassCube attribution and Git history are retained.

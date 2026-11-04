@@ -42,7 +42,7 @@ def test_resume_validates_config_input_and_table(sample_file, tmp_path):
     metadata.write_text("broken json")
     assert process_file(sample_file, output, resume=True).status == "ok"
     provenance = json.loads(metadata.read_text())
-    provenance["schema_version"] = 5
+    provenance["schema_version"] = 9  # Previous export shape must be regenerated.
     metadata.write_text(json.dumps(provenance))
     assert process_file(sample_file, output, resume=True).status == "ok"
     provenance = json.loads(metadata.read_text())

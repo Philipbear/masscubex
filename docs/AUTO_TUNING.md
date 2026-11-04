@@ -1,11 +1,14 @@
-# Per-file calibration and polarity switching
+# Automatic calibration and MS2 gap filling
 
-MassCubeX 0.15.0 uses calibration policy 5: region-stratified pilot
+The local development version retains MassCubeX 0.15.0 calibration policy 5: region-stratified pilot
 sampling, Gaussian-qualified representatives,
 three fixed m/z regions (0–200 / 200–500 / 500+), and mean + 3 sample SD mass-error margins.
 Output defaults to Parquet; the calculations apply equally to TSV.
 
-Automatic calibration and ion grouping are **on by default**. Calibration is a
+Automatic calibration, profile MS1 centroiding and MS2 seeding/gap filling are
+**on by default**. Disable them individually with `--no-auto-tune`,
+`--profile-mode reject` and `--no-ms2-seeded-features`. Ion grouping remains on.
+Calibration is a
 new MassCubeX implementation. It estimates repeatability and chromatography from
 the file; it does not calibrate absolute mass accuracy against known compounds.
 The MS1 noise default is **fixed 100 Da bins / lowest 10% / minimum 5 / μ + 3σ**.
@@ -21,8 +24,8 @@ increments a trace's missed-scan count.
 
 The pilot operates on reader-normalized MS1 without the adaptive filter. Profile
 MS1 is centroided using zero baseline/threshold, the configured minimum profile
-support (3 samples) and spacing-gap factor (4). Profile rejection still applies
-if explicitly requested. For each scan, track at most the strongest **128 centroids
+support (3 samples) and spacing-gap factor (4). Explicit `--profile-mode reject`
+rejects profile inputs instead. For each scan, track at most the strongest **128 centroids
 in each m/z region** (`--tuning-peak-limit`), with deterministic mass-order ties.
 The three default regions allow at most 384 centroids per scan. A sparse region
 contributes all its centroids; its unused capacity is not transferred to another
@@ -34,7 +37,7 @@ and neighbors across region boundaries.
 
 Pilot traces need at least 5 observed MS1 scans (inserted missing-scan zeros do
 not count) and allow one missing same-polarity
-scan. They use the configured trace time-gap limit. Trackers flush after 512
+scan. They use upstream nearest-last-mass matching; an explicit nonzero trace time-gap limit also applies. Trackers flush after 512
 same-polarity scans or 120 seconds; a peak cut at a block boundary cannot be
 accepted without both flanks. Limits are configurable. This bounds pilot trace
 memory; it deliberately allows fallback when peaks are too broad or sparsely
@@ -190,7 +193,7 @@ minimum count. When file-wide calibration is supported, its fallback uses
 fits. For MS1 and its gap filling, multiply the largest unfloored
 `mean + 3 SD` ppm estimate by √2 before applying the 5 ppm floor and pilot cap.
 This fallback-only transfer margin allows for variation in both a newly arriving
-centroid and the running trace center; it is a conservative heuristic, not a
+centroid and the last observed trace mass; it is a conservative heuristic, not a
 coverage guarantee. Supported local fits retain the unmultiplied mean + 3 SD rule.
 MS2 precursor fallback uses the fitted ppm envelope without this tracing margin. The final radius remains the maximum of the Da and
 ppm terms, not their sum. Absolute Da estimates from other mass regions are
@@ -204,15 +207,17 @@ unsupported MS2 region retains at least its local MS1 components unless explicit
 overridden. If file-wide evidence is insufficient, keep the configured fallback
 for that kind of tolerance. With fewer than 20 global anchors, unknown polarity or
 no usable cadence, retain configured mass settings instead of fitting regions.
-Default uncalibrated MS1 is ±max(0.002 Da, 10 ppm); default uncalibrated MS2 is
-±max(0.01 Da, 20 ppm). Explicit user overrides remain protected.
+Default uncalibrated MS1 is ±0.01 Da (0 ppm), and default uncalibrated MS2 is
+±0.1 Da (0 ppm), following the pinned upstream settings. Explicit user overrides
+remain protected. The wide pilot search does not become the extraction fallback.
 
 The lookup applies to MS1 trace tracking, MS2 association, preceding-MS1
 precursor-intensity lookup, seeded-feature reuse, and raw gap filling. A trace
-looks up its running intensity-weighted m/z; MS2 and gap-fill queries look up
+looks up its last observed m/z; MS2 and gap-fill queries look up
 precursor m/z. Gap filling inherits the local MS1 pair, with its physical radius
 always capped at the local MS1 radius; narrower overrides are honored. Ion
-adduct/fragment grouping still uses its explicit 0.002 Da / 10 ppm defaults.
+adduct/fragment grouping uses upstream defaults: 0.01 Da for matching,
+0.005 Da for partner EICs, and a fixed 3-second RT tolerance.
 
 Global scalar settings in each effective config are the **fallback settings**;
 `mass_regions` contains the actual per-region settings. The sidecar records
@@ -235,28 +240,23 @@ with the log-MAD rule above. Let `d` be their median, `c` their 95th percentile,
 
 | Effective setting | Estimate |
 | --- | --- |
-| Gaussian smoothing σ | `max(0.5 × d, 0.08 × f10)` seconds |
-| Minimum separation of chromatographic maxima | `max(d, 0.5 × f10)` seconds |
-| Maximum elapsed trace gap | `1.25 × c × (max_gap_scans + 1)` |
-| Maximum interval integrated during gap fill | Same as elapsed trace gap |
+| Maximum interval integrated during gap fill | `1.25 × c × (max_gap_scans + 1)` |
 | Maximum age of a preceding MS1 used for precursor intensity | `2 × c` |
 | MS2-to-feature boundary extension | `max(c, 0.15 × f50)` |
 | Seed search half-window | `min(tuning_block_seconds, max(3 × c, w90))` |
 | Fixed-window seed-reuse tolerance | `max(d, 0.5 × f10)`; primarily relevant to fallback mode |
-| Ion-grouping maximum apex-time difference | `max(d, 0.25 × f50)` |
 
-For feature segmentation, interpolate onto a uniform RT grid at approximately
-the median interval, capped at four times the original observation count.
-Convert seconds to grid samples for Gaussian smoothing and peak separation;
-map valleys back to original observations. **Height and trapezoidal area use
-original measurements and actual times**, never the interpolated/smoothed curve.
-The same-polarity scan-gap count remains 2 by default and is not learned.
+Feature splitting now follows upstream scan-based defaults: smoothing sigma
+0.6, separation 3 scans, 3% prominence, raw valleys and two passes. Smoothing,
+peak separation and grouping RT tolerance are **not auto-tuned**. Seconds-based
+smoothing/separation overrides are rejected. The same-polarity trace-gap count
+remains **10**: close on the eleventh consecutive missing MS1 scan. Calibration
+does not introduce an elapsed-time trace cutoff. An explicit nonzero
+`--max-gap-seconds` remains available when such a limit is wanted; its default is zero.
 
-When there are fewer than 20 representatives, only convert the legacy smoothing
-σ (0.6 scans) and separation (3 scans) to seconds using the observed median
-cadence. Peak-width-dependent settings and mass tolerances retain their
-configured fallbacks. With no usable cadence, retain the scan-unit settings.
-Unknown polarity never supplies learned mass/width settings.
+When there are fewer than 20 representatives, mass and learned time settings
+retain configured fallbacks. Unknown polarity never supplies learned mass/width
+settings. All quantification uses original samples and actual acquisition times.
 
 ## Refined raw-MS1 gap filling
 
@@ -275,13 +275,15 @@ unresolved or coisolated ions.
 
 Require positive evidence within `max(ms2_rt_tolerance, 2 × local median MS1
 interval)` of the original seed time. No local ion gives
-`gapfill_status=no_local_ms1_signal`; no ion anywhere gives `no_ms1_signal`.
+internal `gapfill_status=no_local_ms1_signal`; no ion anywhere gives `no_ms1_signal`.
 Version 0.10 removes the former broad-search / 3× candidate-ranking rule:
 overlapping candidate windows could count the same raw centroid twice. The
 [blank/QC audit](../benchmarks/results/EIC_REVIEW.md) documents this defect.
 
-For the selected narrow EIC, interpolate and smooth in seconds as above. Find
-maxima at the configured prominence and separation, then valleys between them.
+For the selected narrow EIC, interpolate onto a uniform time grid based on the
+median MS1 interval, capped at four times the number of original observations.
+Smooth with Gaussian sigma 0.6 grid points and find maxima at the configured
+3% prominence and three-point separation, then valleys between them.
 Select the basin containing the seed time; ties use apex distance then height.
 Within it, trim toward the apex until the smoothed signal reaches the basin's
 10th-percentile baseline plus 5% of its amplitude. Map these bounds outward to
@@ -292,8 +294,9 @@ quantification. These are forced measurements, not noise-qualified detections.
 Integrate original, unfiltered EIC values within those bounds, excluding
 intervals above `gapfill_max_gap_seconds`. Do not subtract baseline, extrapolate
 to window edges, or interpolate missing intensity for quantification. Store the
-unchanged precursor mass, original seed time, actual mass radius and integration
-bounds in the TSV. Repeated queries merge only when they recover the same
+unchanged precursor mass and integration bounds in the table. Original seed time
+and actual mass radius remain internal diagnostics, not redundant table columns.
+Repeated queries merge only when they recover the same
 known polarity, mass within the narrow radius, identical original MS1 apex time
 (within 1 microsecond), and each seed time lies within the other query's bounds
 plus the MS2 time tolerance. The first retained measurement wins. Different
@@ -309,8 +312,8 @@ maximum simultaneously retained centroid pairs. These limits bound each query,
 not the number of concurrent seeds.
 
 With auto-tuning off or insufficient representatives, use the fixed-window
-fallback: ±5 seconds, raw EIC radius ±max(0.002 Da, 10 ppm), no local mass or
-boundary refinement. Profile fallback takes the maximum raw profile sample.
+fallback: ±5 seconds, raw EIC radius `min(max(0.002 Da, m/z × 10 ppm), MS1 radius)`,
+and no local mass or boundary refinement. Profile fallback takes the maximum raw profile sample.
 Seed reuse has its own ±5-second anchor tolerance, independent of the search
 window; changing one does not silently change the other. All these fallback
 values are configurable. Older 0.4.0 used the broader MS2 mass tolerance for
@@ -319,7 +322,8 @@ threshold from up to the three closest compatible MS1 scans in the query
 window. Default imputed height is 0.1× that reference; area remains missing,
 scan count is zero, and `ms1_quant_status=imputed_noise` labels it explicitly.
 The reference is in `apex_noise_threshold`, although there is no measured apex.
-`gapfill_status` retains the original absence reason. `--gapfill-noise-fraction 0`
+The internal `gapfill_status` retains the original absence reason; this diagnostic
+is not an exported table column. `--gapfill-noise-fraction 0`
 disables imputation. Missing scans, ambiguous polarity, unsupported noise,
 peak-bound mismatch and collection limits remain unquantified. See the output
 status reference; imputed height is not an observed signal or evidence for grouping.
@@ -351,8 +355,7 @@ Use `--no-auto-tune` for fixed settings. Explicit CLI overrides are protected,
 even when equal to a built-in default. Non-default JSON/Python values are also
 protected. To lock a default-valued JSON/Python setting while keeping the rest
 automatic, include its name in `tuning_locked`. Exported default JSON values
-remain fallback values unless changed or listed as locked. A legacy scan-unit
-override protects its seconds counterpart. For example:
+remain fallback values unless changed or listed as locked. For example:
 
 ```bash
 masscubex extract study -o results --workers 8

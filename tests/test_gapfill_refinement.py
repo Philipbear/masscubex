@@ -30,7 +30,7 @@ def measure(seed=30.0, second=0.0, close_competitor=False):
 
 def test_raw_weak_measurement_uses_narrow_mass_and_local_boundaries():
     f, m = measure(second=8)
-    config = Config(min_intensity=100, smoothing_seconds=0.3, peak_distance_seconds=2)
+    config = Config(min_intensity=100, smoothing_sigma=1.2, peak_distance=8)
     refine_measurement(f, m, config)
     assert f.ms1_quant_status == "gap_filled" and f.gapfill_status == "peak_bounds"
     assert f.mz == f.seed_precursor_mz == 100.0001 and f.peak_height == pytest.approx(4, rel=1e-6)
@@ -55,7 +55,7 @@ def test_repeated_queries_merge_by_recovered_apex_not_broad_window():
     features = []
     for rt in (29.5, 30.5, 42):
         f, m = measure(seed=rt, second=8)
-        refine_measurement(f, m, Config(smoothing_seconds=0.3, peak_distance_seconds=2))
+        refine_measurement(f, m, Config(smoothing_sigma=1.2, peak_distance=8))
         features.append(f)
     assignments = merge_refined(
         features, [MS2Assignment(i, "seeded") for i in range(3)], 0, Config(), {}
@@ -76,7 +76,7 @@ def test_limits_and_no_signal_are_explicit():
     assert f.ms1_quant_status == "no_ms1_signal" and f.peak_height is None
 
 
-def test_time_based_segmentation_is_stable_across_scan_rates():
+def test_upstream_scan_based_segmentation_recovers_resolved_peaks_across_scan_rates():
     from masscubex.features import summarize_trace
 
     apices = []
@@ -84,7 +84,7 @@ def test_time_based_segmentation_is_stable_across_scan_rates():
         t = np.arange(0, 30.001, dt)
         y = 100 * np.exp(-0.5 * ((t - 8) / 1.5) ** 2) + 150 * np.exp(-0.5 * ((t - 20) / 1.5) ** 2)
         trace = np.column_stack((np.full(len(t), 100.0), y, t, np.zeros(len(t))))
-        found = list(summarize_trace(trace, Config(smoothing_seconds=0.5, peak_distance_seconds=3)))
+        found = list(summarize_trace(trace, Config(smoothing_sigma=0.6, peak_distance=3)))
         assert len(found) == 2
         apices.append([f.rt_apex_seconds for f in found])
     np.testing.assert_allclose(apices, [[8, 20]] * 3, atol=0.4)
@@ -97,7 +97,7 @@ def test_broad_search_cannot_borrow_a_different_ms1_ion(tmp_path, monkeypatch):
     from test_ms2 import precursor_mzml
     from test_ms2_seeding import outputs
 
-    config = Config(min_intensity=100, smoothing_seconds=0.3)
+    config = Config(min_intensity=100, smoothing_sigma=1.2)
     # Isolate the target-query schedule from the independently tested calibration pass.
     monkeypatch.setattr(
         pipeline,
@@ -115,7 +115,7 @@ def test_broad_search_cannot_borrow_a_different_ms1_ion(tmp_path, monkeypatch):
     )
     source = write_mzml(tmp_path / "edge.mzML", spectra)
     (row,), _ = outputs(source, tmp_path / "out.tsv", config)
-    assert row["gapfill_status"] == "no_ms1_signal"
+    assert "gapfill_status" not in row
     assert row["ms1_quant_status"] == "imputed_noise"
     assert float(row["peak_height"]) == 10  # 0.1 * explicit noise floor, not the neighboring ion.
     assert row["peak_area"] == ""

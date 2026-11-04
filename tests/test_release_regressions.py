@@ -28,8 +28,10 @@ def test_output_rounding_does_not_change_raw_inclusive_mass_boundary(tmp_path):
         (row,) = csv.DictReader(stream, delimiter="\t")
     # Rounding this seed before measuring would incorrectly exclude the raw
     # peak. Preserve the measurement; round only the exported coordinate.
-    assert row["mz"] == row["seed_precursor_mz"] == "100.12346"
-    assert center - radius < float(row["mz"]) - float(row["gapfill_mz_radius_da"])
+    assert row["mz"] == "100.12346"
+    assert "seed_precursor_mz" not in row and "seed_rt_seconds" not in row
+    assert center - radius < float(row["mz"]) - radius
+    assert "gapfill_mz_radius_da" not in row
     assert float(row["peak_height"]) == 10
     assert json.loads(row["ms2_scan_numbers"]) == [2]
 
@@ -77,7 +79,7 @@ def test_ambiguous_ms1_polarity_never_supplies_precursor_intensity(tmp_path):
     assert len(seeds) == 2
     for row in seeds:
         assert row["ms1_quant_status"] == "ambiguous_polarity"
-        assert row["best_ms2_precursor_intensity"] == ""
+        assert "best_ms2_precursor_intensity" not in row
         assert "best_ms2_selection_method" not in row
     meta = json.loads(Path(str(output) + ".json").read_text())
     assert meta["ms2_assigned"] == 2

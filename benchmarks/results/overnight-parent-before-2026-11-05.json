@@ -1,0 +1,10 @@
+{
+  "before_import_bytes": 20496384,
+  "after_cli_import_bytes": 85688320,
+  "after_pool_startup_bytes": 169312256,
+  "numerical_modules_in_parent": [
+    "numpy",
+    "numba",
+    "scipy"
+  ]
+}

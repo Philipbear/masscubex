@@ -7,6 +7,7 @@ from masscubex.config import Config
 from masscubex.features import TraceTracker, summarize_trace
 from masscubex.pipeline import extract_features
 from masscubex.readers import Scan
+from test_summary_reuse import reference_segments
 
 
 def scan(rt, intensities, mz=None, polarity="positive"):
@@ -20,7 +21,7 @@ def test_apex_mass_and_area_use_original_samples_and_seconds():
     config = Config(min_scans=3, noise_mode="none", segment=False)
     scans = [scan(t, [v], [100 + d]) for t, v, d in [(0, 10, 0), (2, 20, 0.001), (5, 10, 0)]]
     (feature,) = extract_features(scans, config)
-    assert feature.mz == pytest.approx(100.0005)
+    assert feature.mz == float(np.float32(100.001))  # Apex mass, not a weighted average.
     assert feature.rt_apex_seconds == 2
     assert feature.peak_height == 20
     assert feature.peak_area == 75
@@ -51,12 +52,13 @@ def test_equal_rt_is_an_explicit_error():
         list(extract_features([scan(1, [10]), scan(1, [10])], Config()))
 
 
-def test_competing_peaks_use_second_available_match():
+def test_claimed_nearest_peak_does_not_fall_back_to_second_choice():
     config = Config(min_scans=2, noise_mode="none", segment=False, mz_tolerance_da=0.01)
     scans = [scan(0, [100, 90], [100, 100.004]), scan(1, [200, 150], [100.001, 100.008])]
     features = list(extract_features(scans, config))
-    assert len(features) == 2
-    assert sorted(f.scan_count for f in features) == [2, 2]
+    assert len(features) == 1
+    assert features[0].scan_count == 2
+    assert features[0].mz == float(np.float32(100.001))
 
 
 def test_ppm_tolerance_and_da_floor():
@@ -65,17 +67,18 @@ def test_ppm_tolerance_and_da_floor():
     )
     scans = [scan(0, [10, 20], [100, 1000]), scan(1, [10, 20], [100.002, 1000.008])]
     (feature,) = extract_features(scans, config)
-    assert feature.mz == pytest.approx(1000.004)
+    assert feature.mz == 1000.0  # Equal heights keep the first apex.
 
 
-def test_segment_two_peaks_conserves_area():
+def test_segment_two_peaks_uses_original_integer_area_per_segment():
     config = Config(min_scans=3, noise_mode="none", peak_prominence=0.1)
     y = np.array([1, 5, 15, 30, 15, 5, 2, 5, 15, 40, 15, 5, 1.0])
     trace = np.column_stack((np.full(len(y), 100.0), y, np.arange(len(y)), np.zeros(len(y))))
     features = list(summarize_trace(trace, config))
     assert len(features) == 2
     assert [f.rt_apex_seconds for f in features] == [3, 9]
-    assert sum(f.peak_area for f in features) == np.sum((y[1:] + y[:-1]) / 2)
+    _, reference = reference_segments(trace, config)
+    assert [f.peak_area for f in features] == [p.peak_area for p in reference]
 
 
 def test_array_pool_growth_and_recycling():
@@ -105,7 +108,7 @@ def test_array_pool_growth_and_recycling():
     [
         {},
         {"segment": False, "quant_method": "peak_area"},
-        {"smoothing_seconds": 0.7, "peak_distance_seconds": 1.0},
+        {"smoothing_sigma": 0.7, "peak_distance": 4},
         {"smoothing_sigma": 0.05, "peak_distance": 3},
     ],
 )

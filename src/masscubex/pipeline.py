@@ -1,6 +1,7 @@
 """Streaming extraction and crash-safe, independently resumable file outputs."""
 
 from dataclasses import dataclass
+from bisect import bisect_left
 from contextlib import closing
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -15,7 +16,6 @@ import time
 
 from . import __version__
 from .config import Config
-from .centroid import centroid_profile
 from .features import TraceTracker
 from .output import (
     FEATURE_COLUMNS,
@@ -24,7 +24,7 @@ from .output import (
     resolve_output,
     write_features,
 )
-from .noise import estimate_noise
+from .upstream_adapter import preprocess_ms1, resolve_ms2_filter
 from .readers import file_format
 from .scan_cache import ScanSource
 from .ms2 import MS2Collector, associate_ms2
@@ -41,7 +41,11 @@ def implementation_id():
     digest = hashlib.sha256()
     for name in (
         "config.py",
+        "upstream.py",
+        "upstream_adapter.py",
         "mass_tolerance.py",
+        "mass_tolerance_kernels.py",
+        "formats.py",
         "readers.py",
         "array_validation.py",
         "scan_cache.py",
@@ -49,6 +53,8 @@ def implementation_id():
         "noise_regions.py",
         "centroid.py",
         "features.py",
+        "summary.py",
+        "measurements.py",
         "chromatograms.py",
         "peak_shapes.py",
         "reference_chromatograms.py",
@@ -61,6 +67,8 @@ def implementation_id():
         "calibration.py",
         "adducts.py",
         "grouping.py",
+        "grouping_queries.py",
+        "grouping_spectra.py",
         "output.py",
     ):
         digest.update(Path(__file__).with_name(name).read_bytes())
@@ -84,41 +92,61 @@ class ProcessingResult:
     elapsed_seconds: float
 
 
-def extract_features(scans, config: Config, stats=None, configs=None):
+def extract_features(scans, config: Config, stats=None, configs=None, spectra=None):
     """Yield features from a scan iterator without accumulating completed traces."""
     stats = {} if stats is None else stats
     stats.update(ms1_scans=0, input_points=0, retained_centroids=0, profile_scans=0)
-    trackers = {}
+    trackers, acquisition_times = {}, {}
+
+    def with_edges(features, polarity):
+        # MassCube extends MS2 association bounds to the adjacent acquired MS1
+        # scans, independently of the trimmed trace's exported start/end.
+        times = acquisition_times[polarity]
+        for feature in features:
+            # Upstream minutes -> exported seconds can change the last bit.
+            # Locate the original acquired endpoints before adding neighbors.
+            # Two scalar bisections avoid allocating several NumPy arrays per
+            # feature. Preserve the strict nearest-time comparison and ties.
+            left = _nearest_acquisition(times, feature.rt_start_seconds)
+            right = _nearest_acquisition(times, feature.rt_end_seconds)
+            feature._peak_edges = (
+                times[max(0, left - 1)] / 60.0,
+                times[min(len(times) - 1, right + 1)] / 60.0,
+            )
+            yield feature
+
     for scan in scans:
+        if not 0 <= scan.rt <= 600000:
+            continue
         effective = config_for(scan.polarity, config, configs)
         tracker = trackers.get(scan.polarity)
         if tracker is None:
             tracker = trackers[scan.polarity] = TraceTracker(effective)
+            acquisition_times[scan.polarity] = []
+        acquisition_times[scan.polarity].append(scan.rt)
         stats["ms1_scans"] += 1
         stats["input_points"] += len(scan.mz)
-        baseline, _, threshold = estimate_noise(scan.mz, scan.intensity, config)
-        if scan.centroided:
-            keep = scan.intensity > threshold
-            mz, intensity, threshold = scan.mz[keep], scan.intensity[keep], threshold[keep]
-        else:
-            if config.profile_mode == "reject":
-                raise ValueError(f"Profile MS1 spectrum {scan.native_id}; profile_mode is 'reject'")
+        if not scan.centroided:
             stats["profile_scans"] += 1
-            mz, intensity, threshold = centroid_profile(
-                scan.mz,
-                scan.intensity,
-                baseline,
-                threshold,
-                config.profile_min_points,
-                float(config.profile_gap_factor),
-            )
+        mz, intensity, threshold = preprocess_ms1(scan, config)
         stats["retained_centroids"] += len(mz)
-        yield from tracker.add_features(mz, intensity, threshold, scan.rt, scan.polarity)
+        if spectra is not None:
+            spectra.append(scan.rt, scan.polarity, mz, intensity)
+        yield from with_edges(
+            tracker.add_features(mz, intensity, threshold, scan.rt, scan.polarity), scan.polarity
+        )
     for polarity, tracker in trackers.items():
-        yield from tracker.flush_features(polarity)
+        yield from with_edges(tracker.flush_features(polarity), polarity)
     stats["peak_active_traces"] = sum(t.peak_active_traces for t in trackers.values())
     stats["peak_live_nodes"] = sum(t.peak_live_nodes for t in trackers.values())
     stats["ms1_polarities"] = sorted(trackers)
+
+
+def _nearest_acquisition(times, target):
+    """Locate an original acquisition after the minutes/seconds roundtrip."""
+    after = min(bisect_left(times, target), len(times) - 1)
+    before = max(after - 1, 0)
+    return before if abs(times[before] - target) < abs(times[after] - target) else after
 
 
 def _signature(path):
@@ -213,6 +241,7 @@ def process_file(
             f"Output is locked: {lock}. Remove a stale lock only after confirming its worker stopped."
         ) from error
     temporary = []
+    grouping_spectra = None
     try:
         with os.fdopen(fd, "w") as stream:
             json.dump(
@@ -238,13 +267,15 @@ def process_file(
         if (output.exists() or metadata_path.exists()) and not (overwrite or resume):
             raise FileExistsError(f"Output exists: {output}; use resume=True or overwrite=True")
         started = time.perf_counter()
-        scan_source = ScanSource(source, config)
-        tuning = calibrate_file(source, config, scan_source=scan_source)
+        runtime_config = resolve_ms2_filter(source, config)
+        scan_source = ScanSource(source, runtime_config)
+        tuning = calibrate_file(source, runtime_config, scan_source=scan_source)
         timings = {"calibration": time.perf_counter() - started}
         stats = {
             "parameter_tuning": tuning.diagnostics,
             "timings_seconds": timings,
             "scan_cache": scan_source.stats,
+            "ms2_min_intensity_used": runtime_config.ms2_min_intensity,
         }
         with tempfile.NamedTemporaryFile(
             mode="wb",
@@ -256,21 +287,33 @@ def process_file(
             temp_table = Path(stream.name)
             temporary.append(temp_table)
         with closing(scan_source.scans()) as scans:
-            collector = MS2Collector(config, tuning.configs)
+            if config.group_ions:
+                from .grouping_spectra import GroupingSpectra
+
+                # Preprocessing already produces exact upstream float32 values.
+                # Keep that representation on disk instead of doubling its size.
+                grouping_spectra = GroupingSpectra(output.parent, dtype="float32")
+            collector = MS2Collector(runtime_config, tuning.configs)
             stream_ms1 = collector.ms1_stream(scans) if config.associate_ms2 else scans
             features = _timed_extraction(
-                extract_features(stream_ms1, config, stats, tuning.configs), timings
+                extract_features(
+                    stream_ms1, runtime_config, stats, tuning.configs, grouping_spectra
+                ),
+                timings,
             )
+            features = list(features)
+            # Upstream sorts parent traces by apex m/z before segmentation,
+            # then sorts the resulting features by apex m/z again.
+            features.sort(key=lambda f: (f.mz, f._parent_mz))
             if config.associate_ms2 or config.group_ions:
                 # Compact summaries resolve overlaps globally; full MS1 spectra
                 # remain streamed. The no-MS2/no-grouping path writes lazily.
-                features = list(features)
                 if config.associate_ms2:
                     from .gapfill import seed_ms2_features
 
                     started = time.perf_counter()
                     assignments = associate_ms2(
-                        features, collector.records, config, stats, tuning.configs
+                        features, collector.records, runtime_config, stats, tuning.configs
                     )
                     timings["ms2_association"] = time.perf_counter() - started
                     started = time.perf_counter()
@@ -279,7 +322,7 @@ def process_file(
                         collector.records,
                         assignments,
                         source,
-                        config,
+                        runtime_config,
                         stats,
                         tuning.configs,
                         scan_source=scan_source,
@@ -290,7 +333,9 @@ def process_file(
                     from .grouping import group_ions
 
                     started = time.perf_counter()
-                    group_ions(features, collector.records, config, stats, tuning.configs)
+                    group_ions(
+                        features, collector.records, runtime_config, stats, spectra=grouping_spectra
+                    )
                     timings["ion_grouping"] = time.perf_counter() - started
             extraction_before_write = timings.get("feature_extraction", 0.0)
             started = time.perf_counter()
@@ -314,6 +359,16 @@ def process_file(
             "dependencies": implementation_id()[1],
             "input": signature,
             "config": config.to_dict(),
+            "algorithm_policy": {
+                "upstream_commit": "356748ede691862b9a87f67812db5e728a703b9d",
+                "upstream_version": "1.2.22",
+                "core_algorithms": "upstream_with_configurable_extensions",
+                "adaptive_ms1_noise": config.noise_mode == "adaptive",
+                "auto_tuning_extension": config.auto_tune,
+                "profile_centroiding_extension": config.profile_mode == "centroid",
+                "ms2_seeding_extension": config.ms2_seeded_features,
+                "scan_precision": "float32_as_upstream",
+            },
             "features": count,
             **stats,
             "elapsed_seconds": elapsed,
@@ -347,6 +402,8 @@ def process_file(
             str(source), str(output), "ok", count, stats["ms1_scans"], time.perf_counter() - start
         )
     finally:
+        if grouping_spectra is not None:
+            grouping_spectra.close()
         for path in temporary:
             path.unlink(missing_ok=True)
         lock.unlink(missing_ok=True)

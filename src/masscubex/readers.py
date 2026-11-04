@@ -17,6 +17,7 @@ from lxml import etree
 import numpy as np
 
 from .array_validation import normalized_arrays
+from .formats import file_format
 
 
 @dataclass(slots=True)
@@ -96,16 +97,6 @@ def _polarity(params):
     )
 
 
-def file_format(path):
-    name = str(path).lower()
-    if name.endswith(".gz"):
-        name = name[:-3]
-    for suffix in ("mzml", "mzxml"):
-        if name.endswith("." + suffix):
-            return suffix
-    raise ValueError(f"Expected .mzML, .mzXML, .mzML.gz, or .mzXML.gz: {path}")
-
-
 def _local(element):
     return etree.QName(element).localname if isinstance(element.tag, str) else ""
 
@@ -160,7 +151,7 @@ def _arrays(mz, intensity, *, profile=False):
     if np.any(mz[1:] < mz[:-1]):
         order = np.argsort(mz, kind="stable")
         mz, intensity = mz[order], intensity[order]
-    if np.any(mz[1:] == mz[:-1]):
+    if profile and np.any(mz[1:] == mz[:-1]):
         starts = np.r_[0, np.flatnonzero(mz[1:] != mz[:-1]) + 1]
         mz, intensity = mz[starts], np.add.reduceat(intensity, starts)
         if not np.all(np.isfinite(intensity)):
@@ -310,7 +301,7 @@ def _ms2_arrays(result, mz, intensity, retain):
     result.fragment_intensity = float(np.sum(intensity, dtype=np.float64))
     if not math.isfinite(result.fragment_intensity):
         raise ValueError("MS2 summed fragment intensity overflow")
-    if retain and result.centroided is True:
+    if retain:
         result.mz, result.intensity = mz, intensity
 
 
