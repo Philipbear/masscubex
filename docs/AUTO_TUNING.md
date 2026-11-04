@@ -1,7 +1,7 @@
 # Per-file calibration and polarity switching
 
-Version 0.12 uses calibration policy 2: Gaussian-qualified representatives,
-five equal-width m/z regions, and mean + 3 sample SD mass-error margins.
+Version 0.13 uses calibration policy 3: Gaussian-qualified representatives,
+three fixed m/z regions (0–200 / 200–500 / 500+), and mean + 3 sample SD mass-error margins.
 Output defaults to Parquet; the calculations apply equally to TSV.
 
 Automatic calibration and ion grouping are **on by default**. Calibration is a
@@ -62,14 +62,17 @@ Each candidate is screened as follows:
    not the corresponding detected feature. Shape cannot establish ion purity;
    the competing-mass and central-mass-stability checks still apply.
 
-Keep a bounded pool of the strongest `10 × tuning_max_peaks × tuning_mz_regions`
-candidates per polarity: 5,000 by default. At the end of the pass, select up to
+Keep a bounded pool of the strongest `10 × tuning_max_peaks × region_count`
+candidates per polarity: 3,000 by default. At the end of the pass, select up to
 100 representatives globally for timing and the file-wide fallback, and up to
 100 independently in each m/z region. Each selection uses m/z and RT quartiles
 (up to 16 cells), taking the strongest in each cell in rounds. The pilot still
 tracks only the top 128 centroids per scan, so sparse high-mass coverage is
 reported rather than assumed. `--tuning-max-peaks` controls each selection, not
-an overall cap of 100 across all five regions.
+an overall cap of 100 across all regions. The global top-128 selection can
+under-sample weaker mass regions before this balanced representative selection.
+The [50-file coverage audit](../benchmarks/results/CALIBRATION_COVERAGE.md)
+separates this sampling effect from sparse signal and shape rejection.
 
 Before estimation, screen FWHM and per-peak mass error in ppm independently in
 each selection using log-space MAD: retain values within
@@ -80,7 +83,25 @@ a genuinely less precise m/z region is not discarded simply because other
 regions have lower errors. Require **at least 20 surviving peaks** for each
 local MS1 fit. The minimum can be increased, never reduced below 20.
 
-## Five regions across the acquired range
+## Fixed mass regions and optional equal-width regions
+
+The default regions are **[0,200), [200,500), [500,∞)**. Exact boundary masses
+200 and 500 belong to the higher region. These bounds are shared across files
+and polarities; each polarity learns its own tolerances. A target mass selects
+the region, but its matching interval may cross a region boundary.
+
+Use `--tuning-mz-breaks 200 400 600` for four regions or supply other strictly
+increasing positive boundaries. The last region is unbounded, represented as
+`"upper": null` in JSON; infinity is used only inside numerical lookup arrays.
+Python/JSON `tuning_mz_breaks` defaults to `[200, 500]`; an empty list creates
+one unbounded region. `tuning_mz_regions` defaults to `null` and an explicit
+integer selects the older equal-width layout instead. A CLI boundary list
+overrides a region count loaded from JSON; the two CLI options are mutually
+exclusive.
+
+`--tuning-mz-regions 5` preserves the five equal-width acquired-range layout.
+For that mode, the acquired span is determined as follows. Range provenance is
+also recorded with fixed boundaries, but does not move those boundaries.
 
 For each polarity, collect the union of MS1 acquisition windows from mzML
 `scanWindow` lower/upper limits (MS:1000501 / MS:1000500), or mzXML
@@ -97,11 +118,11 @@ label that source in provenance. Empty scans can still supply valid metadata.
 Different scan windows are combined within each polarity; this is not a
 separate model for each acquisition regime or RT interval.
 
-Split this span into **five equal-width regions** (`--tuning-mz-regions 5`).
-Regions are [lower, upper), except the final upper bound is included. A target
-mass selects a region, but its matching interval may cross a regional edge.
-Outside the acquired range, use the file-wide fallback. With no usable range,
-retain a global model. `--tuning-mz-regions 1` uses a single region.
+Split this span into the requested number of equal-width regions. Regions are
+[lower, upper), except the final finite upper bound is included. Outside this
+finite range, use the file-wide fallback. With no usable range, this optional
+mode retains a global model. `--tuning-mz-regions 1` uses one finite region.
+The fixed-boundary default does not require acquisition-range metadata.
 
 ## Separate MS1 and MS/MS mass estimates
 
@@ -155,7 +176,7 @@ adduct/fragment grouping still uses its explicit 0.002 Da / 10 ppm defaults.
 
 Global scalar settings in each effective config are the **fallback envelope**;
 `mass_regions` contains the actual per-region settings. The sidecar records
-range source, invalid-metadata counts, shape rejections, selected representative
+layout, boundaries, range source, invalid-metadata counts, shape rejections, selected representative
 indices and scores, local counts, means, sample SDs, estimated/effective settings
 and fallback status. Explicit scalar overrides apply in every automatically
 learned region. A nonempty `mass_regions` supplied explicitly through JSON/Python

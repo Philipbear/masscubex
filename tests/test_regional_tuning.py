@@ -46,7 +46,7 @@ def test_five_independent_regions_and_mean_plus_sample_sd():
         for i, p in enumerate(anchors)
     ]
     config, info = derive_settings(
-        anchors, [0.5] * 100, scans, Config(), "positive", mass_range=(100, 1100)
+        anchors, [0.5] * 100, scans, Config(tuning_mz_regions=5), "positive", mass_range=(100, 1100)
     )
     assert len(config.mass_regions) == 5
     for index, region in enumerate(config.mass_regions):
@@ -71,7 +71,7 @@ def test_sparse_region_falls_back_without_relaxing_quality_or_minimum_count():
     # Numerous huge, badly shaped peaks cannot rescue the sparse region.
     anchors += [replace(p, mz=p.mz + 600, height=1e12, gaussian_similarity=0.89) for p in peaks(40)]
     config, info = derive_settings(
-        anchors, [1] * 30, [], Config(), "positive", mass_range=(100, 1100)
+        anchors, [1] * 30, [], Config(tuning_mz_regions=5), "positive", mass_range=(100, 1100)
     )
     assert info["regions"][0]["ms1_status"] == "tuned"
     assert info["regions"][1]["representative_count"] == 19
@@ -90,6 +90,7 @@ def test_overrides_are_applied_to_every_region_and_gapfill_is_capped(polarity):
         mz_tolerance_da=0.001,
         ms2_mz_tolerance_da=0.02,
         gapfill_mz_tolerance_da=0.04,
+        tuning_mz_regions=5,
         tuning_locked=("mz_tolerance_ppm",),
     )
     config, info = derive_settings(
@@ -132,13 +133,18 @@ def test_lookup_edges_and_real_tracker_match_across_region_boundary():
 
 def test_five_sigma_only_widens_and_one_region_is_supported():
     three, _ = derive_settings(
-        regional_peaks(), [1] * 30, [], Config(), "positive", mass_range=(100, 1100)
+        regional_peaks(),
+        [1] * 30,
+        [],
+        Config(tuning_mz_regions=5),
+        "positive",
+        mass_range=(100, 1100),
     )
     five, _ = derive_settings(
         regional_peaks(),
         [1] * 30,
         [],
-        Config(tuning_mass_sigma=5),
+        Config(tuning_mass_sigma=5, tuning_mz_regions=5),
         "positive",
         mass_range=(100, 1100),
     )
@@ -237,7 +243,7 @@ def test_range_metadata_and_observed_extent(tmp_path, format_, bounds):
     info = calibrate_file(path, Config()).diagnostics["polarities"]["positive"]
     expected = [50, 1500] if bounds == (50, 1500) else [100, 800]
     assert info["acquired_mz_range"] == expected
-    assert len(info["regions"]) == 5
+    assert len(info["regions"]) == 3
     assert info["invalid_range_metadata_scans"] == int(bounds not in [(50, 1500), (None, None)])
 
 

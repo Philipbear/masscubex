@@ -1,5 +1,21 @@
 # MassCubeX validation
 
+## Version 0.13.0: compare fixed mass regions and diagnose sparse calibration
+
+**689 source tests + 689 installed-wheel tests pass.** The default mass regions
+are now 0–200 / 200–500 / 500+. Gaussian ≥0.90, 20 anchors and mean + 3 sample SD
+are unchanged. On 50 files, the three-region layout places 57.7% of a common
+detected-feature reference in supported regions versus 48.5% for four regions;
+both cover 3,127/3,136 held-out strong-peak error summaries. The end regions
+still use fallbacks: both sparse signal and the global top-128 pilot selection
+limit available anchors. This is an evidence diagnosis, not a claim that all
+regions now calibrate independently.
+
+All **125,266 MS2 scans** are preserved and independently checked; all
+**747,913 Parquet/TSV rows** agree. Warm serial processing takes 45.70 s for three
+regions and 46.16 s for four in one interleaved pass, not a demonstrated speed
+difference. See the [full comparison, limitations and sampling experiments](CALIBRATION_COVERAGE.md).
+
 ## Version 0.12.0: Gaussian-qualified regional mass calibration
 
 **676 source tests and 676 isolated installed-wheel tests pass locally; lint

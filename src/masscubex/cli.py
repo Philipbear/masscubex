@@ -224,7 +224,6 @@ def run_batch(
 _SETTING_FLAGS = (
     ("tuning_min_peaks", "--tuning-min-peaks", int),
     ("tuning_max_peaks", "--tuning-max-peaks", int),
-    ("tuning_mz_regions", "--tuning-mz-regions", int),
     ("tuning_min_gaussian_similarity", "--tuning-min-gaussian-similarity", float),
     ("tuning_mass_sigma", "--tuning-mass-sigma", float),
     ("tuning_search_ppm", "--tuning-search-ppm", float),
@@ -315,6 +314,8 @@ def _resolve_config(args):
     for name in Config.__dataclass_fields__:
         if hasattr(args, name):
             values[name] = getattr(args, name)
+    if hasattr(args, "tuning_mz_breaks"):
+        values["tuning_mz_regions"] = None
     locked = set(values.get("tuning_locked", []))
     locked.update(name for name in TUNABLE_FIELDS if hasattr(args, name))
     if hasattr(args, "smoothing_sigma"):
@@ -364,6 +365,20 @@ def _parser():
         "--print-config", action="store_true", help="Print resolved JSON settings and exit"
     )
     defaults = Config()
+    layout = extract.add_mutually_exclusive_group()
+    layout.add_argument(
+        "--tuning-mz-breaks",
+        nargs="+",
+        type=float,
+        default=argparse.SUPPRESS,
+        help="Fixed m/z boundaries (default: 200 500); final region is unbounded",
+    )
+    layout.add_argument(
+        "--tuning-mz-regions",
+        type=int,
+        default=argparse.SUPPRESS,
+        help="Use this many equal-width regions across the acquired range instead of fixed boundaries",
+    )
     for name, flag, type_ in _SETTING_FLAGS:
         help_ = name.replace("_", " ") + f" (default: {getattr(defaults, name)})"
         if name in TUNABLE_FIELDS:

@@ -22,7 +22,7 @@ from .mass_tolerance import MassRegion
 from .readers import MS2Scan, iter_scans
 
 
-POLICY_VERSION = 2
+POLICY_VERSION = 3
 
 
 def config_for(polarity, config, configs=None):
@@ -258,8 +258,10 @@ def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None)
 
 def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, updates, info, locked):
     """Regional fits have independent evidence; sparse regions use a file-wide envelope."""
-    edges = []
-    if mass_range is not None:
+    edges = [0.0, *config.tuning_mz_breaks, None]
+    if config.tuning_mz_regions is not None:
+        edges = []
+    if config.tuning_mz_regions is not None and mass_range is not None:
         low, high = mass_range
         if np.isfinite(low) and np.isfinite(high) and 0 <= low < high:
             edges = np.linspace(low, high, config.tuning_mz_regions + 1).tolist()
@@ -269,7 +271,7 @@ def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, upd
             p
             for p in peaks
             if low <= p.mz
-            and (p.mz < high or index == config.tuning_mz_regions - 1 and p.mz == high)
+            and (high is None or p.mz < high or index == len(edges) - 2 and p.mz == high)
         ]
         regional, before = _screen_representatives(candidates, config)
         pools.append(regional)
@@ -353,6 +355,9 @@ def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, upd
         record["effective_parameters"] = effective
     info["regional_representatives"] = [asdict(p) for p in union]
     info["regions"] = records
+    info["regional_layout"] = (
+        "equal_width" if config.tuning_mz_regions is not None else "fixed_breaks"
+    )
     info["regional_status"] = (
         "configured_regions"
         if config.mass_regions
@@ -380,6 +385,7 @@ def calibrate_file(source, config, *, scan_source=None):
     ms2 = []
     previous = {}
     sequence = 0
+    region_count = config.tuning_mz_regions or len(config.tuning_mz_breaks) + 1
 
     def consume(state, traces):
         nonlocal sequence
@@ -391,7 +397,7 @@ def calibrate_file(source, config, *, scan_source=None):
             state["candidates"] += 1
             sequence += 1
             item = (peak.height, sequence, peak)
-            if len(state["heap"]) < config.tuning_max_peaks * config.tuning_mz_regions * 10:
+            if len(state["heap"]) < config.tuning_max_peaks * region_count * 10:
                 heapq.heappush(state["heap"], item)
             elif item[:2] > state["heap"][0][:2]:
                 heapq.heapreplace(state["heap"], item)
@@ -529,7 +535,10 @@ def calibrate_file(source, config, *, scan_source=None):
             "policy_version": POLICY_VERSION,
             "elapsed_seconds": time.perf_counter() - started,
             "minimum_representatives": config.tuning_min_peaks,
-            "mass_regions": config.tuning_mz_regions,
+            "mass_regions": region_count,
+            "mz_breaks": list(config.tuning_mz_breaks)
+            if config.tuning_mz_regions is None
+            else None,
             "minimum_gaussian_similarity": config.tuning_min_gaussian_similarity,
             "mass_sigma": config.tuning_mass_sigma,
             "search_da": config.tuning_search_da,

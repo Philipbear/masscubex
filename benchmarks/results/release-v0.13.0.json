@@ -1,0 +1,35 @@
+{
+  "version": "0.13.0",
+  "implementation_sha256": "e71fb464723a4400b63703a086c4402b0b065bec37a27c6a027a8cf14c90ff51",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pyarrow": "17.0.0",
+    "pynumpress": "0.0.9"
+  },
+  "source_tests": 689,
+  "installed_wheel_tests": 689,
+  "wheel_sha256": "6eb60dffcc63f78b0ce8a8150456d68fc573363dba3c70a34ba635dee6ae0b45",
+  "tested_wheel_sha256": "bfe8708fbf110db8d9eb2cfefd19cb6a1d288731427470957fbad1fec8f6e525",
+  "wheel_metadata_refresh": {
+    "changed_members": [
+      "masscubex-0.13.0.dist-info/METADATA",
+      "masscubex-0.13.0.dist-info/RECORD"
+    ],
+    "package_payload_identical_to_tested_wheel": true,
+    "reason": "README updated with the final default and documentation links after tests"
+  },
+  "wheel_imports": {
+    "masscubex": "/Users/shipei/Documents/projects/masscubeX/validation/calibration-coverage-v0.13/wheel-env/lib/python3.10/site-packages/masscubex/__init__.py",
+    "masscubex.mass_tolerance": "/Users/shipei/Documents/projects/masscubeX/validation/calibration-coverage-v0.13/wheel-env/lib/python3.10/site-packages/masscubex/mass_tolerance.py",
+    "masscubex.calibration": "/Users/shipei/Documents/projects/masscubeX/validation/calibration-coverage-v0.13/wheel-env/lib/python3.10/site-packages/masscubex/calibration.py",
+    "masscubex.features": "/Users/shipei/Documents/projects/masscubeX/validation/calibration-coverage-v0.13/wheel-env/lib/python3.10/site-packages/masscubex/features.py"
+  },
+  "raw_files": 50,
+  "ms2_scans_audited": 125266,
+  "typed_parquet_tsv_rows_compared": 747913,
+  "source_junit": "validation/calibration-coverage-v0.13/source-tests.xml",
+  "wheel_junit": "validation/calibration-coverage-v0.13/wheel-tests.xml"
+}

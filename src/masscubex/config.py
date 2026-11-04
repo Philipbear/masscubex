@@ -13,7 +13,8 @@ class Config:
     auto_tune: bool = True
     tuning_min_peaks: int = 20
     tuning_max_peaks: int = 100
-    tuning_mz_regions: int = 5
+    tuning_mz_regions: int | None = None  # Optional equal-width layout; None uses fixed breaks.
+    tuning_mz_breaks: tuple[float, ...] = (200.0, 500.0)
     tuning_min_gaussian_similarity: float = 0.9
     tuning_mass_sigma: float = 3.0
     tuning_search_ppm: float = 100.0
@@ -84,7 +85,6 @@ class Config:
         integer_minima = {
             "tuning_min_peaks": 20,
             "tuning_max_peaks": 20,
-            "tuning_mz_regions": 1,
             "tuning_peak_limit": 32,
             "tuning_block_scans": 16,
             "noise_iterations": 0,
@@ -130,8 +130,24 @@ class Config:
         selected_adducts(self.adduct_ids, self.custom_adducts)
         if self.tuning_max_peaks < self.tuning_min_peaks:
             raise ValueError("tuning_max_peaks must be >= tuning_min_peaks")
-        if self.tuning_mz_regions > 100:
-            raise ValueError("tuning_mz_regions must be <= 100")
+        if self.tuning_mz_regions is not None and (
+            type(self.tuning_mz_regions) is not int or not 1 <= self.tuning_mz_regions <= 100
+        ):
+            raise ValueError("tuning_mz_regions must be null or an integer from 1 to 100")
+        if not isinstance(self.tuning_mz_breaks, tuple) or len(self.tuning_mz_breaks) > 99:
+            raise ValueError("tuning_mz_breaks must be a tuple with at most 99 boundaries")
+        previous = 0.0
+        for boundary in self.tuning_mz_breaks:
+            if (
+                isinstance(boundary, bool)
+                or not isinstance(boundary, (int, float))
+                or not math.isfinite(boundary)
+                or boundary <= previous
+            ):
+                raise ValueError(
+                    "tuning_mz_breaks must contain strictly increasing positive numbers"
+                )
+            previous = boundary
         if not isinstance(self.mass_regions, tuple) or any(
             not isinstance(region, MassRegion) for region in self.mass_regions
         ):
@@ -179,6 +195,8 @@ class Config:
                 "custom_adducts",
                 "tuning_locked",
                 "mass_regions",
+                "tuning_mz_regions",
+                "tuning_mz_breaks",
             }
         )
         for field in fields(self):
@@ -220,6 +238,7 @@ class Config:
         result["adduct_ids"] = list(self.adduct_ids)
         result["custom_adducts"] = [asdict(ion) for ion in self.custom_adducts]
         result["tuning_locked"] = list(self.tuning_locked)
+        result["tuning_mz_breaks"] = list(self.tuning_mz_breaks)
         result["mass_regions"] = [asdict(region) for region in self.mass_regions]
         return result
 
@@ -236,6 +255,8 @@ class Config:
                 values["adduct_ids"] = tuple(values["adduct_ids"])
             if "tuning_locked" in values:
                 values["tuning_locked"] = tuple(values["tuning_locked"])
+            if "tuning_mz_breaks" in values:
+                values["tuning_mz_breaks"] = tuple(values["tuning_mz_breaks"])
             if "mass_regions" in values:
                 values["mass_regions"] = tuple(
                     MassRegion(**region) for region in values["mass_regions"]

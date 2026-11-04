@@ -28,7 +28,7 @@ from masscubex.output import FEATURE_COLUMNS, FLOAT_COLUMNS, NESTED_COLUMNS, wri
 def reference_mass_radius(mass, settings, prefix=""):
     """Independent lookup using serialized bounds, without runtime lookup helpers."""
     regions = settings.get("mass_regions", [])
-    hits = [r for r in regions if r["lower"] <= mass < r["upper"]]
+    hits = [r for r in regions if r["lower"] <= mass and (r["upper"] is None or mass < r["upper"])]
     if regions and mass == regions[-1]["upper"]:
         hits = [regions[-1]]
     assert len(hits) <= 1

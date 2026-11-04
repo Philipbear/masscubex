@@ -1,8 +1,9 @@
 """Learned mass windows, shared by tracing, precursor matching and gap filling.
 
-Regions are half-open [lower, upper), except that the last includes its upper
-bound. A query is allowed to match an ion across a region boundary. Outside the
-measured range, callers use the file-wide fallback rather than extrapolating.
+Regions are half-open [lower, upper), except that a finite last upper bound is
+included. A null last upper bound means unbounded (500+ in the default layout).
+A query can match across a region boundary. Outside a finite layout, callers
+use the file-wide fallback.
 """
 
 from dataclasses import dataclass, fields
@@ -15,7 +16,7 @@ from numba import njit
 @dataclass(frozen=True, slots=True)
 class MassRegion:
     lower: float
-    upper: float
+    upper: float | None
     mz_tolerance_da: float
     mz_tolerance_ppm: float
     ms2_mz_tolerance_da: float
@@ -26,6 +27,8 @@ class MassRegion:
     def __post_init__(self):
         for field in fields(self):
             value = getattr(self, field.name)
+            if field.name == "upper" and value is None:
+                continue
             if (
                 isinstance(value, bool)
                 or not isinstance(value, (int, float))
@@ -33,7 +36,7 @@ class MassRegion:
                 or value < 0
             ):
                 raise ValueError(f"Invalid mass region {field.name}: {value}")
-        if self.upper <= self.lower:
+        if self.upper is not None and self.upper <= self.lower:
             raise ValueError("Mass region upper bound must exceed its lower bound")
         for prefix in ("", "ms2_", "gapfill_"):
             if not (
@@ -49,7 +52,10 @@ def mass_radius(mass, config, kind="ms1"):
     settings = config
     for index, region in enumerate(config.mass_regions):
         if region.lower <= mass and (
-            mass < region.upper or index == len(config.mass_regions) - 1 and mass == region.upper
+            region.upper is None
+            or mass < region.upper
+            or index == len(config.mass_regions) - 1
+            and mass == region.upper
         ):
             settings = region
             break
@@ -62,7 +68,10 @@ def mass_radius(mass, config, kind="ms1"):
 def ms1_region_array(config):
     """Pack once per tracker, avoiding Python calls in the centroid hot loop."""
     return np.array(
-        [(r.lower, r.upper, r.mz_tolerance_da, r.mz_tolerance_ppm) for r in config.mass_regions],
+        [
+            (r.lower, np.inf if r.upper is None else r.upper, r.mz_tolerance_da, r.mz_tolerance_ppm)
+            for r in config.mass_regions
+        ],
         dtype=np.float64,
     ).reshape(-1, 4)
 

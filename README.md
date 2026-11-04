@@ -53,7 +53,7 @@ default; `--executor thread` is also available.
 
 - **Quantification:** peak height; both height and area are always included.
 - **Automatic calibration:** broad initial mass search, then at least 20 qualified
-  well-shaped peaks per polarity, five m/z regions, and mean + 3 SD mass margins;
+  well-shaped peaks per polarity, m/z regions 0–200 / 200–500 / 500+, and mean + 3 SD mass margins;
   explicit fallbacks when evidence is insufficient. Polarity-switching files
   use separate streams.
 - **MS1 noise:** fixed 100 Da bins, lowest 10% of positive samples, minimum 5,
