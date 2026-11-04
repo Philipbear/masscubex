@@ -11,7 +11,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0 AND BSD-3-Clause"
 license-files = ["LICENSE", "NOTICE", "licenses/SCIPY-BSD-3-Clause.txt", "licenses/NUMPY-BSD-3-Clause.txt"]
-dependencies = ["numpy>=1.24", "numba>=0.60", "scipy>=1.10", "lxml>=4.9", "pyarrow>=17"]
+# The verbatim MassCube reference uses np.trapz, removed in NumPy 2.4.
+dependencies = ["numpy>=1.24,<2.4", "numba>=0.60", "scipy>=1.10", "lxml>=4.9", "pyarrow>=17"]
 
 [project.optional-dependencies]
 numpress = ["pynumpress>=0.0.9,<0.1"]

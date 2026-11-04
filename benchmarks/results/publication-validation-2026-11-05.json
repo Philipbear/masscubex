@@ -171,5 +171,13 @@
       "sha256": "817d4a6b9de801eec8f548136a5fb514b3f635f4b7be898ce4b9b2d6226eb09a"
     }
   },
-  "remote_ci": "Runs after push; local source/wheel results do not imply the matrix passed."
+  "remote_ci": "Runs after push; local source/wheel results do not imply the matrix passed.",
+  "numpy_compatibility_fix": {
+    "requirement": "numpy<2.4,>=1.24",
+    "reason": "NumPy 2.4 removed np.trapz used by the verbatim pinned reference. No numerical source or arithmetic changed.",
+    "primary_reference": "https://numpy.org/doc/2.4/release/2.4.0-notes.html#removal-of-deprecated-functions-and-arguments",
+    "initial_ci_run": "https://github.com/Philipbear/masscubex/actions/runs/41937012094",
+    "compatible_wheel_sha256": "468a3fda8b07f3a8dd4b07580bf3566661d139cf5a92becf8c3e93fa66626505",
+    "wheel_metadata_verified": true
+  }
 }

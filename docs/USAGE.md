@@ -4,6 +4,10 @@ Core algorithms follow pinned MassCube 1.2.22, with adaptive MS1 noise and
 auto-tuning, profile centroiding and MS2-seeded gap filling enabled by default.
 See [METHODS](METHODS.md) and [the upstream comparison](UPSTREAM_COMPARISON.md).
 
+The installer selects NumPy **>=1.24,<2.4**. The pinned upstream finalization
+calls `np.trapz`, which [NumPy 2.4 removed](https://numpy.org/doc/2.4/release/2.4.0-notes.html#removal-of-deprecated-functions-and-arguments).
+The dependency bound preserves those original functions and their arithmetic.
+
 ## Optional Numpress decoder
 
 Ordinary float32/float64 mzML and mzXML arrays need no additional decoder.

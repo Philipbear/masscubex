@@ -27,6 +27,12 @@ retains counts, hashes, the original failed-node audit and smoke results.
 Pushing runs the existing Linux/macOS/Windows, Python 3.10–3.13 CI matrix.
 These local checks do not themselves establish that remote matrix's outcome.
 
+The first remote run exposed NumPy 2.4's removal of `np.trapz` on newer Python
+jobs. The dependency is now constrained to `numpy>=1.24,<2.4`, preserving the
+verbatim upstream functions and arithmetic. This packaging correction leaves
+the numerical implementation fingerprint and the Mac benchmark environment
+unchanged.
+
 ## Overnight continuation — 2026-11-05
 
 The continued inspection covers 35 modules, including the new lightweight
