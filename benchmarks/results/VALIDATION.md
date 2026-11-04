@@ -7,7 +7,7 @@ passes.** Calibration uses Gaussian similarity ≥0.90, five acquired-m/z region
 and mean + 3 sample SD with independent MS1/MS2 evidence minima. In 50 files,
 57 of 250 MS1 regions have sufficient evidence; sparse regions explicitly fall
 back. All 125,266 MS2 scans remain assigned exactly once, and all 747,936
-Parquet/TSV rows agree. The 5 SD comparison changes only 24 rows in this cohort.
+Parquet/TSV rows agree. The 5 SD comparison produces 24 fewer total rows in this cohort.
 See [regional evidence, counts, margins and timing](REGIONAL_TUNING.md).
 
 ## Version 0.11.0: shape evidence prevents background over-splitting
