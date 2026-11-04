@@ -9,6 +9,7 @@ import numpy as np
 from numba import njit
 from scipy.ndimage import gaussian_filter1d
 from .chromatograms import gaussian_smooth, select_peaks
+from .peak_shapes import gaussian_similarity
 
 
 class RepresentativeValues(NamedTuple):
@@ -22,6 +23,7 @@ class RepresentativeValues(NamedTuple):
     mass_error_da: float
     mass_error_ppm: float
     observations: int
+    gaussian_similarity: float
 
 
 def reference_measurements(trace):
@@ -53,6 +55,7 @@ def reference_measurements(trace):
         error,
         error / center * 1e6,
         int(np.count_nonzero(central)),
+        float(gaussian_similarity(times, np.maximum(intensity - baseline, 0.0))),
     )
 
 
@@ -74,7 +77,7 @@ def _crossings(t, y, apex, level):
 
 
 @njit(cache=True, nogil=True)
-def measure_representative(trace, search_da, search_ppm):
+def measure_representative(trace, search_da, search_ppm, minimum_similarity=0.9):
     """Require a resolved, complete rise/fall and a stable central mass trace."""
     if len(trace) < 7:
         return None, "short_trace"
@@ -108,6 +111,9 @@ def measure_representative(trace, search_da, search_ppm):
     search = max(search_da, center * search_ppm * 1e-6)
     if error > search * 0.4:
         return None, "mass_near_search_boundary"
+    similarity = gaussian_similarity(t, np.maximum(y - baseline, 0.0))
+    if similarity < minimum_similarity:
+        return None, "poor_gaussian_shape"
     return RepresentativeValues(
         center,
         float(t[apex]),
@@ -119,4 +125,5 @@ def measure_representative(trace, search_da, search_ppm):
         error,
         error / center * 1e6,
         int(np.count_nonzero(central)),
+        similarity,
     ), None

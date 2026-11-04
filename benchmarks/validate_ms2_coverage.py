@@ -17,7 +17,7 @@ import time
 import numpy as np
 
 from masscubex import Config, __version__
-from validate_repository import process_for_audit, reference_check
+from validate_repository import process_for_audit, reference_check, reference_mass_radius
 
 
 def audit_seeded_quantification(path, output, config, full_precision_rows=None):
@@ -71,10 +71,7 @@ def audit_seeded_quantification(path, output, config, full_precision_rows=None):
                 tolerance = (
                     float(seeded[i]["gapfill_mz_radius_da"])
                     if seeded[i].get("gapfill_mz_radius_da")
-                    else max(
-                        effective["ms2_mz_tolerance_da"],
-                        masses[i] * effective["ms2_mz_tolerance_ppm"] * 1e-6,
-                    )
+                    else reference_mass_radius(masses[i], effective, "ms2_")
                 )
                 in_window = (unique_mz >= masses[i] - tolerance) & (
                     unique_mz <= masses[i] + tolerance
@@ -124,11 +121,7 @@ def audit_seeded_quantification(path, output, config, full_precision_rows=None):
             assert float(row["mz"]) == float(row["seed_precursor_mz"])
             assert (
                 float(row["gapfill_mz_radius_da"])
-                <= max(
-                    effective["mz_tolerance_da"],
-                    float(row["mz"]) * effective["mz_tolerance_ppm"] * 1e-6,
-                )
-                + 1e-14
+                <= reference_mass_radius(float(row["mz"]), effective) + 1e-14
             )
         if row["ms1_quant_status"] == "imputed_noise":
             chosen = [r[2] for r in sorted(references)[:3] if r[2] > 0]

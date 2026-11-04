@@ -7,6 +7,7 @@ import numpy as np
 
 from .readers import MS2Scan
 from .tuning import config_for
+from .mass_tolerance import mass_radius
 
 
 class MS2Collector:
@@ -47,10 +48,7 @@ class MS2Collector:
                     and 0 <= scan.rt - parent.rt <= effective.precursor_max_age_seconds
                     and (not scan.precursor_ref or scan.precursor_ref == parent.native_id)
                 ):
-                    tolerance = max(
-                        effective.ms2_mz_tolerance_da,
-                        scan.precursor_mz * effective.ms2_mz_tolerance_ppm * 1e-6,
-                    )
+                    tolerance = mass_radius(scan.precursor_mz, effective, "ms2")
                     left = np.searchsorted(parent.mz, scan.precursor_mz - tolerance)
                     right = np.searchsorted(parent.mz, scan.precursor_mz + tolerance, side="right")
                     if right > left:
@@ -133,9 +131,7 @@ def associate_ms2(features, records, config, stats, configs=None):
         if scan.polarity == "unknown" and mixed:
             assignments.append(MS2Assignment(None, "ambiguous_polarity"))
             continue
-        tolerance = max(
-            effective.ms2_mz_tolerance_da, scan.precursor_mz * effective.ms2_mz_tolerance_ppm * 1e-6
-        )
+        tolerance = mass_radius(scan.precursor_mz, effective, "ms2")
         left = np.searchsorted(sorted_masses, scan.precursor_mz - tolerance)
         right = np.searchsorted(sorted_masses, scan.precursor_mz + tolerance, side="right")
         mass_candidates = order[left:right]

@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, fields
 import math
 
 from .adducts import Adduct, DEFAULT_ADDUCT_IDS, selected_adducts
+from .mass_tolerance import MassRegion
 
 
 @dataclass(frozen=True)
@@ -12,12 +13,16 @@ class Config:
     auto_tune: bool = True
     tuning_min_peaks: int = 20
     tuning_max_peaks: int = 100
+    tuning_mz_regions: int = 5
+    tuning_min_gaussian_similarity: float = 0.9
+    tuning_mass_sigma: float = 3.0
     tuning_search_ppm: float = 100.0
     tuning_search_da: float = 0.05
     tuning_peak_limit: int = 128
     tuning_block_scans: int = 512
     tuning_block_seconds: float = 120.0
     tuning_locked: tuple[str, ...] = ()
+    mass_regions: tuple[MassRegion, ...] = ()
     mz_tolerance_ppm: float = 10.0
     mz_tolerance_da: float = 0.002
     noise_mode: str = "adaptive"
@@ -79,6 +84,7 @@ class Config:
         integer_minima = {
             "tuning_min_peaks": 20,
             "tuning_max_peaks": 20,
+            "tuning_mz_regions": 1,
             "tuning_peak_limit": 32,
             "tuning_block_scans": 16,
             "noise_iterations": 0,
@@ -124,6 +130,14 @@ class Config:
         selected_adducts(self.adduct_ids, self.custom_adducts)
         if self.tuning_max_peaks < self.tuning_min_peaks:
             raise ValueError("tuning_max_peaks must be >= tuning_min_peaks")
+        if self.tuning_mz_regions > 100:
+            raise ValueError("tuning_mz_regions must be <= 100")
+        if not isinstance(self.mass_regions, tuple) or any(
+            not isinstance(region, MassRegion) for region in self.mass_regions
+        ):
+            raise ValueError("mass_regions must be a tuple of MassRegion records")
+        if any(a.upper != b.lower for a, b in zip(self.mass_regions, self.mass_regions[1:])):
+            raise ValueError("mass_regions must be ordered and contiguous")
         if not isinstance(self.tuning_locked, tuple) or any(
             key not in TUNABLE_FIELDS for key in self.tuning_locked
         ):
@@ -147,6 +161,7 @@ class Config:
             "gapfill_mz_tolerance_ppm",
             "gapfill_noise_fraction",
             "peak_min_gaussian_similarity",
+            "tuning_min_gaussian_similarity",
             "peak_min_snr",
             "peak_noise_score_limit",
         }
@@ -163,6 +178,7 @@ class Config:
                 "adduct_ids",
                 "custom_adducts",
                 "tuning_locked",
+                "mass_regions",
             }
         )
         for field in fields(self):
@@ -188,6 +204,7 @@ class Config:
         for name in (
             "noise_fraction",
             "peak_min_gaussian_similarity",
+            "tuning_min_gaussian_similarity",
             "gapfill_noise_fraction",
             "group_min_correlation",
             "group_min_overlap",
@@ -203,6 +220,7 @@ class Config:
         result["adduct_ids"] = list(self.adduct_ids)
         result["custom_adducts"] = [asdict(ion) for ion in self.custom_adducts]
         result["tuning_locked"] = list(self.tuning_locked)
+        result["mass_regions"] = [asdict(region) for region in self.mass_regions]
         return result
 
     @classmethod
@@ -218,6 +236,10 @@ class Config:
                 values["adduct_ids"] = tuple(values["adduct_ids"])
             if "tuning_locked" in values:
                 values["tuning_locked"] = tuple(values["tuning_locked"])
+            if "mass_regions" in values:
+                values["mass_regions"] = tuple(
+                    MassRegion(**region) for region in values["mass_regions"]
+                )
             if "custom_adducts" in values:
                 values["custom_adducts"] = tuple(Adduct(**ion) for ion in values["custom_adducts"])
             return cls(**values)

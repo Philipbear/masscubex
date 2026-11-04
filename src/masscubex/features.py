@@ -11,6 +11,7 @@ from numba import njit
 
 from .config import Config
 from .chromatograms import peak_settings, summarize_candidates
+from .mass_tolerance import ms1_radius, ms1_region_array
 
 
 # Float state per live trace. The compiled kernels use these named columns
@@ -49,6 +50,7 @@ def _advance_tracks(
     rt,
     ppm,
     da,
+    regions,
     max_gaps,
     max_seconds,
     active,
@@ -76,7 +78,7 @@ def _advance_tracks(
             finished_count += 1
             continue
         target = track_values[slot, MEAN_MZ]
-        tolerance = max(da, target * ppm * 1e-6)
+        tolerance = ms1_radius(target, da, ppm, regions)
         start = np.searchsorted(mz, target - tolerance)
         best = -1
         error = np.inf
@@ -245,6 +247,7 @@ class TraceTracker:
 
     def __init__(self, config: Config, capacity=1024, node_capacity=8192):
         self.config = config
+        self.mass_regions = ms1_region_array(config)
         self.peak_settings = peak_settings(config)
         self.track_values = np.zeros((capacity, 4))
         self.track_layout = np.zeros((capacity, 5), dtype=np.int64)
@@ -316,6 +319,7 @@ class TraceTracker:
                 float(rt),
                 float(self.config.mz_tolerance_ppm),
                 float(self.config.mz_tolerance_da),
+                self.mass_regions,
                 self.config.max_gap_scans,
                 float(self.config.max_gap_seconds),
                 self.active,

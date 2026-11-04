@@ -53,8 +53,9 @@ default; `--executor thread` is also available.
 
 - **Quantification:** peak height; both height and area are always included.
 - **Automatic calibration:** broad initial mass search, then at least 20 qualified
-  peaks per polarity to learn mass and time settings; explicit fallbacks when
-  evidence is insufficient. Polarity-switching files use separate streams.
+  well-shaped peaks per polarity, five m/z regions, and mean + 3 SD mass margins;
+  explicit fallbacks when evidence is insufficient. Polarity-switching files
+  use separate streams.
 - **MS1 noise:** fixed 100 Da bins, lowest 10% of positive samples, minimum 5,
   threshold μ + 3σ. Profile MS1 is centroided automatically.
 - **Peak splitting:** noisy traces require supported peak shapes before splitting;

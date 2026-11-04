@@ -1,7 +1,8 @@
 # Per-file calibration and polarity switching
 
-The calibration policy introduced in 0.5 is unchanged in 0.6. Output tables now
-default to Parquet; the calculations below apply to both Parquet and TSV.
+Version 0.12 uses calibration policy 2: Gaussian-qualified representatives,
+five equal-width m/z regions, and mean + 3 sample SD mass-error margins.
+Output defaults to Parquet; the calculations apply equally to TSV.
 
 Automatic calibration and ion grouping are **on by default**. Calibration is a
 new MassCubeX implementation. It estimates repeatability and chromatography from
@@ -49,51 +50,118 @@ Each candidate is screened as follows:
    Its mass error is the 95th percentile of absolute deviations from that
    median. Reject error above 40% of the pilot mass radius.
 
-At most the strongest `10 × tuning_max_peaks` candidates (1,000 by default) are
-retained per polarity. Divide that pool by m/z and RT quartiles into up to 16
-cells; take the strongest from each cell in rounds, up to 100 representatives.
-This favors intensity while reducing domination by a single m/z or RT region.
-The pool itself is intensity-selected, so complete coverage is not guaranteed.
+7. Require symmetric Gaussian similarity **≥0.90**, configurable with
+   `--tuning-min-gaussian-similarity`. Use the original intensities after
+   subtracting the baseline above and clipping negative excess to zero; do not
+   use the smoothed curve. The Gaussian is centered on the raw excess apex;
+   its sigma is the bracketed half-height width divided by 2.355. Similarity is
+   the Pearson correlation, clamped to [0,1], over the complete pilot trace.
+   This is the same symmetric template construction as feature-table Gaussian
+   similarity, but the table score uses uncorrected intensities. Calibration is
+   deliberately more selective than detection: a low score excludes an anchor,
+   not the corresponding detected feature. Shape cannot establish ion purity;
+   the competing-mass and central-mass-stability checks still apply.
 
-Before estimation, screen FWHM and mass error in ppm using log-space MAD:
-retain values within `max(4.5 × 1.4826 × MAD, log(4))` of the median log value.
-For mass error, values below 0.5 ppm share a floor to avoid treating all
-nonzero deviations as outliers in quantized exports. **At least 20 accepted
-representative peaks per known polarity** are required after screening. The
-minimum can be increased, but not reduced below 20.
+Keep a bounded pool of the strongest `10 × tuning_max_peaks × tuning_mz_regions`
+candidates per polarity: 5,000 by default. At the end of the pass, select up to
+100 representatives globally for timing and the file-wide fallback, and up to
+100 independently in each m/z region. Each selection uses m/z and RT quartiles
+(up to 16 cells), taking the strongest in each cell in rounds. The pilot still
+tracks only the top 128 centroids per scan, so sparse high-mass coverage is
+reported rather than assumed. `--tuning-max-peaks` controls each selection, not
+an overall cap of 100 across all five regions.
+
+Before estimation, screen FWHM and per-peak mass error in ppm independently in
+each selection using log-space MAD: retain values within
+`max(4.5 × 1.4826 × MAD, log(4))` of the median log value. For mass error,
+values below 0.5 ppm share a floor so quantized exports do not reject every
+nonzero deviation. Regional screening is independent of global screening:
+a genuinely less precise m/z region is not discarded simply because other
+regions have lower errors. Require **at least 20 surviving peaks** for each
+local MS1 fit. The minimum can be increased, never reduced below 20.
+
+## Five regions across the acquired range
+
+For each polarity, collect the union of MS1 acquisition windows from mzML
+`scanWindow` lower/upper limits (MS:1000501 / MS:1000500), or mzXML
+`startMz` / `endMz`. These are acquisition limits; mzXML `lowMz` / `highMz`
+are observed extrema. See the [PSI controlled vocabulary](https://github.com/HUPO-PSI/psi-ms-CV)
+and [mzXML schema documentation](https://tools.proteomecenter.org/formats/mzXML/mzXML_xmlspy_docs.html).
+
+Use the union of all observed reader-normalized MS1 array extents when explicit
+windows are absent, before selecting strong centroids, centroiding profile
+arrays or applying the adaptive filter. Do not infer range from representative
+masses. Invalid optional window metadata is counted and ignored; if observed
+signals extend outside valid metadata, extend the union to include them and
+label that source in provenance. Empty scans can still supply valid metadata.
+Different scan windows are combined within each polarity; this is not a
+separate model for each acquisition regime or RT interval.
+
+Split this span into **five equal-width regions** (`--tuning-mz-regions 5`).
+Regions are [lower, upper), except the final upper bound is included. A target
+mass selects a region, but its matching interval may cross a regional edge.
+Outside the acquired range, use the file-wide fallback. With no usable range,
+retain a global model. `--tuning-mz-regions 1` uses a single region.
 
 ## Separate MS1 and MS/MS mass estimates
 
-Each representative gets one vote, regardless of intensity or number of scans.
-If `Q95` is the 95th percentile across accepted representatives:
+Each representative contributes one value: its **95th percentile absolute
+mass deviation from its own median**, measured using the raw observations in
+its central half-height portion. For the collection of these per-peak errors:
 
 ```text
-MS1 Da floor = max(0.0005 Da, 2 × Q95(per-peak mass error in Da))
-MS1 ppm     = max(5 ppm,      2 × Q95(per-peak mass error in ppm))
+candidate Da  = mean(error_Da)  + k × sample_SD(error_Da)
+candidate ppm = mean(error_ppm) + k × sample_SD(error_ppm)
+MS1 Da        = max(0.0005 Da, candidate Da)
+MS1 ppm       = max(5 ppm, candidate ppm)
 ```
 
-Each component is capped at its pilot-search component. Trace matching and raw
-gap-fill extraction use `max(Da floor, m/z × ppm × 1e−6)` as their radius.
-The gap-fill parameters may be overridden, but their resulting radius is
-capped at the resolved MS1 radius. Narrower gap-fill settings are honored.
+The default **k = 3** is configurable with `--tuning-mass-sigma`; `5` is a wider
+alternative. SD uses `ddof=1`, after the robust screen above. These are nonnegative
+per-peak Q95 errors, not pooled signed scan residuals. This rule is a safety
+margin, **not a 99.7% coverage guarantee or an estimate of absolute mass accuracy**.
+Equal peak weights prevent a strong or densely sampled peak from dominating.
+Both components are capped at the corresponding broad pilot-search component.
+The final half-window is `max(Da, m/z × ppm × 1e−6)`.
 
-MS/MS precursor tolerance requires its own evidence: a single selected-ion
-precursor, known matching polarity and RT within a representative's FWHM, with
-exactly one candidate in the broad mass search. Isolation-target-only masses
-do not calibrate precursor accuracy. For each distinct representative, take
-Q95 of its absolute MS2-precursor-to-MS1-median mass differences. Screen these
-errors in ppm using the same log-MAD rule and 0.5 ppm floor. Require **at least
-20 distinct MS1 representatives with accepted MS2 evidence**, not 20 repeated
-spectra from one ion. Then:
+MS/MS precursor tolerance has independent evidence requirements: single
+selected-ion precursor, known matching polarity, RT inside an accepted peak's
+FWHM, and exactly one candidate within the broad mass search. Match against the
+union of global and regional representatives, including across region edges;
+selecting a region cannot hide a competitor. Isolation-target-only masses do
+not calibrate precursor accuracy. For each distinct representative, take Q95
+of its absolute precursor-to-MS1-median mass differences. Screen those per-peak
+ppm errors with the same log-MAD rule and 0.5 ppm floor, independently per region.
+Require **20 distinct peaks with MS2 evidence**, not 20 spectra from one peak.
+Then compute mean + k sample SD in Da and ppm, with each component at least the
+corresponding local MS1 estimate, and cap at the pilot components.
 
-```text
-MS2 Da floor = max(learned MS1 Da floor, 1.5 × Q95(precursor error in Da))
-MS2 ppm      = max(learned MS1 ppm,      1.5 × Q95(precursor error in ppm))
-```
+A region with insufficient evidence does **not** lower its shape threshold or
+minimum count. Its fallback is the component-wise maximum of the successful
+file-wide estimate and all supported regional estimates. If the file-wide fit
+is unsupported, retain configured fallback values as well. MS1 and precursor
+fallbacks are independent. An unsupported MS2 region retains at least the local
+MS1 estimate unless explicitly overridden. With fewer than 20 global anchors,
+unknown polarity or no usable cadence, retain configured mass settings instead
+of fitting regions. Default unsupported MS1 is ±max(0.002 Da, 10 ppm); default
+unsupported MS2 is ±max(0.01 Da, 20 ppm).
 
-Again cap at the pilot components. If MS1 estimation succeeds but precursor
-evidence is insufficient, keep the configured MS2 fallback, normally
-±max(0.01 Da, 20 ppm). Do not substitute the MS1 estimate without MS2 evidence.
+The lookup applies to MS1 trace tracking, MS2 association, preceding-MS1
+precursor-intensity lookup, seeded-feature reuse, and raw gap filling. A trace
+looks up its running intensity-weighted m/z; MS2 and gap-fill queries look up
+precursor m/z. Gap filling inherits the local MS1 pair, with its physical radius
+always capped at the local MS1 radius; narrower overrides are honored. Ion
+adduct/fragment grouping still uses its explicit 0.002 Da / 10 ppm defaults.
+
+Global scalar settings in each effective config are the **fallback envelope**;
+`mass_regions` contains the actual per-region settings. The sidecar records
+range source, invalid-metadata counts, shape rejections, selected representative
+indices and scores, local counts, means, sample SDs, estimated/effective settings
+and fallback status. Explicit scalar overrides apply in every automatically
+learned region. A nonempty `mass_regions` supplied explicitly through JSON/Python
+is preserved and takes precedence over scalars inside its bounds;
+use an empty list for automatic regional estimation. Disabling auto-tuning
+keeps configured settings, including any explicitly supplied regions.
 
 ## Time settings in seconds
 
@@ -235,7 +303,7 @@ masscubex extract study -o ungrouped --no-group-ions
 
 Strong isolated peaks are useful calibration anchors, but weak-ion mass jitter,
 saturation, unusual chromatography, heterogeneous acquisition regimes and export
-rounding may differ. The multipliers/floors above are conservative heuristics,
+rounding may differ. The Gaussian cutoff, error margins and floors above are heuristics,
 not universal instrument specifications. Calibration does not prove DDA, resolve
 DIA mixtures or certify ion identity. Narrow windows can miss signal; broad
 windows can mix ions. Inspect the saved evidence and use overrides when needed.

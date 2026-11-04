@@ -18,10 +18,11 @@ from .centroid import centroid_profile
 from .calibration import measure_representative, reference_measurements
 from .config import Config, TUNABLE_FIELDS
 from .features import TraceTracker
+from .mass_tolerance import MassRegion
 from .readers import MS2Scan, iter_scans
 
 
-POLICY_VERSION = 1
+POLICY_VERSION = 2
 
 
 def config_for(polarity, config, configs=None):
@@ -46,6 +47,7 @@ class Representative:
     mass_error_da: float
     mass_error_ppm: float
     observations: int
+    gaussian_similarity: float = 1.0
 
 
 @dataclass
@@ -71,7 +73,10 @@ def competing_peaks(mz, intensity, indices, ppm, da):
 def representative(trace, config):
     """Measure a complete, isolated peak for the calibration candidate pool."""
     values, reason = measure_representative(
-        trace, float(config.tuning_search_da), float(config.tuning_search_ppm)
+        trace,
+        float(config.tuning_search_da),
+        float(config.tuning_search_ppm),
+        float(config.tuning_min_gaussian_similarity),
     )
     return (
         (Representative(*reference_measurements(trace)), None)
@@ -117,7 +122,68 @@ def select_representatives(candidates, maximum):
     return selected
 
 
-def derive_settings(peaks, intervals, ms2, config, polarity):
+def _screen_representatives(peaks, config):
+    selected = select_representatives(peaks, config.tuning_max_peaks)
+    before = len(selected)
+    if selected:
+        keep = _inliers([p.fwhm for p in selected]) & _inliers(
+            [p.mass_error_ppm for p in selected], floor=0.5
+        )
+        selected = [p for p, use in zip(selected, keep) if use]
+    return selected, before
+
+
+def _mass_estimate(errors, config, minimum=(0.0005, 5.0)):
+    """One Q95 absolute residual per peak; mean + k * sample SD across peaks."""
+    values = np.array([[error, error / mass * 1e6] for error, mass in errors])
+    mean, sd = values.mean(axis=0), values.std(axis=0, ddof=1)
+    estimate = np.minimum(
+        np.maximum(minimum, mean + config.tuning_mass_sigma * sd),
+        [config.tuning_search_da, config.tuning_search_ppm],
+    )
+    return tuple(float(v) for v in estimate), {
+        "count": len(errors),
+        "mean_da_ppm": mean.tolist(),
+        "sample_sd_da_ppm": sd.tolist(),
+        "sigma_multiplier": config.tuning_mass_sigma,
+    }
+
+
+def _precursor_errors(peaks, scans, config, polarity):
+    """Match against the union of selected peaks, so regional edges hide no competitor."""
+    residuals = [[] for _ in peaks]
+    for scan in scans:
+        if (
+            scan.polarity != polarity
+            or scan.precursor_count != 1
+            or scan.precursor_mz is None
+            or scan.rt is None
+            or scan.precursor_mz_source != "selected_ion"
+        ):
+            continue
+        tolerance = max(
+            config.tuning_search_da, scan.precursor_mz * config.tuning_search_ppm * 1e-6
+        )
+        hits = [
+            i
+            for i, p in enumerate(peaks)
+            if p.start <= scan.rt <= p.end and abs(p.mz - scan.precursor_mz) <= tolerance
+        ]
+        if len(hits) == 1:
+            index = hits[0]
+            residuals[index].append(abs(scan.precursor_mz - peaks[index].mz))
+    return {p: float(np.quantile(v, 0.95)) for p, v in zip(peaks, residuals) if v}
+
+
+def _screen_precursor_errors(peaks, errors):
+    values = [(errors[p], p.mz) for p in peaks if p in errors]
+    if not values:
+        return []
+    keep = _inliers([e / m * 1e6 for e, m in values], floor=0.5)
+    return [value for value, use in zip(values, keep) if use]
+
+
+def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None):
     """Independent MS1 and precursor estimates, each requiring >=20 representatives."""
     defaults = Config()
     locked = set(config.tuning_locked) | {
@@ -142,22 +208,18 @@ def derive_settings(peaks, intervals, ms2, config, polarity):
             smoothing_seconds=config.smoothing_sigma * dt,
             peak_distance_seconds=config.peak_distance * dt,
         )
-    selected = select_representatives(peaks, config.tuning_max_peaks)
-    info["representatives_before_outlier_screen"] = len(selected)
-    if selected:
-        keep = _inliers([p.fwhm for p in selected]) & _inliers(
-            [p.mass_error_ppm for p in selected], floor=0.5
-        )
-        selected = [p for p, use in zip(selected, keep) if use]
+    qualified = [p for p in peaks if p.gaussian_similarity >= config.tuning_min_gaussian_similarity]
+    selected, before = _screen_representatives(qualified, config)
+    info["representatives_before_outlier_screen"] = before
     info["representative_count"] = len(selected)
     info["representatives"] = [asdict(p) for p in selected]
     info["ms2_status"] = "insufficient_representatives"
     if len(selected) >= config.tuning_min_peaks and dt is not None and polarity != "unknown":
         info["status"] = "tuned"
         # Each representative gets one vote, regardless of intensity/scan count.
-        da = max(0.0005, 2 * float(np.quantile([p.mass_error_da for p in selected], 0.95)))
-        ppm = max(5.0, 2 * float(np.quantile([p.mass_error_ppm for p in selected], 0.95)))
-        da, ppm = min(da, config.tuning_search_da), min(ppm, config.tuning_search_ppm)
+        (da, ppm), info["ms1_error_statistics"] = _mass_estimate(
+            [(p.mass_error_da, p.mz) for p in selected], config
+        )
         widths = np.array([p.width for p in selected])
         fwhm = np.array([p.fwhm for p in selected])
         typical = float(np.median(fwhm))
@@ -183,51 +245,122 @@ def derive_settings(peaks, intervals, ms2, config, polarity):
         info["fwhm_seconds_p10_p50_p90"] = np.quantile(fwhm, [0.1, 0.5, 0.9]).tolist()
         info["mass_range"] = [min(p.mz for p in selected), max(p.mz for p in selected)]
         info["rt_range"] = [min(p.rt for p in selected), max(p.rt for p in selected)]
-        residuals = [[] for _ in selected]
-        for scan in ms2:
-            if (
-                scan.polarity != polarity
-                or scan.precursor_count != 1
-                or scan.precursor_mz is None
-                or scan.rt is None
-                or scan.precursor_mz_source != "selected_ion"
-            ):
-                continue
-            tolerance = max(
-                config.tuning_search_da, scan.precursor_mz * config.tuning_search_ppm * 1e-6
-            )
-            hits = [
-                i
-                for i, peak in enumerate(selected)
-                if peak.start <= scan.rt <= peak.end
-                and abs(peak.mz - scan.precursor_mz) <= tolerance
-            ]
-            if len(hits) == 1:
-                i = hits[0]
-                residuals[i].append(abs(scan.precursor_mz - selected[i].mz))
-        errors = [
-            (float(np.quantile(v, 0.95)), selected[i].mz) for i, v in enumerate(residuals) if v
-        ]
-        if errors:
-            keep = _inliers([error / mass * 1e6 for error, mass in errors], floor=0.5)
-            errors = [e for e, use in zip(errors, keep) if use]
-        info["ms2_representative_count"] = len(errors)
-        if len(errors) >= config.tuning_min_peaks:
-            updates["ms2_mz_tolerance_da"] = min(
-                config.tuning_search_da,
-                max(da, 1.5 * float(np.quantile([e for e, _ in errors], 0.95))),
-            )
-            updates["ms2_mz_tolerance_ppm"] = min(
-                config.tuning_search_ppm,
-                max(ppm, 1.5 * float(np.quantile([e / m * 1e6 for e, m in errors], 0.95))),
-            )
-            info["ms2_status"] = "tuned"
     elif polarity == "unknown":
         info["status"] = "unknown_polarity"
+    regions = _derive_mass_regions(
+        qualified, selected, ms2, config, polarity, mass_range, updates, info, locked
+    )
     info["estimated_parameters"] = dict(updates)
     applied = {key: value for key, value in updates.items() if key not in locked}
     info["applied_parameters"] = applied
-    return replace(config, **applied), info
+    return replace(config, **applied, mass_regions=regions), info
+
+
+def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, updates, info, locked):
+    """Regional fits have independent evidence; sparse regions use a file-wide envelope."""
+    edges = []
+    if mass_range is not None:
+        low, high = mass_range
+        if np.isfinite(low) and np.isfinite(high) and 0 <= low < high:
+            edges = np.linspace(low, high, config.tuning_mz_regions + 1).tolist()
+    pools, records = [], []
+    for index, (low, high) in enumerate(zip(edges, edges[1:])):
+        candidates = [
+            p
+            for p in peaks
+            if low <= p.mz
+            and (p.mz < high or index == config.tuning_mz_regions - 1 and p.mz == high)
+        ]
+        regional, before = _screen_representatives(candidates, config)
+        pools.append(regional)
+        records.append(
+            {
+                "lower": low,
+                "upper": high,
+                "candidate_count": len(candidates),
+                "representatives_before_outlier_screen": before,
+                "representative_count": len(regional),
+            }
+        )
+    # Distinct peaks only. A peak chosen both globally and locally still gets one vote.
+    union = sorted(set(selected).union(*(set(p) for p in pools)), key=lambda p: (p.mz, p.rt))
+    errors = _precursor_errors(union, ms2, config, polarity) if info["status"] == "tuned" else {}
+    global_errors = _screen_precursor_errors(selected, errors)
+    info["ms2_representative_count"] = len(global_errors)
+    ms1 = (
+        updates.get("mz_tolerance_da", config.mz_tolerance_da),
+        updates.get("mz_tolerance_ppm", config.mz_tolerance_ppm),
+    )
+    if len(global_errors) >= config.tuning_min_peaks:
+        pair, info["ms2_error_statistics"] = _mass_estimate(global_errors, config, ms1)
+        updates["ms2_mz_tolerance_da"], updates["ms2_mz_tolerance_ppm"] = pair
+        info["ms2_status"] = "tuned"
+    estimates = []
+    for regional, record in zip(pools, records):
+        values = {}
+        eligible = info["status"] == "tuned" and len(regional) >= config.tuning_min_peaks
+        record["ms1_status"] = "tuned" if eligible else "file_wide_fallback"
+        if eligible:
+            pair, record["ms1_error_statistics"] = _mass_estimate(
+                [(p.mass_error_da, p.mz) for p in regional], config
+            )
+            values.update(
+                mz_tolerance_da=pair[0],
+                mz_tolerance_ppm=pair[1],
+                gapfill_mz_tolerance_da=pair[0],
+                gapfill_mz_tolerance_ppm=pair[1],
+            )
+        regional_errors = _screen_precursor_errors(regional, errors)
+        record["ms2_representative_count"] = len(regional_errors)
+        record["ms2_status"] = "file_wide_fallback"
+        if eligible and len(regional_errors) >= config.tuning_min_peaks:
+            pair, record["ms2_error_statistics"] = _mass_estimate(
+                regional_errors, config, (values["mz_tolerance_da"], values["mz_tolerance_ppm"])
+            )
+            values.update(ms2_mz_tolerance_da=pair[0], ms2_mz_tolerance_ppm=pair[1])
+            record["ms2_status"] = "tuned"
+        estimates.append(values)
+    # Unsupported regions must not inherit a narrower tolerance than any supported
+    # region. If the global fit failed, also retain the configured fallback.
+    mass_fields = (
+        "mz_tolerance_da",
+        "mz_tolerance_ppm",
+        "ms2_mz_tolerance_da",
+        "ms2_mz_tolerance_ppm",
+        "gapfill_mz_tolerance_da",
+        "gapfill_mz_tolerance_ppm",
+    )
+    for key in mass_fields:
+        regional_values = [values[key] for values in estimates if key in values]
+        if regional_values:
+            updates[key] = max(updates.get(key, getattr(config, key)), *regional_values)
+    fallback = {key: updates.get(key, getattr(config, key)) for key in mass_fields}
+    models = []
+    indices = {p: index for index, p in enumerate(union)}
+    for regional, record, estimate in zip(pools, records, estimates):
+        effective = {**fallback, **estimate}
+        # Sparse MS2 evidence cannot reduce the local MS1-derived minimum.
+        if record["ms2_status"] != "tuned":
+            for unit in ("da", "ppm"):
+                effective["ms2_mz_tolerance_" + unit] = max(
+                    effective["ms2_mz_tolerance_" + unit], effective["mz_tolerance_" + unit]
+                )
+        record["estimated_parameters"] = dict(effective)
+        for key in locked & set(mass_fields):
+            effective[key] = getattr(config, key)
+        models.append(MassRegion(record["lower"], record["upper"], **effective))
+        record["representative_indices"] = [indices[p] for p in regional]
+        record["effective_parameters"] = effective
+    info["regional_representatives"] = [asdict(p) for p in union]
+    info["regions"] = records
+    info["regional_status"] = (
+        "configured_regions"
+        if config.mass_regions
+        else "enabled"
+        if records
+        else "missing_mass_range"
+    )
+    return config.mass_regions or tuple(models)
 
 
 def calibrate_file(source, config, *, scan_source=None):
@@ -241,6 +374,7 @@ def calibrate_file(source, config, *, scan_source=None):
         group_ions=False,
         mz_tolerance_da=config.tuning_search_da,
         mz_tolerance_ppm=config.tuning_search_ppm,
+        mass_regions=(),
     )
     states = {}
     ms2 = []
@@ -257,7 +391,7 @@ def calibrate_file(source, config, *, scan_source=None):
             state["candidates"] += 1
             sequence += 1
             item = (peak.height, sequence, peak)
-            if len(state["heap"]) < config.tuning_max_peaks * 10:
+            if len(state["heap"]) < config.tuning_max_peaks * config.tuning_mz_regions * 10:
                 heapq.heappush(state["heap"], item)
             elif item[:2] > state["heap"][0][:2]:
                 heapq.heapreplace(state["heap"], item)
@@ -297,8 +431,24 @@ def calibrate_file(source, config, *, scan_source=None):
                     "rejected": Counter(),
                     "candidates": 0,
                     "scans": 0,
+                    "observed_range": [np.inf, -np.inf],
+                    "acquisition_range": [np.inf, -np.inf],
+                    "range_metadata_scans": 0,
+                    "invalid_range_scans": 0,
                 }
             state = states[scan.polarity]
+            if len(scan.mz):
+                state["observed_range"][0] = min(state["observed_range"][0], float(scan.mz[0]))
+                state["observed_range"][1] = max(state["observed_range"][1], float(scan.mz[-1]))
+            if scan.acquisition_range is not None:
+                state["range_metadata_scans"] += 1
+                state["acquisition_range"][0] = min(
+                    state["acquisition_range"][0], scan.acquisition_range[0]
+                )
+                state["acquisition_range"][1] = max(
+                    state["acquisition_range"][1], scan.acquisition_range[1]
+                )
+            state["invalid_range_scans"] += int(scan.invalid_acquisition_range)
             if state["last_rt"] is not None:
                 delta = scan.rt - state["last_rt"]
                 if delta <= 0:
@@ -346,13 +496,30 @@ def calibrate_file(source, config, *, scan_source=None):
     configs, diagnostics = {}, {}
     for polarity, state in states.items():
         consume(state, state["tracker"].flush())
+        observed, acquired = state["observed_range"], state["acquisition_range"]
+        bounds = (min(observed[0], acquired[0]), max(observed[1], acquired[1]))
+        range_source = (
+            "acquisition_metadata" if state["range_metadata_scans"] else "observed_ms1_extent"
+        )
+        if state["range_metadata_scans"] and (bounds[0] < acquired[0] or bounds[1] > acquired[1]):
+            range_source = "acquisition_metadata_with_observed_extension"
         configs[polarity], info = derive_settings(
-            [item[2] for item in state["heap"]], state["intervals"], ms2, config, polarity
+            [item[2] for item in state["heap"]],
+            state["intervals"],
+            ms2,
+            config,
+            polarity,
+            mass_range=bounds,
         )
         info.update(
             ms1_scans=state["scans"],
             candidates=state["candidates"],
             rejected_candidates=dict(sorted(state["rejected"].items())),
+            acquired_mz_range=list(bounds) if all(np.isfinite(bounds)) else None,
+            acquired_mz_range_source=range_source,
+            range_metadata_scans=state["range_metadata_scans"],
+            invalid_range_metadata_scans=state["invalid_range_scans"],
+            retained_candidates=len(state["heap"]),
         )
         diagnostics[polarity] = info
     return TuningResult(
@@ -362,6 +529,9 @@ def calibrate_file(source, config, *, scan_source=None):
             "policy_version": POLICY_VERSION,
             "elapsed_seconds": time.perf_counter() - started,
             "minimum_representatives": config.tuning_min_peaks,
+            "mass_regions": config.tuning_mz_regions,
+            "minimum_gaussian_similarity": config.tuning_min_gaussian_similarity,
+            "mass_sigma": config.tuning_mass_sigma,
             "search_da": config.tuning_search_da,
             "search_ppm": config.tuning_search_ppm,
             "polarities": diagnostics,

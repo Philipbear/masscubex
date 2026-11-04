@@ -224,6 +224,9 @@ def run_batch(
 _SETTING_FLAGS = (
     ("tuning_min_peaks", "--tuning-min-peaks", int),
     ("tuning_max_peaks", "--tuning-max-peaks", int),
+    ("tuning_mz_regions", "--tuning-mz-regions", int),
+    ("tuning_min_gaussian_similarity", "--tuning-min-gaussian-similarity", float),
+    ("tuning_mass_sigma", "--tuning-mass-sigma", float),
     ("tuning_search_ppm", "--tuning-search-ppm", float),
     ("tuning_search_da", "--tuning-search-da", float),
     ("tuning_peak_limit", "--tuning-peak-limit", int),

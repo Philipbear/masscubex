@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.11.0 processing path,
+This document describes the implemented MassCubeX 0.12.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -1203,7 +1203,11 @@ settings. Full derivations and override semantics: [AUTO_TUNING.md](AUTO_TUNING.
 | --- | --- | --- |
 | `auto_tune` | `--auto-tune` / `--no-auto-tune` | `true`; per-file, per-polarity calibration |
 | `tuning_min_peaks` | `--tuning-min-peaks` | 20; minimum accepted representatives, cannot be lowered |
-| `tuning_max_peaks` | `--tuning-max-peaks` | 100; maximum representatives, at least the minimum |
+| `tuning_max_peaks` | `--tuning-max-peaks` | 100 per global/regional selection; at least the minimum |
+| `tuning_mz_regions` | `--tuning-mz-regions` | 5 equal-width acquired-m/z regions per polarity |
+| `tuning_min_gaussian_similarity` | `--tuning-min-gaussian-similarity` | 0.90; raw baseline-corrected symmetric Gaussian correlation for calibration anchors |
+| `tuning_mass_sigma` | `--tuning-mass-sigma` | 3; mean + k sample SD of screened per-peak Q95 absolute errors |
+| `mass_regions` | JSON/Python only | Empty by default; learned local MS1/MS2/gap-fill settings in effective configs |
 | `tuning_search_ppm`, `tuning_search_da` | `--tuning-search-ppm`, `--tuning-search-da` | 100 ppm / 0.05 Da broad pilot radius components |
 | `tuning_peak_limit` | `--tuning-peak-limit` | 128 strongest MS1 centroids per scan; minimum 32 |
 | `tuning_block_scans`, `tuning_block_seconds` | `--tuning-block-scans`, `--tuning-block-seconds` | 512 scans / 120 s per pilot block |

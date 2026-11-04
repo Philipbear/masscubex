@@ -43,8 +43,8 @@ def test_independent_minimum_evidence_and_outliers():
     tuned, info = derive_settings(anchors, [0.5] * 100 + [60], spectra, base, "positive")
     assert info["representative_count"] == 24
     assert info["status"] == info["ms2_status"] == "tuned"
-    assert tuned.mz_tolerance_ppm == pytest.approx(6)
-    assert tuned.ms2_mz_tolerance_ppm == pytest.approx(21)
+    assert tuned.mz_tolerance_ppm == pytest.approx(5)
+    assert tuned.ms2_mz_tolerance_ppm == pytest.approx(14)
     assert tuned.precursor_max_age_seconds == 1
     assert tuned.noise_sigma == 3 and tuned.noise_fraction == 0.1
     _, few = derive_settings(peaks(19), [0.5] * 100, spectra, base, "positive")
@@ -133,4 +133,8 @@ def test_compiled_calibration_matches_independent_scipy_measurements(seed):
         b, b_reason = reference(trace, Config())
         assert a_reason == b_reason
         if b is not None:
-            assert asdict(a) == asdict(b)
+            actual, expected = asdict(a), asdict(b)
+            assert actual.pop("gaussian_similarity") == pytest.approx(
+                expected.pop("gaussian_similarity")
+            )
+            assert actual == expected

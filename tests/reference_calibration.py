@@ -1,4 +1,4 @@
-"""v0.6 SciPy calibration oracle for differential numerical tests."""
+"""Independent NumPy/SciPy oracle for calibration quality and measurements."""
 
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
@@ -55,6 +55,18 @@ def representative(trace, config):
     search = max(config.tuning_search_da, center * config.tuning_search_ppm * 1e-6)
     if error > search * 0.4:
         return None, "mass_near_search_boundary"
+    excess = np.maximum(y - baseline, 0)
+    shape_apex = np.argmax(excess)
+    left = right = shape_apex
+    while left > 0 and excess[left] >= excess[shape_apex] * 0.5:
+        left -= 1
+    while right < len(excess) - 1 and excess[right] >= excess[shape_apex] * 0.5:
+        right += 1
+    sigma = max((t[right] - t[left]) / 2.355, 1e-6)
+    model = np.exp(-0.5 * ((t - t[shape_apex]) / sigma) ** 2)
+    score = float(np.clip(np.corrcoef(excess, model)[0, 1], 0, 1))
+    if score < config.tuning_min_gaussian_similarity:
+        return None, "poor_gaussian_shape"
     return Representative(
         center,
         float(t[apex]),
@@ -66,4 +78,5 @@ def representative(trace, config):
         error,
         error / center * 1e6,
         int(np.count_nonzero(central)),
+        score,
     ), None

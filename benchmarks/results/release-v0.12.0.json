@@ -1,0 +1,25 @@
+{
+  "version": "0.12.0",
+  "implementation_sha256": "0fc2907626e19f888246da847f1b9736f81f6bad6ac1c5ede197414fa78b2dd8",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pyarrow": "17.0.0",
+    "pynumpress": "0.0.9"
+  },
+  "source_tests": 676,
+  "installed_wheel_tests": 676,
+  "wheel_sha256": "3c12a76de7e2db556c11f47871b58c4a8475a986e848497da375a96044172e8d",
+  "wheel_imports": {
+    "masscubex": "/Users/shipei/Documents/projects/masscubeX/validation/regional-tuning-v0.12/wheel-env/lib/python3.10/site-packages/masscubex/__init__.py",
+    "masscubex.mass_tolerance": "/Users/shipei/Documents/projects/masscubeX/validation/regional-tuning-v0.12/wheel-env/lib/python3.10/site-packages/masscubex/mass_tolerance.py",
+    "masscubex.calibration": "/Users/shipei/Documents/projects/masscubeX/validation/regional-tuning-v0.12/wheel-env/lib/python3.10/site-packages/masscubex/calibration.py",
+    "masscubex.features": "/Users/shipei/Documents/projects/masscubeX/validation/regional-tuning-v0.12/wheel-env/lib/python3.10/site-packages/masscubex/features.py"
+  },
+  "raw_files": 50,
+  "ms2_scans_audited": 125266,
+  "source_junit": "validation/regional-tuning-v0.12/source-tests.xml",
+  "wheel_junit": "validation/regional-tuning-v0.12/wheel-tests.xml"
+}

@@ -272,7 +272,21 @@ Calibration and ion grouping run by default. The pilot starts at
 ±max(0.05 Da, 100 ppm), then requires at least 20 qualified strong peaks per
 polarity; precursor mass matching needs evidence from at least 20 distinct
 MS1 representatives with MS2. Unsupported estimates retain configured fallback
-values and report the reason. Noise remains fixed at μ + 3σ.
+values and report the reason. Calibration anchors require Gaussian similarity
+≥0.90 (`--tuning-min-gaussian-similarity`). Mass fits use five equal-width
+acquired-m/z regions (`--tuning-mz-regions`), with at least 20 representatives
+per local fit and a file-wide fallback for sparse regions. Each mass component
+uses mean + 3 sample SD of screened per-peak absolute-error summaries;
+`--tuning-mass-sigma 5` widens this margin. Noise remains fixed at μ + 3σ.
+
+```bash
+masscubex extract study -o results --tuning-mz-regions 5 --tuning-mass-sigma 3
+masscubex extract study -o stricter-anchors --tuning-min-gaussian-similarity 0.95
+```
+
+The global scalar tolerances in the effective config describe fallback outside
+supported regions; `mass_regions` contains the actual local windows. Region
+counts, fallbacks and statistical definitions are in [AUTO_TUNING.md](AUTO_TUNING.md).
 
 Use `--no-auto-tune` for static settings, or explicit flags to protect individual
 settings, for example `--mz-ppm 10 --ms2-mz-ppm 20`. Non-default JSON/Python

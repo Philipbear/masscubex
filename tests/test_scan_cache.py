@@ -108,10 +108,10 @@ def test_calibration_keeps_only_metadata_without_removing_replayed_fragments(
     original = tuning.derive_settings
     observed = []
 
-    def inspect(peaks, intervals, records, *args):
+    def inspect(peaks, intervals, records, *args, **kwargs):
         observed.extend(records)
         assert all(scan.mz is None and scan.intensity is None for scan in records)
-        return original(peaks, intervals, records, *args)
+        return original(peaks, intervals, records, *args, **kwargs)
 
     monkeypatch.setattr(tuning, "derive_settings", inspect)
     tuning.calibrate_file(path, config, scan_source=source)

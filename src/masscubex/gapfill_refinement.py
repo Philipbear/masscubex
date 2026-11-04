@@ -9,13 +9,14 @@ from scipy.signal import find_peaks
 
 from .ms2 import MS2Assignment
 from .tuning import config_for
+from .mass_tolerance import mass_radius
 
 
 def _radius(mass, config):
     """Gap filling may be narrower than tracing, but never deliberately wider."""
     return min(
-        max(config.mz_tolerance_da, mass * config.mz_tolerance_ppm * 1e-6),
-        max(config.gapfill_mz_tolerance_da, mass * config.gapfill_mz_tolerance_ppm * 1e-6),
+        mass_radius(mass, config),
+        mass_radius(mass, config, "gapfill"),
     )
 
 

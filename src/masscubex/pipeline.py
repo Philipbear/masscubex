@@ -41,6 +41,7 @@ def implementation_id():
     digest = hashlib.sha256()
     for name in (
         "config.py",
+        "mass_tolerance.py",
         "readers.py",
         "array_validation.py",
         "scan_cache.py",

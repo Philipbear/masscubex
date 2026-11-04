@@ -28,6 +28,8 @@ class Scan:
     native_id: str = ""
     centroided: bool = True
     spectrum_index: int = -1
+    acquisition_range: tuple[float, float] | None = None
+    invalid_acquisition_range: bool = False
 
 
 @dataclass(slots=True)
@@ -67,6 +69,19 @@ def _optional_number(value, *, positive=False):
     if not math.isfinite(number) or number < 0 or (positive and number == 0):
         raise ValueError(f"Invalid spectrum metadata number: {value}")
     return number
+
+
+def _acquisition_range(lower, upper):
+    """Bad optional bounds must not discard an otherwise readable spectrum."""
+    if lower is None and upper is None:
+        return None, False
+    try:
+        lower, upper = float(lower), float(upper)
+        if math.isfinite(lower) and math.isfinite(upper) and 0 <= lower < upper:
+            return (lower, upper), False
+    except (TypeError, ValueError):
+        pass
+    return None, True
 
 
 def _polarity(params):
@@ -226,7 +241,19 @@ def _mzml_scan(
         raise ValueError("Ion-mobility-resolved MS1 scans must be collapsed before extraction")
     rt = _mzml_time(scan_params, native_id, required=True)
     mz, intensity = _mzml_arrays(element, groups, profile=mode is False)
-    return Scan(rt, mz, intensity, polarity, native_id, mode is not False, index)
+    ranges, invalid = [], False
+    # Read each window separately: flattening CV terms loses multiple windows.
+    for window in element.findall("{*}scanList/{*}scan/{*}scanWindowList/{*}scanWindow"):
+        terms = _params(window, groups)
+        bounds, bad = _acquisition_range(
+            terms.get("MS:1000501", {}).get("value"),
+            terms.get("MS:1000500", {}).get("value"),
+        )
+        invalid |= bad
+        if bounds is not None:
+            ranges.append(bounds)
+    acquired = (min(r[0] for r in ranges), max(r[1] for r in ranges)) if ranges else None
+    return Scan(rt, mz, intensity, polarity, native_id, mode is not False, index, acquired, invalid)
 
 
 def _mzml_time(scan_params, native_id, required=False):
@@ -425,6 +452,8 @@ def _mzxml_scan(
     rt = _duration(attrs.get("retentionTime", ""))
     profile = flag in {"0", "false"}
     mz, intensity = _mzxml_arrays(attrs, peaks, profile)
+    # startMz/endMz describe the acquisition; lowMz/highMz are observed extrema.
+    acquired, invalid = _acquisition_range(attrs.get("startMz"), attrs.get("endMz"))
     return Scan(
         rt,
         mz,
@@ -433,6 +462,8 @@ def _mzxml_scan(
         native_id,
         not profile,
         index,
+        acquired,
+        invalid,
     )
 
 

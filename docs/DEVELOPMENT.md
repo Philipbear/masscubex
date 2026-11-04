@@ -14,7 +14,8 @@ per-file failure reporting. Neither contains per-mass numerical loops.
 | `peak_shapes.py` | MassCube-style Gaussian/roughness scores and additional shape evidence for splitting noisy traces. Missing-scan interpolation is used only for segmentation. |
 | `reference_chromatograms.py` | Readable SciPy compatibility path for tied peak priorities and a differential-test oracle. |
 | `calibration.py` | Compiled quality screening of one representative trace; accepted candidates retain NumPy/SciPy measurement arithmetic to preserve calibrated boundaries. Named `RepresentativeValues` and explicit rejection reasons. |
-| `tuning.py` | Representative selection, robust per-polarity estimates, evidence minima and override policy. |
+| `tuning.py` | Gaussian-qualified representatives, regional per-polarity estimates, range provenance, evidence minima and override policy. |
+| `mass_tolerance.py` | Immutable region records and consistent Python/compiled target-mass window lookup. |
 | `noise.py`, `noise_regions.py`, `centroid.py` | Sliding/binned MS1 noise estimation and profile mass detection. |
 | `ms2.py`, `gapfill.py`, `gapfill_refinement.py` | MS2 bookkeeping, unmatched precursor seeds, query scheduling and raw-MS1 measurements. |
 | `grouping.py` | Mass-window candidates and evidence-qualified ion relationships. |

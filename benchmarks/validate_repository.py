@@ -25,6 +25,19 @@ from masscubex.readers import MS2Scan, iter_scans
 from masscubex.output import FEATURE_COLUMNS, FLOAT_COLUMNS, NESTED_COLUMNS, write_features
 
 
+def reference_mass_radius(mass, settings, prefix=""):
+    """Independent lookup using serialized bounds, without runtime lookup helpers."""
+    regions = settings.get("mass_regions", [])
+    hits = [r for r in regions if r["lower"] <= mass < r["upper"]]
+    if regions and mass == regions[-1]["upper"]:
+        hits = [regions[-1]]
+    assert len(hits) <= 1
+    selected = hits[0] if hits else settings
+    return max(
+        selected[prefix + "mz_tolerance_da"], mass * selected[prefix + "mz_tolerance_ppm"] * 1e-6
+    )
+
+
 def process_for_audit(path, output, **options):
     """Keep unrounded rows in this audit process, never in production outputs.
 
@@ -129,10 +142,7 @@ def reference_check(path, output, full_precision_rows=None):
                 assigned.add(native_id)
                 record = ms2[native_id]
                 assert number == int(native_id) and index == record["index"]
-                tolerance = max(
-                    effective["ms2_mz_tolerance_da"],
-                    record["mz"] * effective["ms2_mz_tolerance_ppm"] * 1e-6,
-                )
+                tolerance = reference_mass_radius(record["mz"], effective, "ms2_")
                 if feature.get("seed_precursor_mz"):
                     # Refined seeds can recover an ion outside the narrow matching
                     # tolerance, but never outside the initial broad search.

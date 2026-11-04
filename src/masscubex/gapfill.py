@@ -20,6 +20,7 @@ from .gapfill_refinement import _radius, refine_measurement, merge_refined
 from .ms2 import MS2Assignment, apply_ms2_assignments, ineligible_reason
 from .readers import iter_ms1
 from .tuning import config_for
+from .mass_tolerance import mass_radius
 from .noise_regions import regional_thresholds
 
 
@@ -121,9 +122,7 @@ def seed_ms2_features(
             extraction_polarity = None
         elif polarities == ["unknown"]:
             extraction_polarity = "unknown" if len(ms2_polarities) <= 1 else None
-        tolerance = max(
-            effective.ms2_mz_tolerance_da, scan.precursor_mz * effective.ms2_mz_tolerance_ppm * 1e-6
-        )
+        tolerance = mass_radius(scan.precursor_mz, effective, "ms2")
         left = bisect_left(seed_index, (scan.precursor_mz - tolerance, -1))
         right = bisect_right(seed_index, (scan.precursor_mz + tolerance, len(features)))
         candidates = [
