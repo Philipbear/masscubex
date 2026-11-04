@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
+from scipy.integrate import trapezoid
 
 from masscubex import Config
 from masscubex.features import summarize_trace
@@ -55,7 +56,7 @@ def test_many_real_peaks_survive_whole_trace_noise_score_guard(spacing, tail_fac
     features = list(summarize_trace(trace(times, values), config))
     assert len(features) == len(centers)
     np.testing.assert_allclose([f.rt_apex_seconds for f in features], centers, atol=spacing)
-    assert sum(f.peak_area for f in features) == pytest.approx(np.trapz(values, times))
+    assert sum(f.peak_area for f in features) == pytest.approx(trapezoid(values, times))
 
 
 @pytest.mark.parametrize("kind", ["broad", "overlapping", "weak_on_background", "tailing"])
@@ -99,7 +100,7 @@ def test_gap_bridge_is_only_for_split_detection():
     values[10:-10:20] = 0
     values[11:-10:20] = 0
     (feature,) = summarize_trace(trace(times, values), Config())
-    assert feature.peak_area == pytest.approx(np.trapz(values, times))
+    assert feature.peak_area == pytest.approx(trapezoid(values, times))
     assert feature.scan_count == np.count_nonzero(values)
     np.testing.assert_array_equal(feature.trace[:, 0], values)
 
