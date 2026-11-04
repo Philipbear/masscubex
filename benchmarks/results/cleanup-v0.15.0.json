@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-04",
+  "removed_generated_items": 137,
+  "removed_logical_bytes": 9557782343,
+  "preserved_raw_files": 50,
+  "preserved_raw_bytes": 604070716,
+  "preserved": [
+    "source, tests, docs and Git history",
+    "compact benchmark/audit reports and figures",
+    "full example TSV and provenance",
+    "latest source/wheel test logs and validated distributions",
+    "working .venv"
+  ],
+  "scope": "MassCubeX workspace outputs, masscubex-prefixed /private/tmp items, and the four pytest sessions run for this release. No unrelated projects or original input files removed."
+}

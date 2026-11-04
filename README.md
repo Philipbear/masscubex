@@ -103,7 +103,8 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Compact output and feature-count comparison with original MassCube](benchmarks/results/OUTPUT_AND_COUNTS.md)
 - [Blank/QC EIC review, noise bins and strict MS1 gap filling](benchmarks/results/EIC_REVIEW.md)
 - [Preventing background over-splitting: methods, EICs and validation](benchmarks/results/PEAK_SHAPES.md)
-- [Processing times, worker scaling and two-million-file estimates](benchmarks/results/PERFORMANCE.md)
+- [Current processing times and two-million-file estimates](benchmarks/results/PERFORMANCE_CURRENT.md)
+- [Example feature table (TSV)](examples/NIST_POS_Samp_14-03.features.tsv)
 - [Code structure and numerical development checks](docs/DEVELOPMENT.md)
 
 DIA classification/deconvolution, mobility-resolved feature extraction, library

@@ -15,10 +15,10 @@ class Config:
     tuning_max_peaks: int = 100
     tuning_mz_regions: int | None = None  # Optional equal-width layout; None uses fixed breaks.
     tuning_mz_breaks: tuple[float, ...] = (200.0, 500.0)
-    tuning_min_gaussian_similarity: float = 0.9
+    tuning_min_gaussian_similarity: float = 0.8
     tuning_mass_sigma: float = 3.0
-    tuning_search_ppm: float = 100.0
-    tuning_search_da: float = 0.05
+    tuning_search_ppm: float = 50.0
+    tuning_search_da: float = 0.025
     tuning_peak_limit: int = 128  # Per m/z region in each MS1 scan.
     tuning_block_scans: int = 512
     tuning_block_seconds: float = 120.0

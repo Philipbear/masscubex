@@ -23,7 +23,7 @@ from .pilot_sampling import AcquisitionRange, discover_ranges, strongest_per_reg
 from .readers import MS2Scan, iter_scans
 
 
-POLICY_VERSION = 4
+POLICY_VERSION = 5
 
 
 def config_for(polarity, config, configs=None):
@@ -124,14 +124,24 @@ def select_representatives(candidates, maximum):
 
 
 def _screen_representatives(peaks, config):
-    selected = select_representatives(peaks, config.tuning_max_peaks)
-    before = len(selected)
-    if selected:
-        keep = _inliers([p.fwhm for p in selected]) & _inliers(
-            [p.mass_error_ppm for p in selected], floor=0.5
-        )
-        selected = [p for p, use in zip(selected, keep) if use]
-    return selected, before
+    """Screen the candidate pool before outliers can occupy the final quota."""
+    if not peaks:
+        return [], 0
+    keep = _inliers([p.fwhm for p in peaks]) & _mass_inliers([p.mass_error_ppm for p in peaks])
+    clean = [p for p, use in zip(peaks, keep) if use]
+    return select_representatives(clean, config.tuning_max_peaks), len(peaks)
+
+
+def _mass_inliers(errors_ppm):
+    """Reject an unusually large Q95 error, without excluding precise anchors.
+
+    The 1 ppm additive margin handles zero/quantized residuals. This robust
+    one-sided screen precedes, and is distinct from, the mean + 3 SD fit.
+    """
+    values = np.asarray(errors_ppm, dtype=float)
+    center = np.median(values)
+    robust_sd = 1.4826 * np.median(np.abs(values - center))
+    return values <= center + max(4.5 * robust_sd, 1.0)
 
 
 def _mass_estimate(errors, config, minimum=(0.0005, 5.0)):
@@ -180,7 +190,7 @@ def _screen_precursor_errors(peaks, errors):
     values = [(errors[p], p.mz) for p in peaks if p in errors]
     if not values:
         return []
-    keep = _inliers([e / m * 1e6 for e, m in values], floor=0.5)
+    keep = _mass_inliers([e / m * 1e6 for e, m in values])
     return [value for value, use in zip(values, keep) if use]
 
 
@@ -317,8 +327,8 @@ def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, upd
             values.update(ms2_mz_tolerance_da=pair[0], ms2_mz_tolerance_ppm=pair[1])
             record["ms2_status"] = "tuned"
         estimates.append(values)
-    # Unsupported regions must not inherit a narrower tolerance than any supported
-    # region. If the global fit failed, also retain the configured fallback.
+    # Transfer relative error between mass regions, not an absolute error learned
+    # at an unrelated mass. Supported regions retain their independent Da/ppm fit.
     mass_fields = (
         "mz_tolerance_da",
         "mz_tolerance_ppm",
@@ -327,10 +337,36 @@ def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, upd
         "gapfill_mz_tolerance_da",
         "gapfill_mz_tolerance_ppm",
     )
-    for key in mass_fields:
-        regional_values = [values[key] for values in estimates if key in values]
-        if regional_values:
-            updates[key] = max(updates.get(key, getattr(config, key)), *regional_values)
+    if records:
+        for prefix, status in (
+            ("", info["status"]),
+            ("gapfill_", info["status"]),
+            ("ms2_", info["ms2_status"]),
+        ):
+            if status != "tuned":
+                continue
+            ppm_key = prefix + "mz_tolerance_ppm"
+            updates[prefix + "mz_tolerance_da"] = 0.0005
+            updates[ppm_key] = max(
+                [updates[ppm_key]] + [values[ppm_key] for values in estimates if ppm_key in values]
+            )
+            if prefix in ("", "gapfill_"):
+                # A sparse region borrows a fit from other ions. Its incoming
+                # mass and running trace center can both fluctuate. Combine
+                # their error scales in quadrature for this fallback only;
+                # apply the usual 5 ppm floor and pilot cap afterwards.
+                statistics = [info["ms1_error_statistics"]] + [
+                    r["ms1_error_statistics"] for r in records if "ms1_error_statistics" in r
+                ]
+                relative_error = max(
+                    s["mean_da_ppm"][1] + config.tuning_mass_sigma * s["sample_sd_da_ppm"][1]
+                    for s in statistics
+                )
+                updates[ppm_key] = min(
+                    config.tuning_search_ppm, max(5.0, np.sqrt(2) * relative_error)
+                )
+    info["regional_fallback_policy"] = "ppm_envelope_with_absolute_floor"
+    info["ms1_fallback_transfer_factor"] = float(np.sqrt(2))
     fallback = {key: updates.get(key, getattr(config, key)) for key in mass_fields}
     models = []
     indices = {p: index for index, p in enumerate(union)}
@@ -369,7 +405,7 @@ def calibrate_file(source, config, *, scan_source=None):
     started = time.perf_counter()
     pilot_config = replace(
         config,
-        min_scans=7,
+        min_scans=5,
         max_gap_scans=1,
         group_ions=False,
         mz_tolerance_da=config.tuning_search_da,

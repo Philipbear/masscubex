@@ -87,7 +87,7 @@ def test_fixed_layout_does_not_add_a_range_discovery_pass(tmp_path):
     result = calibrate_file(path, config, scan_source=source)
     assert not result.diagnostics["range_discovery_pass"]
     assert source.stats["reader_passes"] == 1 and source.stats["replay_passes"] == 0
-    assert result.diagnostics["minimum_gaussian_similarity"] == 0.9
+    assert result.diagnostics["minimum_gaussian_similarity"] == 0.8
     assert result.diagnostics["minimum_representatives"] == 20
     single = calibrate_file(path, replace(config, tuning_mz_breaks=()))
     assert len(single.diagnostics["polarities"]["positive"]["pilot_sampling_regions"]) == 1

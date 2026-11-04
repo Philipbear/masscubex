@@ -60,8 +60,8 @@ def test_five_independent_regions_and_mean_plus_sample_sd():
         assert region.ms2_mz_tolerance_ppm == pytest.approx(30)
         assert info["regions"][index]["representative_count"] == 24
         assert info["regions"][index]["ms2_status"] == "tuned"
-    # Fallback is never narrower than a supported region, including outside the range.
-    assert config.mz_tolerance_da >= max(r.mz_tolerance_da for r in config.mass_regions)
+    # Relative errors transfer across regions; absolute errors stay local.
+    assert config.mz_tolerance_da == 0.0005
     assert config.mz_tolerance_ppm >= max(r.mz_tolerance_ppm for r in config.mass_regions)
     assert Config.from_dict(json.loads(json.dumps(config.to_dict()))) == config
 
@@ -69,7 +69,7 @@ def test_five_independent_regions_and_mean_plus_sample_sd():
 def test_sparse_region_falls_back_without_relaxing_quality_or_minimum_count():
     anchors = regional_peaks()[: 24 + 19]
     # Numerous huge, badly shaped peaks cannot rescue the sparse region.
-    anchors += [replace(p, mz=p.mz + 600, height=1e12, gaussian_similarity=0.89) for p in peaks(40)]
+    anchors += [replace(p, mz=p.mz + 600, height=1e12, gaussian_similarity=0.79) for p in peaks(40)]
     config, info = derive_settings(
         anchors, [1] * 30, [], Config(tuning_mz_regions=5), "positive", mass_range=(100, 1100)
     )
@@ -82,6 +82,29 @@ def test_sparse_region_falls_back_without_relaxing_quality_or_minimum_count():
         assert details["ms2_status"] == "file_wide_fallback"
         assert region.ms2_mz_tolerance_da == 0.01
         assert region.ms2_mz_tolerance_ppm == 20
+
+
+def test_high_mass_da_error_is_not_copied_into_low_mass_fallback():
+    anchors = [
+        replace(p, mz=250 + i, mass_error_da=(250 + i) * 2e-6, mass_error_ppm=2)
+        for i, p in enumerate(peaks())
+    ]
+    anchors += [
+        replace(p, mz=1000 + i, mass_error_da=(1000 + i) * 10e-6, mass_error_ppm=10)
+        for i, p in enumerate(peaks())
+    ]
+    config, info = derive_settings(anchors, [1] * 30, [], Config(), "positive")
+    low, _, high = config.mass_regions
+    assert info["regions"][0]["ms1_status"] == "file_wide_fallback"
+    assert high.mz_tolerance_da > 0.01
+    statistics = info["ms1_error_statistics"]
+    expected_ppm = np.sqrt(2) * (
+        statistics["mean_da_ppm"][1] + 3 * statistics["sample_sd_da_ppm"][1]
+    )
+    assert low.mz_tolerance_da == 0.0005 and low.mz_tolerance_ppm == expected_ppm
+    assert mass_radius(150, config) == pytest.approx(150 * expected_ppm * 1e-6)
+    assert mass_radius(150, config) < 0.004
+    assert mass_radius(150, config, "gapfill") == mass_radius(150, config)
 
 
 @pytest.mark.parametrize("polarity", ["positive", "negative", "unknown"])
@@ -216,7 +239,7 @@ def test_gaussian_gate_uses_raw_baseline_corrected_shape():
     trace = np.column_stack((np.full(len(t), 200.0), y, t, np.zeros(len(t))))
     loose, reason = representative(trace, Config(tuning_min_gaussian_similarity=0))
     assert reason is None and loose.gaussian_similarity < 0.9
-    strict, reason = representative(trace, Config())
+    strict, reason = representative(trace, Config(tuning_min_gaussian_similarity=0.9))
     assert strict is None and reason == "poor_gaussian_shape"
 
 

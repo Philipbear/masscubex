@@ -1,5 +1,30 @@
 # MassCubeX validation
 
+## Version 0.15.0: robust calibration with five observed scans
+
+**713 source tests + 713 isolated installed-wheel tests pass.** The pilot uses
+±max(0.025 Da, 50 ppm), at least five observed MS1 scans, three central mass
+measurements, Gaussian similarity ≥0.80, and the unchanged 20-anchor minimum.
+Mass outliers are screened before the representative quota. Sparse regions
+transfer relative ppm uncertainty with a √2 MS1 margin and 0.0005 Da floor,
+without copying high-mass Da errors to low mass. The margin fixes an oscillating
+mass-error regression caught by the full polarity-switching fixtures.
+
+The independent audit of all 50 files checks **125,266 MS2 scans exactly once**,
+with **zero unassigned scans**, and **158,340 seeded MS1 sample measurements**.
+Output contains **738,191 features: 733,792 detected + 4,399 MS/MS-seeded**.
+All 738,191 typed Parquet/TSV rows agree; serial and four-worker tables are identical.
+The real dataset is positive-mode centroid mzXML; profile inputs, negative mode,
+polarity switching, corruption, resume and parallel processing have automated
+fixture coverage. These checks do not establish chemical identity or absolute
+mass accuracy.
+
+See [current speed measurements](PERFORMANCE_CURRENT.md),
+[the complete example TSV](../../examples/NIST_POS_Samp_14-03.features.tsv),
+[raw-data audit](MSV000086989-ms2-v0.15.0.json), and
+[source/wheel fingerprint](release-v0.15.0.json).
+
+
 ## Version 0.14.0: strongest 128 centroids per mass region
 
 **708 source tests + 708 installed-wheel tests pass.** Calibration selects up to
@@ -11,6 +36,10 @@ of **8 / 50 / 8**. All 50 files now have a supported global MS1 fit.
 
 The raw-data audit preserves all **125,266 MS2 scans** and verifies 175,287 seeded
 quantification sample points. See [regional sampling and paired timings](REGIONAL_SAMPLING.md).
+All **748,062 typed Parquet/TSV rows agree**. Three paired serial passes give a
+median **53.43 s per 50 files**, versus 48.20 s with global sampling (+10.9%);
+calibration accounts for most of the increase. Reference-feature coverage by
+local mass fits rises from 57.7% to 64.9%.
 
 ## Version 0.13.0: compare fixed mass regions and diagnose sparse calibration
 
@@ -710,7 +739,10 @@ The downloader uses anonymous **encrypted FTP**, which the service now requires.
 The converted mzML directory denied anonymous access during this session, so
 original public mzXML exports were used. Downloaded data are excluded from Git.
 
-Per-file outputs are in `validation/MSV000086989/features/`. The complete public
+Historical per-file outputs were generated under `validation/MSV000086989/`;
+redundant generated tables were removed during cleanup. Re-run the versioned
+audit/benchmark commands to regenerate them. The original 50 downloaded files
+and manifest remain locally available. The complete public
 manifest, input checksums, parameters, per-file metrics and output checksums are
 in [MSV000086989.json](MSV000086989.json). That report also records the source and
 dependency fingerprint used by resume validation.

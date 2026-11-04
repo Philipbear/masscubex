@@ -38,7 +38,10 @@ float64 bits. Differential tests compare numerical measurements tightly and
 require identical boundaries, counts and identifiers. Do not replace those
 checks with a feature-count-only comparison.
 
-Run `pytest -q` and `ruff check src tests benchmarks`. Tests include independent
+During development, keep changes local and run focused checks appropriate to the
+change. Create PRs or publish changes only when requested; run the full release
+checks when the user approves publication. For release validation, run
+`pytest -q` and `ruff check src tests benchmarks`. Tests include independent
 SciPy comparisons, exhaustive small plateau/distance cases, corrupted inputs,
 profile scans, polarity switching, cache overflow/disable paths, atomic output,
 and Parquet/TSV round trips. `NUMBA_DISABLE_JIT=1` is useful for debugging selected

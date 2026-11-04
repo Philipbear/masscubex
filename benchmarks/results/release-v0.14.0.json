@@ -20,5 +20,7 @@
   "raw_files": 50,
   "ms2_scans_audited": 125266,
   "source_junit": "validation/regional-sampling-v0.14/source-tests.xml",
-  "wheel_junit": "validation/regional-sampling-v0.14/wheel-tests.xml"
+  "wheel_junit": "validation/regional-sampling-v0.14/wheel-tests.xml",
+  "typed_parquet_tsv_rows_compared": 748062,
+  "paired_serial_benchmark_repeats": 3
 }

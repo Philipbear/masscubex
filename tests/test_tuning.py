@@ -109,6 +109,47 @@ def test_valid_representative_and_deterministic_learning():
     assert a == b and ai == bi
 
 
+def test_five_real_scans_support_calibration_but_missing_scans_do_not():
+    t = np.arange(5.0)
+    y = 1e6 * np.exp(-0.5 * (t - 2) ** 2)
+    trace = np.column_stack((150 + 1e-5 * t, y, t, np.zeros(5)))
+    peak, reason = representative(trace, Config())
+    assert reason is None and peak.observations == 3
+    assert peak.width > peak.fwhm > 0
+    trace[0, 1] = 0  # Four measured scans plus a tracker zero are not five scans.
+    assert representative(trace, Config()) == (None, "short_trace")
+
+
+def test_missing_scan_cannot_manufacture_a_peak_flank():
+    t = np.arange(7.0)
+    y = np.array([1, 10, 40, 70, 90, 100, 0.0]) * 1e4
+    trace = np.column_stack((np.full(7, 150.0), y, t, np.zeros(7)))
+    assert representative(trace, Config()) == (None, "truncated_peak")
+
+
+def test_background_and_minor_secondary_peak_do_not_veto_good_main_peak():
+    t = np.linspace(0, 40, 161)
+    main = 1e6 * np.exp(-0.5 * ((t - 10) / 2) ** 2)
+    second = 4e5 * np.exp(-0.5 * ((t - 25) / 1) ** 2)
+    y = 1e7 + main + second
+    mz = np.where(t < 20, 150.0, 150.005)
+    trace = np.column_stack((mz, y, t, np.zeros(len(t))))
+    peak, reason = representative(trace, Config())
+    assert reason is None and peak.gaussian_similarity >= 0.8
+    assert peak.mz == 150 and peak.mass_error_da == 0
+    trace[np.argmax(main), 3] = 1
+    assert representative(trace, Config()) == (None, "competing_mass")
+
+
+def test_mass_outliers_are_removed_before_the_representative_quota():
+    from masscubex.tuning import _screen_representatives
+
+    good = peaks(20)
+    bad = [replace(p, height=1e12, mass_error_da=p.mz * 50e-6, mass_error_ppm=50) for p in peaks(8)]
+    selected, before = _screen_representatives(good + bad, Config(tuning_max_peaks=20))
+    assert before == 28 and set(selected) == set(good)
+
+
 def test_cli_defaults_and_explicit_default_value_lock(capsys):
     import json
 

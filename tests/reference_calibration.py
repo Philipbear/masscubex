@@ -2,7 +2,6 @@
 
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
-from scipy.signal import find_peaks
 from masscubex.tuning import Representative
 
 
@@ -23,7 +22,7 @@ def _crossings(t, y, apex, level):
 
 def representative(trace, config):
     """Require a resolved, complete rise/fall and a stable central mass trace."""
-    if len(trace) < 7:
+    if len(trace) < 5 or np.count_nonzero(trace[:, 1] > 0) < 5:
         return None, "short_trace"
     mz, y, t, competing = trace.T
     if not np.all(np.isfinite(trace)) or np.max(y) <= 0:
@@ -32,24 +31,24 @@ def representative(trace, config):
     baseline = float(np.quantile(y, 0.1))
     apex = int(np.argmax(smooth))
     amplitude = float(smooth[apex] - baseline)
-    if amplitude <= 0.5 * float(y.max()):
-        return None, "flat_or_low_contrast"
-    peaks, _ = find_peaks(smooth, prominence=amplitude * 0.3)
-    if len(peaks) != 1 or peaks[0] != apex:
-        return None, "multiple_or_edge_peaks"
+    if amplitude <= 0:
+        return None, "flat_trace"
     if np.count_nonzero(y == y.max()) >= max(3, len(y) // 3):
         return None, "plateau"
-    central = y >= baseline + amplitude * 0.5
-    if np.count_nonzero(central) < 5:
+    observed_flank = (y > 0) & (y <= baseline + amplitude * 0.5)
+    if not np.any(observed_flank & (t < t[apex])) or not np.any(observed_flank & (t > t[apex])):
+        return None, "truncated_peak"
+    half = _crossings(t, smooth, apex, baseline + amplitude * 0.5)
+    outer = _crossings(t, smooth, apex, baseline + amplitude * 0.1)
+    if outer is None:
+        outer = _crossings(t, y, int(np.argmax(y)), baseline + amplitude * 0.1)
+    if half is None or outer is None:
+        return None, "truncated_peak"
+    central = (y >= baseline + amplitude * 0.5) & (t >= half[0]) & (t <= half[1])
+    if np.count_nonzero(central) < 3:
         return None, "undersampled_peak"
     if np.any(competing[central] > 0):
         return None, "competing_mass"
-    half = _crossings(t, smooth, apex, baseline + amplitude * 0.5)
-    outer = _crossings(t, smooth, apex, baseline + amplitude * 0.1)
-    if half is None or outer is None:
-        return None, "truncated_peak"
-    if np.sum(np.abs(np.diff(smooth))) > 4 * amplitude:
-        return None, "rough_trace"
     center = float(np.median(mz[central]))
     error = float(np.quantile(np.abs(mz[central] - center), 0.95))
     search = max(config.tuning_search_da, center * config.tuning_search_ppm * 1e-6)

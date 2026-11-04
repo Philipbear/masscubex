@@ -1,0 +1,28 @@
+{
+  "version": "0.15.0",
+  "implementation_sha256": "a0912eedb3bec2680077841a7f5ba9b85c8477e4b562d43b7b1e718e46885aa7",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pyarrow": "17.0.0",
+    "pynumpress": "0.0.9"
+  },
+  "source_tests": 713,
+  "installed_wheel_tests": 713,
+  "wheel_sha256": "67a5015f2209ffe595b036868bef341ce067846d03ffcb477faf42467c370189",
+  "raw_files": 50,
+  "ms2_scans_audited": 125266,
+  "seeded_ms1_sample_points_audited": 158340,
+  "source_junit": "validation/release-v0.15/source-tests.xml",
+  "wheel_junit": "validation/release-v0.15/wheel-tests.xml",
+  "typed_parquet_tsv_rows_compared": 738191,
+  "independent_ms1_regional_fits": [
+    50,
+    50,
+    50
+  ],
+  "benchmark_repeats": 3,
+  "serial_four_worker_tables_identical": true
+}

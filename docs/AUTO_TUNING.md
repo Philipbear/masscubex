@@ -1,6 +1,7 @@
 # Per-file calibration and polarity switching
 
-Version 0.14 uses calibration policy 4: region-stratified pilot sampling, Gaussian-qualified representatives,
+MassCubeX 0.15.0 uses calibration policy 5: region-stratified pilot
+sampling, Gaussian-qualified representatives,
 three fixed m/z regions (0–200 / 200–500 / 500+), and mean + 3 sample SD mass-error margins.
 Output defaults to Parquet; the calculations apply equally to TSV.
 
@@ -13,7 +14,7 @@ Neither the noise settings nor the ion-grouping mass tolerance is auto-tuned.
 ## Broad search, then qualified representatives
 
 An additional streaming pass precedes feature detection. The pilot mass radius is
-`max(0.05 Da, m/z × 100 ppm)` on each side, configurable with
+`max(0.025 Da, m/z × 50 ppm)` on each side, configurable with
 `--tuning-search-da` and `--tuning-search-ppm`. Positive, negative and unknown
 MS1 streams have independent trackers. A scan of the other polarity never
 increments a trace's missed-scan count.
@@ -31,7 +32,8 @@ if another centroid in its broad mass interval has at least 20% of its intensity
 this check uses the complete centroided scan, including unselected centroids
 and neighbors across region boundaries.
 
-Pilot traces need at least 7 observations and allow one missing same-polarity
+Pilot traces need at least 5 observed MS1 scans (inserted missing-scan zeros do
+not count) and allow one missing same-polarity
 scan. They use the configured trace time-gap limit. Trackers flush after 512
 same-polarity scans or 120 seconds; a peak cut at a block boundary cannot be
 accepted without both flanks. Limits are configurable. This bounds pilot trace
@@ -42,20 +44,24 @@ Each candidate is screened as follows:
 
 1. Require finite values and a positive maximum. Smooth intensity with a
    Gaussian σ of 0.6 observations for this pilot quality check only.
-2. Set the baseline to the raw intensity 10th percentile. Require the smoothed
-   apex above baseline by more than half the raw maximum.
-3. Require one internal maximum with prominence at least 30% of that amplitude.
-   Reject plateaus where the raw maximum repeats at least `max(3, n // 3)` times.
-4. Require at least 5 raw observations above baseline plus half the amplitude,
-   with no competing-mass flag among them.
-5. Interpolate both half-height and 10%-height crossings on each side of the
-   smoothed peak. Reject missing flanks and total smoothed variation above
-   four times the amplitude.
-6. Use the median mass of the central observations as the representative mass.
-   Its mass error is the 95th percentile of absolute deviations from that
-   median. Reject error above 40% of the pilot mass radius.
+2. Set the baseline to the raw intensity 10th percentile. Require positive
+   excess at the smoothed apex. There is no separate relative-contrast cutoff
+   or single-maximum veto; Gaussian similarity handles overall shape.
+3. Reject plateaus where the raw maximum repeats at least `max(3, n // 3)` times.
+   Require a positive, observed point below half excess height on each side of
+   the apex. Missing-scan zeros cannot manufacture a measured flank.
+4. Interpolate half-height and 10%-height crossings on both sides. If smoothing
+   raises a short trace's endpoints above the 10% level, use the raw-intensity
+   crossings for that outer width. Reject incomplete crossings. The separate
+   total-variation veto has been removed.
+5. Require at least **3 central mass observations**, above baseline plus half
+   the amplitude and inside the main apex's half-height interval. Keep the
+   competing-mass rejection for these observations. Secondary maxima outside
+   this interval cannot supply central mass measurements or inflate their count.
+6. Use the median central mass; its error is Q95 of absolute deviations from
+   that median. Reject error above 40% of the pilot mass radius.
 
-7. Require symmetric Gaussian similarity **≥0.90**, configurable with
+7. Require symmetric Gaussian similarity **≥0.80**, configurable with
    `--tuning-min-gaussian-similarity`. Use the original intensities after
    subtracting the baseline above and clipping negative excess to zero; do not
    use the smoothed curve. The Gaussian is centered on the raw excess apex;
@@ -79,14 +85,24 @@ each selection, not an overall cap of 100 across all regions. The
 [sampling comparison](../benchmarks/results/REGIONAL_SAMPLING.md) measures
 coverage and time against the previous global top-128 selection.
 
-Before estimation, screen FWHM and per-peak mass error in ppm independently in
-each selection using log-space MAD: retain values within
-`max(4.5 × 1.4826 × MAD, log(4))` of the median log value. For mass error,
-values below 0.5 ppm share a floor so quantized exports do not reject every
-nonzero deviation. Regional screening is independent of global screening:
-a genuinely less precise m/z region is not discarded simply because other
-regions have lower errors. Require **at least 20 surviving peaks** for each
-local MS1 fit. The minimum can be increased, never reduced below 20.
+Before selecting the final representatives, screen the full retained candidate
+pool independently for each region and globally. FWHM retains the log-MAD
+screen: deviations from the median log width must be within
+`max(4.5 × 1.4826 × MAD, log(4))`. For per-peak mass error in ppm, use a one-sided
+upper screen:
+
+```text
+upper error = median(error_ppm) + max(4.5 × 1.4826 × MAD(error_ppm), 1 ppm)
+```
+
+Precise anchors are never removed for being below this distribution. The additive
+1 ppm margin prevents zero/quantized masses from excluding every nonzero error.
+This screen precedes the intensity/stratification quota, so rejected high-intensity
+outliers do not occupy the final 100 slots. Regional screening remains independent
+of global screening. After screening, apply the m/z/RT-stratified selection above.
+Require **at least 20 surviving peaks** for each local MS1 fit; this evidence
+minimum is unchanged. `representatives_before_outlier_screen` now counts the
+whole retained candidate pool before screening and the final selection cap.
 
 ## Fixed mass regions and optional equal-width regions
 
@@ -163,20 +179,33 @@ union of global and regional representatives, including across region edges;
 selecting a region cannot hide a competitor. Isolation-target-only masses do
 not calibrate precursor accuracy. For each distinct representative, take Q95
 of its absolute precursor-to-MS1-median mass differences. Screen those per-peak
-ppm errors with the same log-MAD rule and 0.5 ppm floor, independently per region.
+ppm errors with the same one-sided median/MAD rule, independently per region.
 Require **20 distinct peaks with MS2 evidence**, not 20 spectra from one peak.
 Then compute mean + k sample SD in Da and ppm, with each component at least the
 corresponding local MS1 estimate, and cap at the pilot components.
 
 A region with insufficient evidence does **not** lower its shape threshold or
-minimum count. Its fallback is the component-wise maximum of the successful
-file-wide estimate and all supported regional estimates. If the file-wide fit
-is unsupported, retain configured fallback values as well. MS1 and precursor
-fallbacks are independent. An unsupported MS2 region retains at least the local
-MS1 estimate unless explicitly overridden. With fewer than 20 global anchors,
-unknown polarity or no usable cadence, retain configured mass settings instead
-of fitting regions. Default unsupported MS1 is ±max(0.002 Da, 10 ppm); default
-unsupported MS2 is ±max(0.01 Da, 20 ppm).
+minimum count. When file-wide calibration is supported, its fallback uses
+**0.0005 Da and a ppm envelope** across the file-wide and supported regional
+fits. For MS1 and its gap filling, multiply the largest unfloored
+`mean + 3 SD` ppm estimate by √2 before applying the 5 ppm floor and pilot cap.
+This fallback-only transfer margin allows for variation in both a newly arriving
+centroid and the running trace center; it is a conservative heuristic, not a
+coverage guarantee. Supported local fits retain the unmultiplied mean + 3 SD rule.
+MS2 precursor fallback uses the fitted ppm envelope without this tracing margin. The final radius remains the maximum of the Da and
+ppm terms, not their sum. Absolute Da estimates from other mass regions are
+never copied into this fallback: an error measured around m/z 1000 should not
+be applied unchanged at m/z 150. Supported regions keep their independently
+estimated Da/ppm pairs. The ppm envelope remains conservative and can exceed
+any one regional estimate because the file-wide distribution can be broader.
+
+MS1 and precursor fallbacks have independent evidence requirements. An
+unsupported MS2 region retains at least its local MS1 components unless explicitly
+overridden. If file-wide evidence is insufficient, keep the configured fallback
+for that kind of tolerance. With fewer than 20 global anchors, unknown polarity or
+no usable cadence, retain configured mass settings instead of fitting regions.
+Default uncalibrated MS1 is ±max(0.002 Da, 10 ppm); default uncalibrated MS2 is
+±max(0.01 Da, 20 ppm). Explicit user overrides remain protected.
 
 The lookup applies to MS1 trace tracking, MS2 association, preceding-MS1
 precursor-intensity lookup, seeded-feature reuse, and raw gap filling. A trace
@@ -185,7 +214,7 @@ precursor m/z. Gap filling inherits the local MS1 pair, with its physical radius
 always capped at the local MS1 radius; narrower overrides are honored. Ion
 adduct/fragment grouping still uses its explicit 0.002 Da / 10 ppm defaults.
 
-Global scalar settings in each effective config are the **fallback envelope**;
+Global scalar settings in each effective config are the **fallback settings**;
 `mass_regions` contains the actual per-region settings. The sidecar records
 layout, boundaries, range source, invalid-metadata counts, shape rejections, selected representative
 indices and scores, local counts, means, sample SDs, estimated/effective settings

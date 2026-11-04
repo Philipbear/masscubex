@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--directory", type=Path, default=Path("validation/MSV000086989"))
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
-    parser.add_argument("--format", choices=["tsv", "parquet"], default="tsv")
+    parser.add_argument("--format", choices=["tsv", "parquet"], default="parquet")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--limit", type=int)
@@ -57,7 +57,23 @@ def main():
             ) as pool:
                 outcomes = list(pool.map(job, tasks))
         elapsed = time.perf_counter() - start
-        rounds.append({"wall_seconds": elapsed, "files": outcomes})
+        assert all(row["status"] == "ok" for row in outcomes), outcomes
+        # Read provenance outside the timed interval; retain every pass's stage
+        # totals and hashes rather than presenting the last pass as a median.
+        stages = Counter()
+        hashes = []
+        for _, output in tasks:
+            metadata = json.loads(Path(str(output) + ".json").read_text())
+            stages.update(metadata.get("timings_seconds", {}))
+            hashes.append(metadata["output_sha256"])
+        rounds.append(
+            {
+                "wall_seconds": elapsed,
+                "files": outcomes,
+                "stage_seconds": dict(stages),
+                "output_sha256": hashes,
+            }
+        )
         print(
             json.dumps({"repeat": repeat + 1, "files": len(tasks), "seconds": elapsed}), flush=True
         )
@@ -88,6 +104,13 @@ def main():
         metadata = json.loads(Path(str(output) + ".json").read_text())
         stages.update(metadata.get("timings_seconds", {}))
     report["stage_seconds_last_repeat"] = dict(stages)
+    report["stage_median_seconds"] = {
+        key: statistics.median(r["stage_seconds"][key] for r in rounds) for key in stages
+    }
+    report["repeated_outputs_identical"] = all(
+        r["output_sha256"] == rounds[0]["output_sha256"] for r in rounds
+    )
+    assert report["repeated_outputs_identical"]
     if args.workers == 1:
         try:
             import resource

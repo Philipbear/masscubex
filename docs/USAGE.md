@@ -269,17 +269,21 @@ Only explicitly centroided MS2 supplies fragment-mass evidence for grouping.
 ## Automatic settings and polarity switching
 
 Calibration and ion grouping run by default. The pilot starts at
-±max(0.05 Da, 100 ppm), then requires at least 20 qualified strong peaks per
+±max(0.025 Da, 50 ppm), then requires at least 20 qualified strong peaks per
 polarity; precursor mass matching needs evidence from at least 20 distinct
-MS1 representatives with MS2. Unsupported estimates retain configured fallback
-values and report the reason. Calibration anchors require Gaussian similarity
-≥0.90 (`--tuning-min-gaussian-similarity`). Mass fits use fixed m/z regions
+MS1 representatives with MS2. Unsupported file-wide estimates retain configured
+fallback values and report the reason. Calibration anchors require Gaussian similarity
+≥0.80 (`--tuning-min-gaussian-similarity`). Mass fits use fixed m/z regions
 **0–200 / 200–500 / 500+** (`--tuning-mz-breaks 200 500`), with at least 20 representatives
 per local fit and a file-wide fallback for sparse regions. The pilot selects
 the strongest 128 centroids **per region per scan** (`--tuning-peak-limit`),
 up to 384 per scan with the default three regions. Each mass component
 uses mean + 3 sample SD of screened per-peak absolute-error summaries;
 `--tuning-mass-sigma 5` widens this margin. Noise remains fixed at μ + 3σ.
+Anchors need five observed MS1 scans, with three central mass measurements.
+Sparse regions borrow the calibrated ppm envelope with a √2 MS1 transfer margin
+and a 0.0005 Da floor;
+absolute Da errors from other mass regions are not transferred.
 
 ```bash
 masscubex extract study -o results --tuning-mz-breaks 200 500 --tuning-mass-sigma 3
