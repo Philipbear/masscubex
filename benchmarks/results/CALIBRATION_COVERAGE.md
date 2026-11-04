@@ -52,7 +52,7 @@ so changes in output feature count do not bias the comparison.
 | Warm serial extraction time, all 50 files | 45.70 s | 46.16 s |
 
 Three regions are the preferred starting default **for this cohort at the
-current quality settings**: splitting 200–500 creates an extra region that
+current quality settings**: splitting the middle mass range creates an extra region that
 rarely has its own fit, without improving the held-out check. Broader-region
 coverage alone does not establish better mass accuracy. Blank_00 has only 19
 accepted global anchors and retains configured mass settings throughout.
@@ -119,6 +119,9 @@ accuracy and throughput validation rather than treating fit counts as the goal.
 - **689 source tests and 689 installed-wheel tests pass**, plus lint. New cases
   cover fixed/custom boundaries, an unbounded tail, metadata independence,
   JSON round trips, invalid layouts and legacy CLI behavior.
+  All [12 CI configurations](https://github.com/Philipbear/masscubex/actions/runs/41779617877)
+  also pass source and installed-wheel tests: Linux, macOS and Windows with
+  Python 3.10–3.13, on implementation commit `697b0f4`.
 - The independent Pyteomics audit accounts for **125,266/125,266 MS2 scans**:
   120,964 match detected features and 4,302 have seeded features. It also checks
   157,324 raw seeded-quantification sample points. There are 4,143 measured seeds,

@@ -31,5 +31,22 @@
   "ms2_scans_audited": 125266,
   "typed_parquet_tsv_rows_compared": 747913,
   "source_junit": "validation/calibration-coverage-v0.13/source-tests.xml",
-  "wheel_junit": "validation/calibration-coverage-v0.13/wheel-tests.xml"
+  "wheel_junit": "validation/calibration-coverage-v0.13/wheel-tests.xml",
+  "ci": {
+    "implementation_commit": "697b0f487aa41ef62d522d7f4532529914cd5b28",
+    "url": "https://github.com/Philipbear/masscubex/actions/runs/41779617877",
+    "configurations": 12,
+    "all_source_and_installed_wheel_jobs": "success",
+    "systems": [
+      "ubuntu-latest",
+      "macos-latest",
+      "windows-latest"
+    ],
+    "python_versions": [
+      "3.10",
+      "3.11",
+      "3.12",
+      "3.13"
+    ]
+  }
 }

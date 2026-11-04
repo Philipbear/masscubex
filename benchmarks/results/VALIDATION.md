@@ -2,7 +2,9 @@
 
 ## Version 0.13.0: compare fixed mass regions and diagnose sparse calibration
 
-**689 source tests + 689 installed-wheel tests pass.** The default mass regions
+**689 source tests + 689 installed-wheel tests pass**, as do all
+[12 OS/Python CI configurations](https://github.com/Philipbear/masscubex/actions/runs/41779617877).
+The default mass regions
 are now 0–200 / 200–500 / 500+. Gaussian ≥0.90, 20 anchors and mean + 3 sample SD
 are unchanged. On 50 files, the three-region layout places 57.7% of a common
 detected-feature reference in supported regions versus 48.5% for four regions;

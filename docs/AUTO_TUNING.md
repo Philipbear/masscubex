@@ -93,8 +93,9 @@ the region, but its matching interval may cross a region boundary.
 Use `--tuning-mz-breaks 200 400 600` for four regions or supply other strictly
 increasing positive boundaries. The last region is unbounded, represented as
 `"upper": null` in JSON; infinity is used only inside numerical lookup arrays.
-Python/JSON `tuning_mz_breaks` defaults to `[200, 500]`; an empty list creates
-one unbounded region. `tuning_mz_regions` defaults to `null` and an explicit
+JSON `tuning_mz_breaks` defaults to `[200, 500]`; Python uses the immutable tuple
+`(200.0, 500.0)`. An empty JSON list or Python tuple creates one unbounded region.
+`tuning_mz_regions` defaults to `null` in JSON (`None` in Python), and an explicit
 integer selects the older equal-width layout instead. A CLI boundary list
 overrides a region count loaded from JSON; the two CLI options are mutually
 exclusive.
