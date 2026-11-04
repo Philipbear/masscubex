@@ -1,0 +1,1332 @@
+{
+  "version": "0.8.0",
+  "implementation_sha256": "b03a239867c8a0932b84dd6eb5a2235a6b013467ac5909ac691b6a71cdacea5a",
+  "dependencies": {
+    "numpy": "1.26.0",
+    "numba": "0.60.0",
+    "scipy": "1.13.1",
+    "lxml": "5.2.2",
+    "pyarrow": "17.0.0",
+    "pynumpress": "0.0.9"
+  },
+  "python": "3.10.12",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "config": {
+    "scan_cache_mb": 64.0,
+    "auto_tune": true,
+    "tuning_min_peaks": 20,
+    "tuning_max_peaks": 100,
+    "tuning_search_ppm": 100.0,
+    "tuning_search_da": 0.05,
+    "tuning_peak_limit": 128,
+    "tuning_block_scans": 512,
+    "tuning_block_seconds": 120.0,
+    "tuning_locked": [],
+    "mz_tolerance_ppm": 10.0,
+    "mz_tolerance_da": 0.002,
+    "noise_mode": "adaptive",
+    "noise_estimator": "low_tail",
+    "noise_fraction": 0.1,
+    "noise_window_da": 50.0,
+    "noise_sigma": 3.0,
+    "noise_clip_sigma": 2.0,
+    "noise_iterations": 2,
+    "noise_min_neighbors": 5,
+    "min_intensity": 0.0,
+    "min_scans": 5,
+    "max_gap_scans": 2,
+    "max_gap_seconds": 15.0,
+    "segment": true,
+    "smoothing_sigma": 0.6,
+    "smoothing_seconds": 0.0,
+    "peak_prominence": 0.1,
+    "peak_distance": 3,
+    "peak_distance_seconds": 0.0,
+    "assume_centroid": false,
+    "profile_mode": "centroid",
+    "profile_min_points": 3,
+    "profile_gap_factor": 4.0,
+    "quant_method": "peak_height",
+    "associate_ms2": true,
+    "ms2_mz_tolerance_ppm": 20.0,
+    "ms2_mz_tolerance_da": 0.01,
+    "ms2_rt_tolerance": 2.0,
+    "ms2_max_isolation_width": 0.0,
+    "ms2_seeded_features": true,
+    "ms2_gapfill_rt_window": 5.0,
+    "ms2_seed_rt_tolerance": 5.0,
+    "gapfill_mz_tolerance_ppm": 10.0,
+    "gapfill_mz_tolerance_da": 0.002,
+    "precursor_max_age_seconds": 15.0,
+    "gapfill_max_gap_seconds": 15.0,
+    "best_ms2": "fragment_intensity",
+    "group_ions": true,
+    "group_isf": true,
+    "adduct_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      22,
+      23
+    ],
+    "custom_adducts": [],
+    "group_mz_tolerance_ppm": 10.0,
+    "group_mz_tolerance_da": 0.002,
+    "group_rt_tolerance": 3.0,
+    "group_min_scans": 5,
+    "group_min_correlation": 0.9,
+    "group_min_overlap": 0.5,
+    "isf_min_relative_intensity": 0.05,
+    "isf_max_peaks": 100
+  },
+  "format": "parquet",
+  "workers": 4,
+  "repeats": 3,
+  "input_files": 50,
+  "input_bytes": 604070716,
+  "output_bytes": 85710509,
+  "sidecar_bytes": 2452916,
+  "median_wall_seconds": 16.9131084587425,
+  "rounds": [
+    {
+      "wall_seconds": 17.58315325016156,
+      "files": [
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_01-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_01-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24980,
+          "ms1_scans": 923,
+          "elapsed_seconds": 1.4676937917247415
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_01-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_01-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26382,
+          "ms1_scans": 956,
+          "elapsed_seconds": 1.4959684577770531
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24546,
+          "ms1_scans": 925,
+          "elapsed_seconds": 1.4659513332881033
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26777,
+          "ms1_scans": 976,
+          "elapsed_seconds": 1.4958962090313435
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27695,
+          "ms1_scans": 985,
+          "elapsed_seconds": 1.1580182500183582
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_03-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_03-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26117,
+          "ms1_scans": 970,
+          "elapsed_seconds": 1.1189044998027384
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_03-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_03-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27016,
+          "ms1_scans": 949,
+          "elapsed_seconds": 1.14020633418113
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_04-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_04-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26830,
+          "ms1_scans": 991,
+          "elapsed_seconds": 1.1350118340924382
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_04-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_04-03.mzXML.parquet",
+          "status": "ok",
+          "features": 28978,
+          "ms1_scans": 1000,
+          "elapsed_seconds": 1.192467208020389
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_05-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_05-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24858,
+          "ms1_scans": 958,
+          "elapsed_seconds": 1.128942041657865
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_05-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_05-03.mzXML.parquet",
+          "status": "ok",
+          "features": 29457,
+          "ms1_scans": 1025,
+          "elapsed_seconds": 1.2371827499009669
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_06-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_06-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24140,
+          "ms1_scans": 953,
+          "elapsed_seconds": 1.091292249970138
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_06-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_06-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26911,
+          "ms1_scans": 985,
+          "elapsed_seconds": 1.1686744997277856
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-01.mzXML.parquet",
+          "status": "ok",
+          "features": 22595,
+          "ms1_scans": 906,
+          "elapsed_seconds": 1.0865089581348002
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-02.mzXML.parquet",
+          "status": "ok",
+          "features": 24970,
+          "ms1_scans": 943,
+          "elapsed_seconds": 1.14220712473616
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26269,
+          "ms1_scans": 952,
+          "elapsed_seconds": 1.162402416113764
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_08-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_08-02.mzXML.parquet",
+          "status": "ok",
+          "features": 25059,
+          "ms1_scans": 941,
+          "elapsed_seconds": 1.1032976671122015
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_08-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_08-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26641,
+          "ms1_scans": 947,
+          "elapsed_seconds": 1.1436125836335123
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_09-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_09-01.mzXML.parquet",
+          "status": "ok",
+          "features": 23186,
+          "ms1_scans": 917,
+          "elapsed_seconds": 1.073393624741584
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_09-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_09-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26771,
+          "ms1_scans": 962,
+          "elapsed_seconds": 1.1462734593078494
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_10-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_10-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24517,
+          "ms1_scans": 931,
+          "elapsed_seconds": 1.10164445778355
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_10-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_10-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27889,
+          "ms1_scans": 970,
+          "elapsed_seconds": 1.1688069999217987
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_11-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_11-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24096,
+          "ms1_scans": 951,
+          "elapsed_seconds": 1.0797236673533916
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_11-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_11-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26460,
+          "ms1_scans": 978,
+          "elapsed_seconds": 1.1342132077552378
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24600,
+          "ms1_scans": 949,
+          "elapsed_seconds": 1.1288365833461285
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-02.mzXML.parquet",
+          "status": "ok",
+          "features": 27111,
+          "ms1_scans": 989,
+          "elapsed_seconds": 1.141778124962002
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27497,
+          "ms1_scans": 972,
+          "elapsed_seconds": 1.1574162091128528
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_13-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_13-02.mzXML.parquet",
+          "status": "ok",
+          "features": 27364,
+          "ms1_scans": 999,
+          "elapsed_seconds": 1.1356714167632163
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_13-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_13-03.mzXML.parquet",
+          "status": "ok",
+          "features": 29309,
+          "ms1_scans": 1001,
+          "elapsed_seconds": 1.2202747920528054
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_14-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26015,
+          "ms1_scans": 976,
+          "elapsed_seconds": 1.1077470420859754
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_14-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31336,
+          "ms1_scans": 1017,
+          "elapsed_seconds": 1.2837608749978244
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_15-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_15-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26352,
+          "ms1_scans": 966,
+          "elapsed_seconds": 1.1442392910830677
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_15-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_15-02.mzXML.parquet",
+          "status": "ok",
+          "features": 28666,
+          "ms1_scans": 1000,
+          "elapsed_seconds": 1.1645119166933
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_16-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_16-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26022,
+          "ms1_scans": 990,
+          "elapsed_seconds": 1.1261264174245298
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_16-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_16-02.mzXML.parquet",
+          "status": "ok",
+          "features": 29905,
+          "ms1_scans": 1026,
+          "elapsed_seconds": 1.1919210841879249
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-01.mzXML.parquet",
+          "status": "ok",
+          "features": 25895,
+          "ms1_scans": 973,
+          "elapsed_seconds": 1.1270833336748183
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-02.mzXML.parquet",
+          "status": "ok",
+          "features": 28041,
+          "ms1_scans": 1003,
+          "elapsed_seconds": 1.135045959148556
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31215,
+          "ms1_scans": 1046,
+          "elapsed_seconds": 1.269567333161831
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_18-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_18-02.mzXML.parquet",
+          "status": "ok",
+          "features": 30359,
+          "ms1_scans": 1050,
+          "elapsed_seconds": 1.2047326671890914
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_18-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_18-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31657,
+          "ms1_scans": 1051,
+          "elapsed_seconds": 1.2725906250998378
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_00.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_00.mzXML.parquet",
+          "status": "ok",
+          "features": 34453,
+          "ms1_scans": 1349,
+          "elapsed_seconds": 1.2922997917048633
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_01-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_01-02.mzXML.parquet",
+          "status": "ok",
+          "features": 45489,
+          "ms1_scans": 1659,
+          "elapsed_seconds": 1.5879174158908427
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_05-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_05-03.mzXML.parquet",
+          "status": "ok",
+          "features": 52999,
+          "ms1_scans": 1748,
+          "elapsed_seconds": 1.8457776671275496
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_10-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_10-02.mzXML.parquet",
+          "status": "ok",
+          "features": 45941,
+          "ms1_scans": 1654,
+          "elapsed_seconds": 1.655335457995534
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_14-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_14-03.mzXML.parquet",
+          "status": "ok",
+          "features": 55780,
+          "ms1_scans": 1767,
+          "elapsed_seconds": 1.8798708752728999
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_18.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_18.mzXML.parquet",
+          "status": "ok",
+          "features": 46769,
+          "ms1_scans": 1664,
+          "elapsed_seconds": 1.6034905831329525
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_01.mzXML.parquet",
+          "status": "ok",
+          "features": 41608,
+          "ms1_scans": 1503,
+          "elapsed_seconds": 1.4373496659100056
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_02.mzXML.parquet",
+          "status": "ok",
+          "features": 43594,
+          "ms1_scans": 1558,
+          "elapsed_seconds": 1.4654003330506384
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_03.mzXML.parquet",
+          "status": "ok",
+          "features": 48792,
+          "ms1_scans": 1663,
+          "elapsed_seconds": 1.5983305000700057
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_04.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_04.mzXML.parquet",
+          "status": "ok",
+          "features": 50703,
+          "ms1_scans": 1631,
+          "elapsed_seconds": 1.586104040965438
+        }
+      ]
+    },
+    {
+      "wall_seconds": 16.9131084587425,
+      "files": [
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_01-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_01-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24980,
+          "ms1_scans": 923,
+          "elapsed_seconds": 1.420143208000809
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_01-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_01-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26382,
+          "ms1_scans": 956,
+          "elapsed_seconds": 1.425540333148092
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24546,
+          "ms1_scans": 925,
+          "elapsed_seconds": 1.4161752499639988
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26777,
+          "ms1_scans": 976,
+          "elapsed_seconds": 1.4328021658584476
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27695,
+          "ms1_scans": 985,
+          "elapsed_seconds": 1.091141208074987
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_03-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_03-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26117,
+          "ms1_scans": 970,
+          "elapsed_seconds": 1.053423791192472
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_03-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_03-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27016,
+          "ms1_scans": 949,
+          "elapsed_seconds": 1.078267417382449
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_04-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_04-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26830,
+          "ms1_scans": 991,
+          "elapsed_seconds": 1.0813270001672208
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_04-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_04-03.mzXML.parquet",
+          "status": "ok",
+          "features": 28978,
+          "ms1_scans": 1000,
+          "elapsed_seconds": 1.1333676245994866
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_05-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_05-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24858,
+          "ms1_scans": 958,
+          "elapsed_seconds": 1.0980382082052529
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_05-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_05-03.mzXML.parquet",
+          "status": "ok",
+          "features": 29457,
+          "ms1_scans": 1025,
+          "elapsed_seconds": 1.1787179582752287
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_06-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_06-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24140,
+          "ms1_scans": 953,
+          "elapsed_seconds": 1.0392843331210315
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_06-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_06-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26911,
+          "ms1_scans": 985,
+          "elapsed_seconds": 1.1466240417212248
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-01.mzXML.parquet",
+          "status": "ok",
+          "features": 22595,
+          "ms1_scans": 906,
+          "elapsed_seconds": 0.9941857499070466
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-02.mzXML.parquet",
+          "status": "ok",
+          "features": 24970,
+          "ms1_scans": 943,
+          "elapsed_seconds": 1.0718095423653722
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26269,
+          "ms1_scans": 952,
+          "elapsed_seconds": 1.1229151668958366
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_08-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_08-02.mzXML.parquet",
+          "status": "ok",
+          "features": 25059,
+          "ms1_scans": 941,
+          "elapsed_seconds": 1.0706603331491351
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_08-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_08-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26641,
+          "ms1_scans": 947,
+          "elapsed_seconds": 1.0960143338888884
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_09-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_09-01.mzXML.parquet",
+          "status": "ok",
+          "features": 23186,
+          "ms1_scans": 917,
+          "elapsed_seconds": 1.0272550419904292
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_09-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_09-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26771,
+          "ms1_scans": 962,
+          "elapsed_seconds": 1.0786766251549125
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_10-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_10-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24517,
+          "ms1_scans": 931,
+          "elapsed_seconds": 1.056880708783865
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_10-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_10-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27889,
+          "ms1_scans": 970,
+          "elapsed_seconds": 1.118509375024587
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_11-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_11-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24096,
+          "ms1_scans": 951,
+          "elapsed_seconds": 1.0437447922304273
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_11-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_11-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26460,
+          "ms1_scans": 978,
+          "elapsed_seconds": 1.0686600827611983
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24600,
+          "ms1_scans": 949,
+          "elapsed_seconds": 1.074255459010601
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-02.mzXML.parquet",
+          "status": "ok",
+          "features": 27111,
+          "ms1_scans": 989,
+          "elapsed_seconds": 1.0941641670651734
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27497,
+          "ms1_scans": 972,
+          "elapsed_seconds": 1.1092753750272095
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_13-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_13-02.mzXML.parquet",
+          "status": "ok",
+          "features": 27364,
+          "ms1_scans": 999,
+          "elapsed_seconds": 1.0653001661412418
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_13-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_13-03.mzXML.parquet",
+          "status": "ok",
+          "features": 29309,
+          "ms1_scans": 1001,
+          "elapsed_seconds": 1.113071875181049
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_14-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26015,
+          "ms1_scans": 976,
+          "elapsed_seconds": 1.0491809169761837
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_14-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31336,
+          "ms1_scans": 1017,
+          "elapsed_seconds": 1.2079283753409982
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_15-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_15-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26352,
+          "ms1_scans": 966,
+          "elapsed_seconds": 1.053327125031501
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_15-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_15-02.mzXML.parquet",
+          "status": "ok",
+          "features": 28666,
+          "ms1_scans": 1000,
+          "elapsed_seconds": 1.0905595840886235
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_16-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_16-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26022,
+          "ms1_scans": 990,
+          "elapsed_seconds": 1.0628855000250041
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_16-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_16-02.mzXML.parquet",
+          "status": "ok",
+          "features": 29905,
+          "ms1_scans": 1026,
+          "elapsed_seconds": 1.1498535419814289
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-01.mzXML.parquet",
+          "status": "ok",
+          "features": 25895,
+          "ms1_scans": 973,
+          "elapsed_seconds": 1.0615213750861585
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-02.mzXML.parquet",
+          "status": "ok",
+          "features": 28041,
+          "ms1_scans": 1003,
+          "elapsed_seconds": 1.095159917138517
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31215,
+          "ms1_scans": 1046,
+          "elapsed_seconds": 1.201629958115518
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_18-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_18-02.mzXML.parquet",
+          "status": "ok",
+          "features": 30359,
+          "ms1_scans": 1050,
+          "elapsed_seconds": 1.1365038752555847
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_18-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_18-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31657,
+          "ms1_scans": 1051,
+          "elapsed_seconds": 1.167371999938041
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_00.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_00.mzXML.parquet",
+          "status": "ok",
+          "features": 34453,
+          "ms1_scans": 1349,
+          "elapsed_seconds": 1.221572124864906
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_01-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_01-02.mzXML.parquet",
+          "status": "ok",
+          "features": 45489,
+          "ms1_scans": 1659,
+          "elapsed_seconds": 1.5048267906531692
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_05-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_05-03.mzXML.parquet",
+          "status": "ok",
+          "features": 52999,
+          "ms1_scans": 1748,
+          "elapsed_seconds": 1.7218175418674946
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_10-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_10-02.mzXML.parquet",
+          "status": "ok",
+          "features": 45941,
+          "ms1_scans": 1654,
+          "elapsed_seconds": 1.5705536250025034
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_14-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_14-03.mzXML.parquet",
+          "status": "ok",
+          "features": 55780,
+          "ms1_scans": 1767,
+          "elapsed_seconds": 1.759007915854454
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_18.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_18.mzXML.parquet",
+          "status": "ok",
+          "features": 46769,
+          "ms1_scans": 1664,
+          "elapsed_seconds": 1.5104249170981348
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_01.mzXML.parquet",
+          "status": "ok",
+          "features": 41608,
+          "ms1_scans": 1503,
+          "elapsed_seconds": 1.3440066669136286
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_02.mzXML.parquet",
+          "status": "ok",
+          "features": 43594,
+          "ms1_scans": 1558,
+          "elapsed_seconds": 1.3697428749874234
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_03.mzXML.parquet",
+          "status": "ok",
+          "features": 48792,
+          "ms1_scans": 1663,
+          "elapsed_seconds": 1.4623054997064173
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_04.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_04.mzXML.parquet",
+          "status": "ok",
+          "features": 50703,
+          "ms1_scans": 1631,
+          "elapsed_seconds": 1.5358292497694492
+        }
+      ]
+    },
+    {
+      "wall_seconds": 16.868872415740043,
+      "files": [
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_01-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_01-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24980,
+          "ms1_scans": 923,
+          "elapsed_seconds": 1.4473749580793083
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_01-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_01-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26382,
+          "ms1_scans": 956,
+          "elapsed_seconds": 1.4587943339720368
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24546,
+          "ms1_scans": 925,
+          "elapsed_seconds": 1.447681292425841
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26777,
+          "ms1_scans": 976,
+          "elapsed_seconds": 1.463427625130862
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_02-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_02-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27695,
+          "ms1_scans": 985,
+          "elapsed_seconds": 1.0986405001021922
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_03-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_03-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26117,
+          "ms1_scans": 970,
+          "elapsed_seconds": 1.0454712081700563
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_03-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_03-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27016,
+          "ms1_scans": 949,
+          "elapsed_seconds": 1.080044665839523
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_04-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_04-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26830,
+          "ms1_scans": 991,
+          "elapsed_seconds": 1.0636928747408092
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_04-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_04-03.mzXML.parquet",
+          "status": "ok",
+          "features": 28978,
+          "ms1_scans": 1000,
+          "elapsed_seconds": 1.1248021670617163
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_05-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_05-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24858,
+          "ms1_scans": 958,
+          "elapsed_seconds": 1.0921290409751236
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_05-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_05-03.mzXML.parquet",
+          "status": "ok",
+          "features": 29457,
+          "ms1_scans": 1025,
+          "elapsed_seconds": 1.1628742078319192
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_06-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_06-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24140,
+          "ms1_scans": 953,
+          "elapsed_seconds": 1.0252153337933123
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_06-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_06-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26911,
+          "ms1_scans": 985,
+          "elapsed_seconds": 1.1005050409585238
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-01.mzXML.parquet",
+          "status": "ok",
+          "features": 22595,
+          "ms1_scans": 906,
+          "elapsed_seconds": 1.0233574998565018
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-02.mzXML.parquet",
+          "status": "ok",
+          "features": 24970,
+          "ms1_scans": 943,
+          "elapsed_seconds": 1.0578065416775644
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_07-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_07-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26269,
+          "ms1_scans": 952,
+          "elapsed_seconds": 1.0971026667393744
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_08-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_08-02.mzXML.parquet",
+          "status": "ok",
+          "features": 25059,
+          "ms1_scans": 941,
+          "elapsed_seconds": 1.0735252909362316
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_08-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_08-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26641,
+          "ms1_scans": 947,
+          "elapsed_seconds": 1.090288707986474
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_09-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_09-01.mzXML.parquet",
+          "status": "ok",
+          "features": 23186,
+          "ms1_scans": 917,
+          "elapsed_seconds": 1.0475371251814067
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_09-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_09-03.mzXML.parquet",
+          "status": "ok",
+          "features": 26771,
+          "ms1_scans": 962,
+          "elapsed_seconds": 1.1140620419755578
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_10-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_10-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24517,
+          "ms1_scans": 931,
+          "elapsed_seconds": 1.0543013750575483
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_10-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_10-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27889,
+          "ms1_scans": 970,
+          "elapsed_seconds": 1.1140124159865081
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_11-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_11-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24096,
+          "ms1_scans": 951,
+          "elapsed_seconds": 1.03102383390069
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_11-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_11-02.mzXML.parquet",
+          "status": "ok",
+          "features": 26460,
+          "ms1_scans": 978,
+          "elapsed_seconds": 1.0714758336544037
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-01.mzXML.parquet",
+          "status": "ok",
+          "features": 24600,
+          "ms1_scans": 949,
+          "elapsed_seconds": 1.0862953336909413
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-02.mzXML.parquet",
+          "status": "ok",
+          "features": 27111,
+          "ms1_scans": 989,
+          "elapsed_seconds": 1.0958593748509884
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_12-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_12-03.mzXML.parquet",
+          "status": "ok",
+          "features": 27497,
+          "ms1_scans": 972,
+          "elapsed_seconds": 1.1010843333788216
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_13-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_13-02.mzXML.parquet",
+          "status": "ok",
+          "features": 27364,
+          "ms1_scans": 999,
+          "elapsed_seconds": 1.0685130418278277
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_13-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_13-03.mzXML.parquet",
+          "status": "ok",
+          "features": 29309,
+          "ms1_scans": 1001,
+          "elapsed_seconds": 1.1305027911439538
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_14-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26015,
+          "ms1_scans": 976,
+          "elapsed_seconds": 1.0567544996738434
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_14-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31336,
+          "ms1_scans": 1017,
+          "elapsed_seconds": 1.2052210830152035
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_15-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_15-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26352,
+          "ms1_scans": 966,
+          "elapsed_seconds": 1.0470707919448614
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_15-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_15-02.mzXML.parquet",
+          "status": "ok",
+          "features": 28666,
+          "ms1_scans": 1000,
+          "elapsed_seconds": 1.0935602081008255
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_16-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_16-01.mzXML.parquet",
+          "status": "ok",
+          "features": 26022,
+          "ms1_scans": 990,
+          "elapsed_seconds": 1.0549732916988432
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_16-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_16-02.mzXML.parquet",
+          "status": "ok",
+          "features": 29905,
+          "ms1_scans": 1026,
+          "elapsed_seconds": 1.1601682920008898
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-01.mzXML.parquet",
+          "status": "ok",
+          "features": 25895,
+          "ms1_scans": 973,
+          "elapsed_seconds": 1.0718751670792699
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-02.mzXML.parquet",
+          "status": "ok",
+          "features": 28041,
+          "ms1_scans": 1003,
+          "elapsed_seconds": 1.1051085419021547
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_17-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_17-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31215,
+          "ms1_scans": 1046,
+          "elapsed_seconds": 1.2008850001730025
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_18-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_18-02.mzXML.parquet",
+          "status": "ok",
+          "features": 30359,
+          "ms1_scans": 1050,
+          "elapsed_seconds": 1.1486592907458544
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_18-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/NIST_POS_Samp_18-03.mzXML.parquet",
+          "status": "ok",
+          "features": 31657,
+          "ms1_scans": 1051,
+          "elapsed_seconds": 1.178390541113913
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_00.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_00.mzXML.parquet",
+          "status": "ok",
+          "features": 34453,
+          "ms1_scans": 1349,
+          "elapsed_seconds": 1.2186807910911739
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_01-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_01-02.mzXML.parquet",
+          "status": "ok",
+          "features": 45489,
+          "ms1_scans": 1659,
+          "elapsed_seconds": 1.4797801249660552
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_05-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_05-03.mzXML.parquet",
+          "status": "ok",
+          "features": 52999,
+          "ms1_scans": 1748,
+          "elapsed_seconds": 1.7291758339852095
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_10-02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_10-02.mzXML.parquet",
+          "status": "ok",
+          "features": 45941,
+          "ms1_scans": 1654,
+          "elapsed_seconds": 1.5266071250662208
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_14-03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_14-03.mzXML.parquet",
+          "status": "ok",
+          "features": 55780,
+          "ms1_scans": 1767,
+          "elapsed_seconds": 1.7528187078423798
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/Blank_Post_18.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/Blank_Post_18.mzXML.parquet",
+          "status": "ok",
+          "features": 46769,
+          "ms1_scans": 1664,
+          "elapsed_seconds": 1.5082510840147734
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_01.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_01.mzXML.parquet",
+          "status": "ok",
+          "features": 41608,
+          "ms1_scans": 1503,
+          "elapsed_seconds": 1.337318167090416
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_02.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_02.mzXML.parquet",
+          "status": "ok",
+          "features": 43594,
+          "ms1_scans": 1558,
+          "elapsed_seconds": 1.3962934170849621
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_03.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_03.mzXML.parquet",
+          "status": "ok",
+          "features": 48792,
+          "ms1_scans": 1663,
+          "elapsed_seconds": 1.4638323332183063
+        },
+        {
+          "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/QC_Mix_04.mzXML",
+          "output": "/Users/shipei/Documents/projects/masscubeX/validation/optimization-v0.8/parallel-4/QC_Mix_04.mzXML.parquet",
+          "status": "ok",
+          "features": 50703,
+          "ms1_scans": 1631,
+          "elapsed_seconds": 1.5236986656673253
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "One positive-mode centroid mzXML cohort; warm filesystem cache and JIT.",
+    "Includes extraction and output publication; excludes reference audits.",
+    "Multiple workers include worker startup; no concurrent benchmarks."
+  ],
+  "stage_seconds_last_repeat": {
+    "calibration": 14.586175749078393,
+    "feature_extraction": 19.364247865974903,
+    "ion_grouping": 8.819361330009997,
+    "ms2_association": 2.266462998930365,
+    "ms2_gapfill": 3.455163831822574,
+    "table_write": 11.15020245919004
+  }
+}

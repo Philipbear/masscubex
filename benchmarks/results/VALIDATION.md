@@ -1,5 +1,48 @@
 # MassCubeX validation
 
+## Version 0.8.0: faster MS1 noise and batched extraction
+
+**549 source tests and 549 installed-wheel tests passed locally; 305 selected
+numerical tests also passed with Numba disabled.** All **12 CI configurations**
+(Linux, macOS and Windows × Python 3.10–3.13) passed 549 source tests and 549
+installed-wheel tests, including Numpress. [CI run](https://github.com/Philipbear/masscubex/actions/runs/41739025370),
+[CI record](ci-v0.8.0.json), [release summary](release-v0.8.0.json).
+The tested processing code is commit `6a78440`; subsequent benchmark/report
+changes retain its implementation fingerprint.
+
+New tests exercise batched versus raw-trace extraction through pool growth,
+recycling, EOF, missing scans, grouping on/off, physical-time smoothing and
+area/height selection. Deferred iteration checks that recycled storage cannot
+alter emitted traces. Strided, Fortran-order and read-only standalone traces
+retain the reference behavior. Noise tests cover repeatedly empty/refilled rank
+subtrees and several selected fractions; the independent sorted-window oracle
+and SciPy segmentation comparisons remain enabled.
+
+The [50-file table/sidecar comparison](extraction-equivalence-v0.8.0.json) finds
+**no differences**, including no floating-point measurement differences, across
+**1,540,612 features**, **125,266 MS2 scans**, **5,143 seeded features** and
+**205,868 ion-relationship entries**. The separate [noise audit](noise-equivalence-v0.8.0.json)
+compares mean, standard deviation and threshold at **34,905,337 raw MS1 points
+in 55,198 scans**; every value and keep/remove decision is exact versus 0.7.0.
+The audit imports its archived source in an isolated temporary cache directory.
+
+A fresh [Pyteomics/raw-MS1 audit](MSV000086989-ms2-v0.8.0.json) verifies all MS2
+scan provenance and representative choices, plus all seeded measurements. No
+source MS2 scan is unassigned in this cohort. Both [process](batch-errors-process-parquet-v0.8.0.json)
+and [thread](batch-errors-thread-parquet-v0.8.0.json) CLI audits finish **50 valid
+files mixed with five corrupt/missing inputs**, report all five failures, clean
+up temporary outputs/locks, and skip all 50 valid outputs on verified resume.
+Every successful CLI table matches the audited serial table byte-for-byte.
+The [complete byte comparison](parallel-equivalence-v0.8.0.json) also verifies
+all 50 tables against 0.7.0 and every API/CLI worker configuration tested.
+
+Scientific defaults are unchanged. MS1 stage time falls **12.0%** in the last
+complete 50-file pass; median complete single-worker time falls **2.8%** across
+three passes. See the [stage timings, measured worker scaling and two-million-file
+projections](PERFORMANCE.md). Real-file throughput evidence is limited to this
+positive-mode centroid mzXML cohort; synthetic profile/mzML/polarity-switching
+correctness tests do not establish their real-file throughput.
+
 ## Version 0.7.0: compiled extraction, bounded replay and readability
 
 **532 source tests and 532 installed-wheel tests passed locally.** An additional
@@ -24,7 +67,7 @@ The [full 50-file comparison](extraction-equivalence-v0.7.0.json) has zero failu
 entries. Feature identities/order, heights, bounds, counts, scan mappings,
 relationship partners/types and calibration values are exact. Some mass, area,
 noise and derived mass-error values differ in their final float64 bits; the
-[performance report](PERFORMANCE.md) states tolerances and observed errors.
+[performance report](PERFORMANCE-v0.7.0.md) states tolerances and observed errors.
 The outputs are not claimed byte-identical across versions.
 
 A fresh [independent Pyteomics audit](MSV000086989-ms2-v0.7.0.json) verifies every
@@ -43,7 +86,7 @@ byte-for-byte.
 
 The fresh matched benchmark measures **2.46× single-worker acceleration**;
 **the further 10× target is not achieved**. All scientific defaults remain on.
-See [timings and bottlenecks](PERFORMANCE.md). The real-data cohort is still
+See [timings and bottlenecks](PERFORMANCE-v0.7.0.md). The real-data cohort is still
 positive-mode centroid mzXML; profile/mzML/polarity-switching throughput cannot
 be inferred from it.
 

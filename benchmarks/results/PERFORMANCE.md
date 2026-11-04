@@ -1,144 +1,202 @@
-# Extraction performance: MassCubeX 0.7.0
+# Extraction performance: MassCubeX 0.8.0
 
-**The measured single-worker speedup is 2.46×. The requested further 10× end-to-end target was not reached.**
-The comparison uses the same 50 public files, scientific defaults, Parquet format,
-and machine. The 0.6.0 baseline was re-run from commit `6d70109`; production code
-for 0.7.0 is commit `7564ce9`. Timing excludes correctness audits and JIT warmup.
+**MS1 extraction time falls 12.0%; median complete single-worker processing falls 2.8%.**
+The same 50 public files, scientific defaults and Parquet output were measured
+three times per configuration. The previous version was freshly re-run from
+`ca63c8c`; the optimized processing code is `6a78440`.
+The earlier requested 10× end-to-end code speedup remains unachieved.
 
-## Complete extraction, including output
+## Complete command and two million similar files
 
-| Version / workers | Median for 50 files | Seconds/file | Tables |
+Apple M2 Max, 32 GiB RAM, Python 3.10.12, macOS 26.6.2 ARM64. This cohort contains
+50 positive-mode **centroid mzXML** files: 604.07 MB total, **12.08 MB/file** on
+average. All steps remain enabled: calibration, adaptive noise, peak detection,
+MS2 association/seeding/raw gap filling, ion grouping and compressed output.
+The cohort is [MSV000086989](https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=2f73277b4e034948acebfdf1edab17ed):
+40 biological samples, six blanks and four QCs.
+
+The full **CLI command**, including startup, bounded scheduling and batch
+reports, was run three times at each worker count. These measurements supply
+the capacity projections:
+
+| Process workers on this machine | Median / 50 files | Observed three-run range | Projection / 2 million |
 | --- | ---: | ---: | ---: |
-| 0.6.0, one worker, freshly re-run | 147.64 s | 2.953 | 85.72 MB |
-| 0.7.0, one worker | 60.11 s | 1.202 | 85.71 MB |
-| 0.7.0, four process workers | 17.73 s | 0.355 | 85.71 MB |
+| 1 | 56.67 s | 56.59–57.22 s | 26.24 days |
+| 4 | 17.80 s | 17.54–18.32 s | 8.24 days |
+| 8 | 13.71 s | 12.51–13.98 s | 6.35 days |
+| 12 | 19.81 s | 13.03–20.44 s | 9.17 days |
 
-One-worker runtime falls 59.3%.
-Four workers provide 3.39× the throughput of one current worker,
-including worker startup. This parallel scaling is separate from the code speedup.
-The previous four-worker result was 42.19 s; see the [0.6.0 report](PERFORMANCE-v0.6.0.md).
-Do not combine parallel scaling with the single-worker result to claim a further
-10× algorithmic speedup. MB means 1,000,000 bytes.
+Eight workers gave the best CLI median. Twelve workers were more variable and
+slower at the median; no linear scaling with local worker count is assumed.
+The separate four-worker corruption/resume audit took 29.16 seconds for its
+initial 50-valid-plus-five-invalid batch. It is a correctness run rather than
+the matched throughput benchmark, but illustrates that operational times vary.
 
-Three complete passes: baseline **147.64, 147.63, 148.12 s**; current one-worker
-**59.64, 60.11, 60.53 s**; current four-worker **17.52, 17.73, 18.29 s**.
-Fresh runs overwrite output and decode each input again; results are never
-reused across files or benchmark repetitions. The new scan cache only replays
-raw decoded data between stages of the *same* extraction call.
+For eight workers, the central estimate is **6.35 days**;
+an explicit allowance for 20% unavailable capacity increases it to
+**7.93 days**. This allowance is
+a planning assumption, not a confidence interval or a bound on slow files.
+The formula is `median_batch_seconds / 50 × 2,000,000`. Startup is included in
+these short batches and would be amortized over a longer-lived worker pool.
+These are projections from 50 files, not a measured two-million-file run.
 
-Peak process RSS was 615.3 MiB for the baseline and
-594.8 MiB for the current one-worker run. These are whole-process
-high-water marks, not memory guarantees for arbitrary inputs. The scan cache
-budget defaults to 64 MiB per worker; trace histories, feature records, fragment
-evidence and library buffers require additional memory.
+For an independent cluster of equivalent machines, a **linear, unmeasured**
+projection from the eight-worker CLI result is:
 
-Raw reports: [baseline](extraction-v0.6.0-recheck-parquet.json),
-[current](extraction-v0.7.0-parquet.json), [four workers](extraction-v0.7.0-parquet-4-workers.json).
+| Total workers | Ideal processing estimate | With 20% unavailable capacity |
+| --- | ---: | ---: |
+| 32 (4 machines × 8) | 38.1 h | 47.6 h |
+| 64 (8 machines × 8) | 19.0 h | 23.8 h |
+| 128 (16 machines × 8) | 9.5 h | 11.9 h |
 
-## Remaining bottlenecks
+Cluster estimates require each machine to sustain the measured CPU and storage
+throughput. A central disk or network bottleneck can erase projected scaling.
+At this cohort's size/compression, two million files imply approximately
+**24.16 TB input, 3.43 TB Parquet tables and 98.1 GB JSON sidecars** (decimal units).
+Transferring the input alone at an assumed sustained 100 MB/s takes about
+67.1 hours; at 1 GB/s it takes 6.7 hours. These are bandwidth calculations,
+not measured transfer rates. Downloads, staging, retries and alignment are
+excluded. Hot filesystem-cache measurements are optimistic for cold remote
+storage. Larger/profile files and other acquisition patterns need separate
+throughput measurements; file count alone does not predict their runtime.
 
-Production timers from the last complete single-worker pass:
+[Machine-readable capacity calculations](capacity-v0.8.0-2million.json).
 
-| Stage | 0.6.0 | 0.7.0 | Current elapsed share |
-| --- | ---: | ---: | ---: |
-| MS1 extraction | 82.39 s | 21.26 s | 35.1% |
-| Calibration, including the physical XML/binary read | 21.41 s | 14.49 s | 23.9% |
-| Parquet writing and fsync | 9.52 s | 9.74 s | 16.1% |
-| Ion grouping | 17.02 s | 8.45 s | 14.0% |
-| Raw-MS1 seeded gap filling | 13.60 s | 3.66 s | 6.0% |
-| MS2 association | 3.42 s | 2.19 s | 3.6% |
+## Matched before/after processing benchmark
 
-The remaining time is checksums, completion metadata, locks and orchestration.
-MS1 extraction remains the largest aggregate stage; calibration/decoding and
-output are substantial too. Reaching 10× against the baseline would require
-about 14.76 s for all 50 files on one worker. The current calibration and
-output stages alone exceed that budget. The present work does not establish
-that target for arbitrary public repositories.
+The processing API comparison uses the same 50-file manifest and order, three
+passes each, with all scientific stages and output publication included.
+The one-worker median falls **60.60 → 58.92 s**, a **2.8% time reduction**
+(1.029× throughput). These measurements support the before/after claim;
+the separately run CLI measurements above support the command capacity table.
+Their differences are not an isolated estimate of command overhead.
 
-Separate profiling on one biological sample, one blank and one QC, with three
-repetitions each, gives:
+Current API process-pool medians for 1/4/8/12 workers were respectively
+**58.92 / 16.91 / 12.29 / 11.90 s** per 50 files. The CLI's greater high-worker
+variability is retained in the report; the best isolated API timing is not used
+to project cluster capacity. No unrelated benchmark, test or audit was run
+concurrently with either measurement series.
 
-| Extraction substep | 0.6.0 mean/file | 0.7.0 mean/file | Speedup |
-| --- | ---: | ---: | ---: |
-| Chromatographic segmentation and peak measurement | 1.103 s | 0.172 s | 6.43× |
-| Adaptive MS1 noise estimation | 0.193 s | 0.140 s | 1.37× |
+## Where processing time goes
 
-These are substeps of MS1 extraction, **not additional time**. The new shared
-scan-reading/replay timer spans calibration, extraction and gap filling; it
-cannot be added to their totals. Parquet writing is effectively unchanged at
-this measurement scale. The columnar writer refactor improves separation and
-avoids per-row dictionaries; it is not credited with a measured speedup.
-[Baseline profile](profile-v0.6.0-recheck-parquet.json), [current profile](profile-v0.7.0-parquet.json).
+Exclusive production timers from the last single-worker pass. The per-file
+column is the 50-file total divided by 50; shares use that same pass's elapsed
+time, **not** a sum of overlapping profiler substeps.
 
-## Implementation and readability
+| Stage | 0.7.0 / 50 files | 0.8.0 / 50 files | Current / file | Current share |
+| --- | ---: | ---: | ---: | ---: |
+| MS1 extraction | 22.03 s | 19.39 s | 0.388 s | 32.9% |
+| Calibration, including XML/binary decoding | 14.54 s | 14.67 s | 0.293 s | 24.9% |
+| Parquet writing and fsync | 9.54 s | 9.29 s | 0.186 s | 15.8% |
+| Ion grouping | 8.20 s | 8.44 s | 0.169 s | 14.3% |
+| Raw-MS1 seeded gap filling | 3.67 s | 3.66 s | 0.073 s | 6.2% |
+| MS2 association | 2.55 s | 2.78 s | 0.056 s | 4.7% |
+| Checksums, completion records and orchestration | — | 0.71 s | 0.014 s | 1.2% |
 
-- Fused Numba chromatogram resampling, reflected Gaussian smoothing, plateau,
-  distance/prominence selection and original-sample measurements. Exact/near
-  distance-priority ties retain the SciPy compatibility path. No fast-math.
-- Compiled calibration screening rejects poor candidates cheaply. Accepted
-  candidates retain the original NumPy/SciPy measurement arithmetic, preserving
-  all calibrated mass/time settings on the full cohort.
-- Bounded decoded-scan replay avoids repeated XML/base64/zlib work. Overflow
-  discards the cache and falls back to streaming. Calibration drops fragment
-  arrays immediately instead of retaining them outside the cache budget.
-- Low-tail noise avoids temporary tree removal/restoration when a candidate is
-  outside the selected background prefix. The 50 Da, lowest 10%, minimum five,
-  leave-one-out μ + 3σ rule is unchanged.
-- Linear sweeps find sorted adduct mass windows; unusual nonmonotone bounds use
-  binary searches. Gap filling packs each bounded raw query once before its
-  compiled EIC searches. Normal spectrum validation uses one compiled pass.
-- Empty MS2 provenance is not repeatedly rebuilt. Parquet columns are formed
-  directly, with finite-value and evidence-schema validation preserved.
-- Numerical modules have explicit responsibilities, named result records and
-  documented tracker-state columns. TSV/Parquet writers are separate functions.
-  See [code structure](../../docs/DEVELOPMENT.md) and [methods](../../docs/METHODS.md).
+MS1 extraction remains the largest stage. Calibration/decoding and output
+remain substantial; optimizing MS1 alone cannot produce a 10× complete-workflow
+speedup. A separate sample/blank/QC profile (three repetitions each) measures
+noise estimation at **0.141 → 0.106 s/file**, a
+**1.32×** kernel-stage speedup.
+Peak-summarization timer boundaries changed: 0.8 includes native trace draining,
+which 0.7 charged to tracking. Those isolated timer values are not directly
+comparable. Shared reader/tracker timers span several stages and must not be
+added to the stage table.
 
-## Scientific equivalence
+## Implementation and equivalence
 
-The [full comparison](extraction-equivalence-v0.7.0.json) checks **1,540,612 rows**,
-including **5,143 MS2-seeded features**, **125,266 associated MS2 scans**, and
-**205,868 ion-relationship entries**, plus every scientific sidecar field.
-Feature order/identities, heights, boundaries, counts, MS2 lists/best scans,
-relation partners/types, correlation evidence and calibration values match
-exactly. No scientific stage or default was disabled for the benchmark.
+- Noise moments are evaluated lazily only for queried low-tail subtrees.
+  Counts remain current. Prefix reuse guards the first unselected rank too,
+  preserving the original merge order and float64 results.
+- Completed traces are drained, segmented and quantified in native scan batches.
+  Calibration retains its raw-trace interface. Named settings and candidate
+  records make options, measurements and rare SciPy fallback cases explicit.
+- Gaussian reflection is materialized once per trace instead of repeated inside
+  every convolution pair. Pool copying uses direct scalar loops. Scientific
+  defaults and float64 precision are unchanged; fast-math remains disabled.
 
-The outputs are **not byte-identical across versions**: different float64
-summation/exp evaluation can change final bits. The largest observed relative
-area difference is 3.68e-15; the largest absolute
-m/z difference is 4.55e-13 Da. Derived relation mass errors differ by
-at most 8.22e-10 ppm. Noise-threshold differences are at most
-3.62e-16 relative, without a change in retained centroid counts.
-The audit permits 3e-14 relative/near-zero absolute error only in listed
-measurement fields, and 2e-7 ppm absolute error in derived mass errors;
-identities, boundaries, heights and scan lists require exact equality.
+The [full table comparison](extraction-equivalence-v0.8.0.json) finds **zero
+numerical or structural differences** in 1,540,612 features, 125,266 associated
+MS2 scans, 5,143 seeded features and 205,868 ion-relationship entries. All
+scientific sidecar values match. All 50 Parquet files are also byte-identical
+to 0.7.0 and to every tested API/CLI worker configuration
+([byte comparison](parallel-equivalence-v0.8.0.json)). The [noise audit](noise-equivalence-v0.8.0.json)
+also finds exact means, standard deviations and thresholds at **34,905,337 raw
+MS1 points across 55,198 scans**, including points removed before detection.
+The 50 Da, lowest 10%, minimum five, leave-one-out μ + 3σ rule is unchanged.
 
-## Conditions and reproduction
+Whole-process peak RSS, including warmup/JIT work, was
+**673.3 → 722.7 MiB** in these runs.
+These are high-water marks, not per-file or arbitrary-input memory guarantees.
+The decoded scan-cache budget remains 64 MiB per worker; traces, features,
+fragment evidence and library/compiler buffers consume additional memory.
 
-Apple M2 Max, 32 GiB RAM, macOS 26.6.2 ARM64, Python 3.10.12. The corpus is
-[MSV000086989](https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=2f73277b4e034948acebfdf1edab17ed):
-40 biological samples, six blanks and four QCs; 604,070,716 bytes. All are
-positive-mode centroid mzXML. Profile data, mzML and polarity switching have
-synthetic regression coverage; these timings do not establish their throughput.
-Local SSD, warm filesystem/JIT caches; worker startup included in parallel runs.
-No simultaneous CPU-heavy tests, benchmarks or audits. Every report records the
-scientific configuration, dependency versions and implementation fingerprint.
+See [validation](VALIDATION.md), [methods](../../docs/METHODS.md) and
+[code structure](../../docs/DEVELOPMENT.md). The previous release's broader
+optimization history remains in the [0.7.0 report](PERFORMANCE-v0.7.0.md).
+
+## Repetition details and reproduction
+
+Baseline one-worker passes: 60.00, 60.60, 61.24 s.
+Current **API** passes:
+
+- 1 worker(s): 58.75, 58.92, 58.94 s.
+- 4 worker(s): 17.58, 16.91, 16.87 s.
+- 8 worker(s): 10.73, 12.29, 12.44 s.
+- 12 worker(s): 11.54, 11.90, 12.46 s.
+
+Current **CLI** passes:
+
+- 1 worker(s): 56.59, 56.67, 57.22 s.
+- 4 worker(s): 17.54, 18.32, 17.80 s.
+- 8 worker(s): 12.51, 13.71, 13.98 s.
+- 12 worker(s): 13.03, 19.81, 20.44 s.
+
+Runs were serial, with no simultaneous benchmark/profiler/test process.
+Every pass overwrites outputs and decodes the input files again. The bounded
+scan cache replays scans only between stages of the same file, never between
+benchmark repetitions. JIT warmup and a complete warmup file are excluded;
+checksums, Parquet publication and fsync are included. The 50-file benchmark
+uses the processing API and process pool; CLI reporting is checked separately.
 
 ```bash
-export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 NUMBA_NUM_THREADS=1
-mkdir -p validation/optimization-v0.7/baseline
-git archive 6d70109 | tar -x -C validation/optimization-v0.7/baseline
-PYTHONPATH=validation/optimization-v0.7/baseline/src python benchmarks/benchmark_extraction.py \
-  --format parquet --repeats 3 --output-directory validation/optimization-v0.7/baseline-parquet \
-  --report benchmarks/results/extraction-v0.6.0-recheck-parquet.json
-python benchmarks/benchmark_extraction.py --format parquet --repeats 3 \
-  --output-directory validation/optimization-v0.7/final-parquet \
-  --report benchmarks/results/extraction-v0.7.0-parquet.json
-python benchmarks/compare_extraction_versions.py \
-  --reference validation/optimization-v0.7/baseline-parquet \
-  --candidate validation/optimization-v0.7/final-parquet \
-  --report benchmarks/results/extraction-equivalence-v0.7.0.json
+# Archive the exact previous source without changing the working checkout.
+mkdir -p validation/baseline-0.7
+git archive ca63c8c | tar -x -C validation/baseline-0.7
+
+# Use the same 50-file manifest downloaded for MSV000086989.
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+PYTHONPATH=validation/baseline-0.7/src .venv/bin/python benchmarks/benchmark_extraction.py \
+  --format parquet --repeats 3 --output-directory validation/baseline-parquet \
+  --report validation/baseline-timing.json
+
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+.venv/bin/python benchmarks/benchmark_extraction.py --format parquet --repeats 3 \
+  --workers 8 --output-directory validation/current-parquet \
+  --report validation/current-timing.json
 ```
 
-Use `--workers 4` with a separate output/report path for parallel measurement.
-`profile_extraction.py` takes the same format and directory/report arguments.
-See [validation](VALIDATION.md) for corruption, raw-data and cross-platform checks.
+Use workers 1, 4, 8 and 12 in separate runs. Clear generated Numba caches after
+changing imported numerical helpers; see the development guide. The baseline
+noise audit imports a temporary source copy to avoid contaminating its normal
+Numba cache with an aliased module name.
+
+Raw reports: [baseline](extraction-v0.7.0-recheck-parquet.json),
+[one worker](extraction-v0.8.0-parquet.json),
+[four](extraction-v0.8.0-parquet-4-workers.json),
+[eight](extraction-v0.8.0-parquet-8-workers.json),
+[twelve](extraction-v0.8.0-parquet-12-workers.json),
+[baseline profile](profile-v0.7.0-recheck-parquet.json),
+[current profile](profile-v0.8.0-parquet.json).
+
+Full-command reports: [one worker](extraction-cli-v0.8.0-1-workers.json),
+[four](extraction-cli-v0.8.0-4-workers.json),
+[eight](extraction-cli-v0.8.0-8-workers.json),
+[twelve](extraction-cli-v0.8.0-12-workers.json).
+Reproduce with the same environment variables as the API benchmark:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+.venv/bin/python benchmarks/benchmark_cli.py --workers 8 --repeats 3 \
+  --output-directory validation/cli-benchmark --report validation/cli-timing.json
+```

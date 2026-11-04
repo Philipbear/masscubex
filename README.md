@@ -93,7 +93,7 @@ processing the other files. Global setup/storage failures can still abort a run.
 - [Commands, output columns, MS/MS lookup and restart behavior](docs/USAGE.md)
 - [Adduct and in-source-fragment candidates](docs/ION_GROUPING.md)
 - [Tests, real-data validation and benchmarks](benchmarks/results/VALIDATION.md)
-- [Extraction speed and output-size measurements](benchmarks/results/PERFORMANCE.md)
+- [Processing times, worker scaling and two-million-file estimates](benchmarks/results/PERFORMANCE.md)
 - [Code structure and numerical development checks](docs/DEVELOPMENT.md)
 
 DIA classification/deconvolution, mobility-resolved feature extraction, library

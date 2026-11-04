@@ -11,6 +11,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
@@ -26,10 +27,22 @@ def main():
     parser.add_argument("--directory", type=Path, default=Path("validation/MSV000086989"))
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
-    spec = importlib.util.spec_from_file_location("masscubex._baseline_noise", args.baseline)
-    baseline = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = baseline
-    spec.loader.exec_module(baseline)
+    # Give the aliased module its own cache location. Otherwise its compiled
+    # cache can break later canonical imports from the archived baseline.
+    with TemporaryDirectory(prefix="masscubex-noise-audit-") as directory:
+        source = Path(directory) / "noise.py"
+        source.write_bytes(args.baseline.read_bytes())
+        spec = importlib.util.spec_from_file_location("masscubex._baseline_noise", source)
+        baseline = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = baseline
+        spec.loader.exec_module(baseline)
+        try:
+            compare(args, baseline)
+        finally:
+            sys.modules.pop(spec.name, None)
+
+
+def compare(args, baseline):
     config = Config()
     files = json.loads((args.directory / "download_manifest.json").read_text())
     rows = []

@@ -1,0 +1,23 @@
+{
+  "version": "0.8.0",
+  "implementation_sha256": "b03a239867c8a0932b84dd6eb5a2235a6b013467ac5909ac691b6a71cdacea5a",
+  "reference": "validation/optimization-v0.8/baseline-parquet",
+  "candidate": "validation/optimization-v0.8/final-parquet",
+  "files": 50,
+  "features": 1540612,
+  "ms1_detected": 1535469,
+  "associated_ms2": 125266,
+  "ion_relationship_entries": 205868,
+  "ms2_seeded": 5143,
+  "failure_count": 0,
+  "failures": [],
+  "differing_float_values": {},
+  "max_absolute_difference": {},
+  "max_relative_difference": {},
+  "criteria": {
+    "measurement_rtol": 3e-14,
+    "measurement_atol_near_zero": 3e-14,
+    "mass_error_ppm_atol": 2e-07,
+    "identity_boundaries_heights_scan_lists": "exact"
+  }
+}
