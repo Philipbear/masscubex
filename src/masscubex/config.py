@@ -19,7 +19,7 @@ class Config:
     tuning_mass_sigma: float = 3.0
     tuning_search_ppm: float = 100.0
     tuning_search_da: float = 0.05
-    tuning_peak_limit: int = 128
+    tuning_peak_limit: int = 128  # Per m/z region in each MS1 scan.
     tuning_block_scans: int = 512
     tuning_block_seconds: float = 120.0
     tuning_locked: tuple[str, ...] = ()

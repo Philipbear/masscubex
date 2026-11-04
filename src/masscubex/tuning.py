@@ -18,11 +18,12 @@ from .centroid import centroid_profile
 from .calibration import measure_representative, reference_measurements
 from .config import Config, TUNABLE_FIELDS
 from .features import TraceTracker
-from .mass_tolerance import MassRegion
+from .mass_tolerance import MassRegion, calibration_edges
+from .pilot_sampling import AcquisitionRange, discover_ranges, strongest_per_region
 from .readers import MS2Scan, iter_scans
 
 
-POLICY_VERSION = 3
+POLICY_VERSION = 4
 
 
 def config_for(polarity, config, configs=None):
@@ -258,13 +259,7 @@ def derive_settings(peaks, intervals, ms2, config, polarity, *, mass_range=None)
 
 def _derive_mass_regions(peaks, selected, ms2, config, polarity, mass_range, updates, info, locked):
     """Regional fits have independent evidence; sparse regions use a file-wide envelope."""
-    edges = [0.0, *config.tuning_mz_breaks, None]
-    if config.tuning_mz_regions is not None:
-        edges = []
-    if config.tuning_mz_regions is not None and mass_range is not None:
-        low, high = mass_range
-        if np.isfinite(low) and np.isfinite(high) and 0 <= low < high:
-            edges = np.linspace(low, high, config.tuning_mz_regions + 1).tolist()
+    edges = calibration_edges(config, mass_range)
     pools, records = [], []
     for index, (low, high) in enumerate(zip(edges, edges[1:])):
         candidates = [
@@ -386,6 +381,12 @@ def calibrate_file(source, config, *, scan_source=None):
     previous = {}
     sequence = 0
     region_count = config.tuning_mz_regions or len(config.tuning_mz_breaks) + 1
+    # Equal-width boundaries must be fixed before selecting any centroid. The
+    # default fixed layout avoids this pass; bounded ScanSource replay handles
+    # it without an extra XML read when the optional layout fits in the cache.
+    ranges = (
+        discover_ranges(source, config, scan_source) if config.tuning_mz_regions is not None else {}
+    )
 
     def consume(state, traces):
         nonlocal sequence
@@ -397,10 +398,13 @@ def calibrate_file(source, config, *, scan_source=None):
             state["candidates"] += 1
             sequence += 1
             item = (peak.height, sequence, peak)
-            if len(state["heap"]) < config.tuning_max_peaks * region_count * 10:
-                heapq.heappush(state["heap"], item)
-            elif item[:2] > state["heap"][0][:2]:
-                heapq.heapreplace(state["heap"], item)
+            region = int(np.searchsorted(state["sampling_breaks"], peak.mz, side="right"))
+            state["candidate_counts"][region] += 1
+            pool = state["heaps"][region]
+            if len(pool) < config.tuning_max_peaks * 10:
+                heapq.heappush(pool, item)
+            elif item[:2] > pool[0][:2]:
+                heapq.heapreplace(pool, item)
 
     with closing(
         scan_source.scans()
@@ -423,6 +427,10 @@ def calibrate_file(source, config, *, scan_source=None):
                 continue
             previous[scan.polarity] = scan
             if scan.polarity not in states:
+                edges = calibration_edges(
+                    config, ranges.get(scan.polarity, AcquisitionRange()).bounds
+                ) or [0.0, None]
+                count = len(edges) - 1
                 states[scan.polarity] = {
                     "tracker": TraceTracker(pilot_config),
                     "start": scan.rt,
@@ -433,28 +441,18 @@ def calibrate_file(source, config, *, scan_source=None):
                     "rng": np.random.default_rng(
                         {"positive": 1, "negative": 2, "unknown": 3}[scan.polarity]
                     ),
-                    "heap": [],
+                    "heaps": [[] for _ in range(count)],
+                    "sampling_edges": edges,
+                    "sampling_breaks": np.array(edges[1:-1], dtype=float),
+                    "selected_centroids": np.zeros(count, dtype=np.int64),
+                    "candidate_counts": np.zeros(count, dtype=np.int64),
                     "rejected": Counter(),
                     "candidates": 0,
                     "scans": 0,
-                    "observed_range": [np.inf, -np.inf],
-                    "acquisition_range": [np.inf, -np.inf],
-                    "range_metadata_scans": 0,
-                    "invalid_range_scans": 0,
+                    "mass_range": AcquisitionRange(),
                 }
             state = states[scan.polarity]
-            if len(scan.mz):
-                state["observed_range"][0] = min(state["observed_range"][0], float(scan.mz[0]))
-                state["observed_range"][1] = max(state["observed_range"][1], float(scan.mz[-1]))
-            if scan.acquisition_range is not None:
-                state["range_metadata_scans"] += 1
-                state["acquisition_range"][0] = min(
-                    state["acquisition_range"][0], scan.acquisition_range[0]
-                )
-                state["acquisition_range"][1] = max(
-                    state["acquisition_range"][1], scan.acquisition_range[1]
-                )
-            state["invalid_range_scans"] += int(scan.invalid_acquisition_range)
+            state["mass_range"].add(scan)
             if state["last_rt"] is not None:
                 delta = scan.rt - state["last_rt"]
                 if delta <= 0:
@@ -486,15 +484,10 @@ def calibrate_file(source, config, *, scan_source=None):
                 mz, y, _ = centroid_profile(
                     mz, y, zeros, zeros, config.profile_min_points, float(config.profile_gap_factor)
                 )
-            if len(y) > config.tuning_peak_limit:
-                cutoff = np.partition(y, len(y) - config.tuning_peak_limit)[
-                    len(y) - config.tuning_peak_limit
-                ]
-                high = np.flatnonzero(y > cutoff)
-                tied = np.flatnonzero(y == cutoff)[: config.tuning_peak_limit - len(high)]
-                indices = np.sort(np.r_[high, tied])
-            else:
-                indices = np.arange(len(y))
+            indices, counts = strongest_per_region(
+                mz, y, state["sampling_breaks"], config.tuning_peak_limit
+            )
+            state["selected_centroids"] += counts
             flags = competing_peaks(
                 mz, y, indices, config.tuning_search_ppm, config.tuning_search_da
             )
@@ -502,30 +495,32 @@ def calibrate_file(source, config, *, scan_source=None):
     configs, diagnostics = {}, {}
     for polarity, state in states.items():
         consume(state, state["tracker"].flush())
-        observed, acquired = state["observed_range"], state["acquisition_range"]
-        bounds = (min(observed[0], acquired[0]), max(observed[1], acquired[1]))
-        range_source = (
-            "acquisition_metadata" if state["range_metadata_scans"] else "observed_ms1_extent"
-        )
-        if state["range_metadata_scans"] and (bounds[0] < acquired[0] or bounds[1] > acquired[1]):
-            range_source = "acquisition_metadata_with_observed_extension"
         configs[polarity], info = derive_settings(
-            [item[2] for item in state["heap"]],
+            [item[2] for pool in state["heaps"] for item in pool],
             state["intervals"],
             ms2,
             config,
             polarity,
-            mass_range=bounds,
+            mass_range=state["mass_range"].bounds,
         )
         info.update(
             ms1_scans=state["scans"],
             candidates=state["candidates"],
             rejected_candidates=dict(sorted(state["rejected"].items())),
-            acquired_mz_range=list(bounds) if all(np.isfinite(bounds)) else None,
-            acquired_mz_range_source=range_source,
-            range_metadata_scans=state["range_metadata_scans"],
-            invalid_range_metadata_scans=state["invalid_range_scans"],
-            retained_candidates=len(state["heap"]),
+            **state["mass_range"].diagnostics(),
+            retained_candidates=sum(map(len, state["heaps"])),
+            pilot_sampling_regions=[
+                {
+                    "lower": low,
+                    "upper": high,
+                    "selected_centroids": int(state["selected_centroids"][index]),
+                    "qualified_candidates": int(state["candidate_counts"][index]),
+                    "retained_candidates": len(state["heaps"][index]),
+                }
+                for index, (low, high) in enumerate(
+                    zip(state["sampling_edges"], state["sampling_edges"][1:])
+                )
+            ],
         )
         diagnostics[polarity] = info
     return TuningResult(
@@ -535,6 +530,10 @@ def calibrate_file(source, config, *, scan_source=None):
             "policy_version": POLICY_VERSION,
             "elapsed_seconds": time.perf_counter() - started,
             "minimum_representatives": config.tuning_min_peaks,
+            "peak_sampling": "strongest_per_region",
+            "peak_limit_per_region": config.tuning_peak_limit,
+            "candidate_limit_per_region": config.tuning_max_peaks * 10,
+            "range_discovery_pass": config.tuning_mz_regions is not None,
             "mass_regions": region_count,
             "mz_breaks": list(config.tuning_mz_breaks)
             if config.tuning_mz_regions is None

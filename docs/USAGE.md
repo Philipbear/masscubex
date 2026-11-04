@@ -275,7 +275,9 @@ MS1 representatives with MS2. Unsupported estimates retain configured fallback
 values and report the reason. Calibration anchors require Gaussian similarity
 ≥0.90 (`--tuning-min-gaussian-similarity`). Mass fits use fixed m/z regions
 **0–200 / 200–500 / 500+** (`--tuning-mz-breaks 200 500`), with at least 20 representatives
-per local fit and a file-wide fallback for sparse regions. Each mass component
+per local fit and a file-wide fallback for sparse regions. The pilot selects
+the strongest 128 centroids **per region per scan** (`--tuning-peak-limit`),
+up to 384 per scan with the default three regions. Each mass component
 uses mean + 3 sample SD of screened per-peak absolute-error summaries;
 `--tuning-mass-sigma 5` widens this margin. Noise remains fixed at μ + 3σ.
 

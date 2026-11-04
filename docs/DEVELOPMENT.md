@@ -15,6 +15,7 @@ per-file failure reporting. Neither contains per-mass numerical loops.
 | `reference_chromatograms.py` | Readable SciPy compatibility path for tied peak priorities and a differential-test oracle. |
 | `calibration.py` | Compiled quality screening of one representative trace; accepted candidates retain NumPy/SciPy measurement arithmetic to preserve calibrated boundaries. Named `RepresentativeValues` and explicit rejection reasons. |
 | `tuning.py` | Gaussian-qualified representatives, regional per-polarity estimates, range provenance, evidence minima and override policy. |
+| `pilot_sampling.py` | Deterministic strongest-centroid selection per mass region and complete acquired-range discovery for optional equal-width layouts. |
 | `mass_tolerance.py` | Immutable region records and consistent Python/compiled target-mass window lookup; an unbounded last upper limit is `None` in records/JSON and infinity only in packed numerical arrays. |
 | `noise.py`, `noise_regions.py`, `centroid.py` | Sliding/binned MS1 noise estimation and profile mass detection. |
 | `ms2.py`, `gapfill.py`, `gapfill_refinement.py` | MS2 bookkeeping, unmatched precursor seeds, query scheduling and raw-MS1 measurements. |

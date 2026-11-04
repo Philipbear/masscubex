@@ -1,5 +1,17 @@
 # MassCubeX validation
 
+## Version 0.14.0: strongest 128 centroids per mass region
+
+**708 source tests + 708 installed-wheel tests pass.** Calibration selects up to
+128 centroids per region per MS1 scan, with separately bounded candidate pools.
+Gaussian ≥0.90, the 20-anchor minimum, three fixed mass regions and mean + 3
+sample SD remain unchanged. On the same 50 files, independently supported MS1
+regions increase from **49/150 to 66/150**, with supported-file counts by region
+of **8 / 50 / 8**. All 50 files now have a supported global MS1 fit.
+
+The raw-data audit preserves all **125,266 MS2 scans** and verifies 175,287 seeded
+quantification sample points. See [regional sampling and paired timings](REGIONAL_SAMPLING.md).
+
 ## Version 0.13.0: compare fixed mass regions and diagnose sparse calibration
 
 **689 source tests + 689 installed-wheel tests pass**, as do all

@@ -13,6 +13,17 @@ import numpy as np
 from numba import njit
 
 
+def calibration_edges(config, mass_range=None):
+    """Use one layout for pilot sampling and the subsequent regional mass fits."""
+    if config.tuning_mz_regions is None:
+        return [0.0, *config.tuning_mz_breaks, None]
+    if mass_range is not None:
+        low, high = mass_range
+        if np.isfinite(low) and np.isfinite(high) and 0 <= low < high:
+            return np.linspace(low, high, config.tuning_mz_regions + 1).tolist()
+    return []
+
+
 @dataclass(frozen=True, slots=True)
 class MassRegion:
     lower: float

@@ -1,6 +1,6 @@
 # MassCubeX: implementation and methods
 
-This document describes the implemented MassCubeX 0.13.0 processing path,
+This document describes the implemented MassCubeX 0.14.0 processing path,
 including the low-tail MS1 estimator, MS2-seeded features and persistent batch reports. It is a description of
 the code and its defaults, not a claim of a newly published scientific method.
 For a quick start, see the [README](../README.md). Commands, Python usage and
@@ -52,6 +52,7 @@ Implementation map:
 | [features.py](../src/masscubex/features.py) | Trace pools, segmentation, quantification |
 | [ms2.py](../src/masscubex/ms2.py) | Precursor-intensity fallback, association, representative selection |
 | [tuning.py](../src/masscubex/tuning.py) | Per-polarity pilot selection, robust parameter estimates, fallbacks |
+| [pilot_sampling.py](../src/masscubex/pilot_sampling.py) | Strongest centroids per mass region, acquisition-range discovery and provenance |
 | [gapfill_refinement.py](../src/masscubex/gapfill_refinement.py) | Narrow raw EICs, local boundaries and refined-seed deduplication |
 | [gapfill.py](../src/masscubex/gapfill.py) | New MS2-seeded features and streaming raw-MS1 EIC measurements |
 | [adducts.py](../src/masscubex/adducts.py), [grouping.py](../src/masscubex/grouping.py) | Ion chemistry and relationship evidence |
@@ -1210,7 +1211,7 @@ settings. Full derivations and override semantics: [AUTO_TUNING.md](AUTO_TUNING.
 | `tuning_mass_sigma` | `--tuning-mass-sigma` | 3; mean + k sample SD of screened per-peak Q95 absolute errors |
 | `mass_regions` | JSON/Python only | Empty by default; learned local MS1/MS2/gap-fill settings in effective configs; a final `upper: null` means unbounded |
 | `tuning_search_ppm`, `tuning_search_da` | `--tuning-search-ppm`, `--tuning-search-da` | 100 ppm / 0.05 Da broad pilot radius components |
-| `tuning_peak_limit` | `--tuning-peak-limit` | 128 strongest MS1 centroids per scan; minimum 32 |
+| `tuning_peak_limit` | `--tuning-peak-limit` | 128 strongest centroids per m/z region per MS1 scan (up to 384 at default boundaries); minimum 32 |
 | `tuning_block_scans`, `tuning_block_seconds` | `--tuning-block-scans`, `--tuning-block-seconds` | 512 scans / 120 s per pilot block |
 | `tuning_locked` | JSON/Python only | Empty list; tunable names protected from automatic updates |
 | `smoothing_seconds` | `--smoothing-seconds` | 0 means use scan units; calibrated when enabled |

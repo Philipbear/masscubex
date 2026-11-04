@@ -395,6 +395,8 @@ def _parser():
             help_ += "; fixed at 3; tune the background subset with --noise-fraction"
         if name == "scan_cache_mb":
             help_ += "; per-worker decoded scan budget in MiB; 0 disables replay"
+        if name == "tuning_peak_limit":
+            help_ += "; strongest centroids per m/z region per MS1 scan"
         if name == "noise_min_neighbors":
             help_ += "; minimum selected background count, excluding the candidate"
         if name in {"noise_clip_sigma", "noise_iterations"}:

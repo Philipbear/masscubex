@@ -1,6 +1,6 @@
 # Per-file calibration and polarity switching
 
-Version 0.13 uses calibration policy 3: Gaussian-qualified representatives,
+Version 0.14 uses calibration policy 4: region-stratified pilot sampling, Gaussian-qualified representatives,
 three fixed m/z regions (0–200 / 200–500 / 500+), and mean + 3 sample SD mass-error margins.
 Output defaults to Parquet; the calculations apply equally to TSV.
 
@@ -21,10 +21,15 @@ increments a trace's missed-scan count.
 The pilot operates on reader-normalized MS1 without the adaptive filter. Profile
 MS1 is centroided using zero baseline/threshold, the configured minimum profile
 support (3 samples) and spacing-gap factor (4). Profile rejection still applies
-if explicitly requested. For each scan, at most the strongest 128 centroids are
-tracked, with deterministic mass-order ties. A candidate is marked as competing
+if explicitly requested. For each scan, track at most the strongest **128 centroids
+in each m/z region** (`--tuning-peak-limit`), with deterministic mass-order ties.
+The three default regions allow at most 384 centroids per scan. A sparse region
+contributes all its centroids; its unused capacity is not transferred to another
+region. Boundary masses enter the higher region. Sampling is performed after
+profile centroiding, independently for each polarity. A candidate is marked as competing
 if another centroid in its broad mass interval has at least 20% of its intensity;
-this check uses the complete scan, including centroids outside the strongest 128.
+this check uses the complete centroided scan, including unselected centroids
+and neighbors across region boundaries.
 
 Pilot traces need at least 7 observations and allow one missing same-polarity
 scan. They use the configured trace time-gap limit. Trackers flush after 512
@@ -62,17 +67,17 @@ Each candidate is screened as follows:
    not the corresponding detected feature. Shape cannot establish ion purity;
    the competing-mass and central-mass-stability checks still apply.
 
-Keep a bounded pool of the strongest `10 × tuning_max_peaks × region_count`
-candidates per polarity: 3,000 by default. At the end of the pass, select up to
+Keep separate bounded pools of the strongest `10 × tuning_max_peaks` qualified
+candidates **per region and polarity**: 1,000 per region, at most 3,000 per
+polarity by default. Classify each complete candidate by its representative m/z;
+one region cannot displace another's candidates. At the end of the pass, select up to
 100 representatives globally for timing and the file-wide fallback, and up to
 100 independently in each m/z region. Each selection uses m/z and RT quartiles
-(up to 16 cells), taking the strongest in each cell in rounds. The pilot still
-tracks only the top 128 centroids per scan, so sparse high-mass coverage is
-reported rather than assumed. `--tuning-max-peaks` controls each selection, not
-an overall cap of 100 across all regions. The global top-128 selection can
-under-sample weaker mass regions before this balanced representative selection.
-The [50-file coverage audit](../benchmarks/results/CALIBRATION_COVERAGE.md)
-separates this sampling effect from sparse signal and shape rejection.
+(up to 16 cells), taking the strongest in each cell in rounds. Sparse regions
+still require the same shape and evidence checks. `--tuning-max-peaks` controls
+each selection, not an overall cap of 100 across all regions. The
+[sampling comparison](../benchmarks/results/REGIONAL_SAMPLING.md) measures
+coverage and time against the previous global top-128 selection.
 
 Before estimation, screen FWHM and per-peak mass error in ppm independently in
 each selection using log-space MAD: retain values within
@@ -103,6 +108,11 @@ exclusive.
 `--tuning-mz-regions 5` preserves the five equal-width acquired-range layout.
 For that mode, the acquired span is determined as follows. Range provenance is
 also recorded with fixed boundaries, but does not move those boundaries.
+Equal-width sampling requires a range-discovery pass before the pilot so that
+later scans cannot move earlier sampling boundaries. It uses the existing
+bounded scan replay when available, otherwise rereads the file. The fixed-boundary
+default needs no range-discovery pass. With no usable equal-width span, the
+pilot uses one sampling pool and mass fitting retains the global fallback.
 
 For each polarity, collect the union of MS1 acquisition windows from mzML
 `scanWindow` lower/upper limits (MS:1000501 / MS:1000500), or mzXML
@@ -179,7 +189,8 @@ Global scalar settings in each effective config are the **fallback envelope**;
 `mass_regions` contains the actual per-region settings. The sidecar records
 layout, boundaries, range source, invalid-metadata counts, shape rejections, selected representative
 indices and scores, local counts, means, sample SDs, estimated/effective settings
-and fallback status. Explicit scalar overrides apply in every automatically
+and fallback status. `pilot_sampling_regions` also records selected-centroid,
+qualified-candidate and retained-candidate counts per region. Explicit scalar overrides apply in every automatically
 learned region. A nonempty `mass_regions` supplied explicitly through JSON/Python
 is preserved and takes precedence over scalars inside its bounds;
 use an empty list for automatic regional estimation. Disabling auto-tuning

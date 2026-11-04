@@ -57,6 +57,7 @@ def implementation_id():
         "gapfill.py",
         "gapfill_refinement.py",
         "tuning.py",
+        "pilot_sampling.py",
         "calibration.py",
         "adducts.py",
         "grouping.py",
