@@ -82,8 +82,8 @@ binary integrity, was not validated. Screening time is recorded separately as
 `acquisition_inspection` in the successful file's timing sidecar.
 
 Modes are `dia`, `mixed_dia`, explicitly declared `dda`, observed `ms1_only`,
-`chromatogram_only`, or `unknown`. **Unknown is not proof of DDA.** Unknown files
-are processed with their uncertainty retained in reports. Exports that omit
+`non_ms_only`, `chromatogram_only`, or `unknown`. **Unknown is not proof of DDA.**
+Unknown files are processed with their uncertainty retained in reports. Exports that omit
 mode declarations and usable isolation metadata can conceal DIA. Irregular
 adaptive DIA, very long cycles, multiplexed precursors, and all-ion exports
 with neither an all-ion declaration nor a full-range isolation window may
@@ -91,6 +91,15 @@ remain unknown. A converted MS1-only file cannot establish the acquisition mode
 of omitted MS2 spectra. Vendor identity alone never determines acquisition mode.
 Dense targeted window schedules can also resemble DIA; mode declarations remain
 stronger evidence than inferred window patterns.
+
+Co-exported optical spectra explicitly labelled `MS:1000804` (electromagnetic
+radiation), `MS:1000805` (emission), or `MS:1000806` (absorption) are excluded
+before MS-level validation or mass-array decoding. Referenced parameter groups
+are supported. Wavelength units, names and missing MS-level metadata alone do
+not trigger exclusion. `spectra_inspected` includes these entries, while
+`non_ms_spectra_inspected` counts them separately and `ms_levels` excludes them.
+Files containing only these spectra receive a specific no-mass-spectra error.
+Source spectrum indices retain their original positions across skipped entries.
 
 Chromatogram-only MRM/SRM exports have no mass spectra and receive a specific
 file error before calibration. Mobility-resolved MS1 remains unsupported until

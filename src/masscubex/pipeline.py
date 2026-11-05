@@ -48,6 +48,7 @@ def implementation_id():
         "mass_tolerance.py",
         "mass_tolerance_kernels.py",
         "formats.py",
+        "spectrum_types.py",
         "acquisition.py",
         "readers.py",
         "array_validation.py",
@@ -288,6 +289,8 @@ def process_file(
                 f"Chromatogram-only export has no mass spectra: {source}; "
                 "MRM/SRM chromatograms cannot be used for untargeted MS1 feature extraction"
             )
+        if acquisition.mode == "non_ms_only":
+            raise ValueError(f"Non-MS-only export contains no mass spectra: {source}")
         if acquisition.is_dia:
             if config.dia_policy == "skip":
                 return ProcessingResult(

@@ -67,7 +67,8 @@ def test_existing_output_and_locks_protected(sample_file, tmp_path):
     assert lock.read_text() == "a different worker"
 
 
-def test_binned_noise_source_change_invalidates_resume(sample_file, tmp_path, monkeypatch):
+@pytest.mark.parametrize("source_name", ["noise_regions.py", "spectrum_types.py"])
+def test_algorithm_source_change_invalidates_resume(sample_file, tmp_path, monkeypatch, source_name):
     from masscubex.pipeline import implementation_id
 
     output = tmp_path / "noise.parquet"
@@ -77,8 +78,8 @@ def test_binned_noise_source_change_invalidates_resume(sample_file, tmp_path, mo
     def changed_source(path):
         original = read_bytes(path)
         return (
-            original + b"\n# edited bin estimator\n"
-            if path.name == "noise_regions.py"
+            original + b"\n# edited algorithm policy\n"
+            if path.name == source_name
             else original
         )
 

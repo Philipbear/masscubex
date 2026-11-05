@@ -21,6 +21,8 @@ No DIA deconvolution is performed; explicit skip/error policies remain available
 The streaming readers support mzML/mzXML, gzip, float32/float64 binary arrays,
 zlib and optional MS-Numpress. They validate XML, lengths, encodings, finite
 values, scan times and polarity metadata; no network vocabulary lookup is used.
+Explicit optical spectrum types are skipped before MS-level or array validation;
+their wavelength arrays never enter mass-feature processing.
 Explicit zero-length mzML arrays may have empty binary payloads even when zlib
 compression is declared. Nonempty compressed payloads still require successful
 decompression and matching array lengths; corrupted data is not treated as empty.

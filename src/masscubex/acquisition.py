@@ -15,6 +15,7 @@ import unicodedata
 from lxml import etree
 
 from .formats import file_format, open_xml
+from .spectrum_types import NON_MS_SPECTRUM_TERMS
 
 
 # PSI-MS 4.2.14. Acquisition aspects 3216–3218 describe full-range, scanning
@@ -62,8 +63,9 @@ class AcquisitionInfo:
     ms_levels: dict
     inspection_complete: bool
     binary_arrays_decoded: bool = False
-    detector_version: int = 1
+    detector_version: int = 2
     chromatograms_inspected: int = 0
+    non_ms_spectra_inspected: int = 0
 
     @property
     def is_dia(self):
@@ -78,7 +80,7 @@ class AcquisitionInfo:
 
 @dataclass
 class _Spectrum:
-    level: int = 0
+    level: int | str = 0
     polarity: str = "unknown"
     native_id: str = ""
     targets: list = field(default_factory=list)
@@ -91,6 +93,7 @@ class _Spectrum:
     scan_upper: float | None = None
     scan_ranges: list = field(default_factory=list)
     emitted: bool = False
+    non_ms: bool = False
 
 
 def _number(value):
@@ -206,6 +209,7 @@ class _MetadataTarget:
         self.full_range_windows = {}
         self.spectra_inspected = 0
         self.chromatograms_inspected = 0
+        self.non_ms_spectra_inspected = 0
         self.root_seen = False
 
     def _dia(self, family, evidence):
@@ -245,6 +249,10 @@ class _MetadataTarget:
         if self.group is not None:
             self.group[1].append(dict(attrs))
             return
+        if self.spectra and parent == "spectrum" and accession in NON_MS_SPECTRUM_TERMS:
+            self.spectra[-1].non_ms = True
+        if self.spectra and self.spectra[-1].non_ms:
+            return
         # Software names, filenames and free-text study comments do not label
         # the acquisition. Only acquisition terms/fields are authoritative.
         if parent not in {"software", "sourceFile", "contact", "sample"}:
@@ -260,7 +268,7 @@ class _MetadataTarget:
             return
         scan = self.spectra[-1]
         if accession == "MS:1000511":
-            scan.level = int(value)
+            scan.level = value
         elif accession in {"MS:1000130", "MS:1000129"}:
             scan.polarity = "positive" if accession == "MS:1000130" else "negative"
         elif accession == "MS:1000827":
@@ -341,6 +349,10 @@ class _MetadataTarget:
             return
         scan.emitted = True
         self.spectra_inspected += 1
+        if scan.non_ms:
+            self.non_ms_spectra_inspected += 1
+            return
+        scan.level = int(scan.level)
         self.levels[scan.level] += 1
         cycle = self.cycles.setdefault(scan.polarity, _WindowCycles())
         if scan.level == 1:
@@ -431,6 +443,8 @@ class _MetadataTarget:
             mode, confidence = ("mixed_dia" if self.dda else "dia"), "high"
         elif self.dda:
             mode, confidence = "dda", "declared"
+        elif self.non_ms_spectra_inspected and not self.levels:
+            mode, confidence = "non_ms_only", "observed"
         elif not self.spectra_inspected and self.chromatograms_inspected:
             mode, confidence = "chromatogram_only", "observed"
         elif self.levels and set(self.levels) == {1}:
@@ -448,6 +462,7 @@ class _MetadataTarget:
             {str(k): v for k, v in sorted(self.levels.items())},
             complete,
             chromatograms_inspected=self.chromatograms_inspected,
+            non_ms_spectra_inspected=self.non_ms_spectra_inspected,
         )
 
 

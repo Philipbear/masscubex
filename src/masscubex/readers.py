@@ -17,6 +17,7 @@ import numpy as np
 
 from .array_validation import normalized_arrays
 from .formats import file_format, open_xml
+from .spectrum_types import NON_MS_SPECTRUM_TERMS
 
 
 @dataclass(slots=True)
@@ -228,6 +229,8 @@ def _mzml_scan(
     element, groups, assume_centroid, include_ms2=False, decode_ms2=False, index=-1, sum_ms2=False
 ):
     params = _params(element, groups)
+    if params.keys() & NON_MS_SPECTRUM_TERMS:
+        return None
     if "MS:1000511" not in params:
         raise ValueError("mzML spectrum has no MS level")
     level = int(params["MS:1000511"]["value"])
