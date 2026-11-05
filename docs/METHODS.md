@@ -21,6 +21,9 @@ No DIA deconvolution is performed; explicit skip/error policies remain available
 The streaming readers support mzML/mzXML, gzip, float32/float64 binary arrays,
 zlib and optional MS-Numpress. They validate XML, lengths, encodings, finite
 values, scan times and polarity metadata; no network vocabulary lookup is used.
+Explicit zero-length mzML arrays may have empty binary payloads even when zlib
+compression is declared. Nonempty compressed payloads still require successful
+decompression and matching array lengths; corrupted data is not treated as empty.
 Profile MS1 is centroided by default; `--profile-mode reject` disables this extension.
 
 Scientific scan processing uses float32 m/z/intensity arrays, matching upstream.

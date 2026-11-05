@@ -178,7 +178,7 @@ _NUMPRESS = {
 _COMPRESSION = set(_NUMPRESS) | {"MS:1000574", "MS:1000576"}
 
 
-def _mzml_binary(element, params):
+def _mzml_binary(element, params, *, expected_length):
     compression = set(params) & _COMPRESSION
     unknown = [
         p.get("name", "")
@@ -192,10 +192,24 @@ def _mzml_binary(element, params):
     numpress = list(set(params) & set(_NUMPRESS))
     if len(numpress) > 1:
         raise ValueError("Conflicting MS-Numpress encodings")
+    dtype = np.float64
+    if not numpress:
+        precisions = set(params) & {"MS:1000521", "MS:1000523"}
+        if len(precisions) != 1:
+            raise ValueError("mzML arrays require one 32-bit or 64-bit floating-point type")
+        # mzML 1.1 specifies little-endian binary arrays.
+        dtype = "<f4" if "MS:1000521" in params else "<f8"
     binary = element.find("{*}binary")
     if binary is None:
         raise ValueError("Missing mzML binary element")
     raw = _base64(binary.text)
+    # Some exporters omit even the zlib empty-stream header for zero values.
+    # Only a declared empty array with no payload gets this compatibility path;
+    # nonempty payloads must still pass decompression and array-length checks.
+    if expected_length == 0 and not raw:
+        if int(element.get("encodedLength", "0")) != 0:
+            raise ValueError("Empty mzML binary payload has nonzero encodedLength")
+        return np.empty(0, dtype=dtype)
     if "MS:1000574" in params or (numpress and _NUMPRESS[numpress[0]][1]):
         raw = zlib.decompress(raw)
     if numpress:
@@ -207,11 +221,7 @@ def _mzml_binary(element, params):
             ) from error
         decoder = getattr(pynumpress, "decode_" + _NUMPRESS[numpress[0]][0])
         return decoder(np.frombuffer(raw, dtype=np.uint8))
-    precisions = set(params) & {"MS:1000521", "MS:1000523"}
-    if len(precisions) != 1:
-        raise ValueError("mzML arrays require one 32-bit or 64-bit floating-point type")
-    # mzML 1.1 specifies little-endian binary arrays.
-    return np.frombuffer(raw, dtype="<f4" if "MS:1000521" in params else "<f8")
+    return np.frombuffer(raw, dtype=dtype)
 
 
 def _mzml_scan(
@@ -288,7 +298,7 @@ def _mzml_arrays(element, groups, profile=False):
         key = keys.pop()
         if key in arrays:
             raise ValueError("Duplicate mzML m/z or intensity array")
-        values = _mzml_binary(array, array_params)
+        values = _mzml_binary(array, array_params, expected_length=expected)
         if len(values) != expected:
             raise ValueError(f"Binary array length {len(values)} != defaultArrayLength {expected}")
         arrays[key] = values
