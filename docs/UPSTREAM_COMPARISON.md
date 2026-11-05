@@ -12,7 +12,7 @@ polarity separation and compact output are also intentional adaptations.
 | Step | Current default |
 | --- | --- |
 | Scan representation | float32 m/z and intensities, as upstream |
-| Acquisition acceptance | MassCubeX screens metadata and repeated windows, skipping recognized DIA before extraction; unknown modes remain labelled unknown |
+| Acquisition acceptance | Recognized DIA uses MS1-only extraction with no DDA-style MS/MS association/seeding; explicit skip/error policies remain; unknown modes stay labelled unknown |
 | Scan cleanup | Strict mass/intensity bounds; adjacent-centroid merging at 0.002 Da after filtering |
 | Trace matching | Last observed mass, not a running weighted mean; exact midpoint ties do not match. Regional auto-tuned radius by default; upstream 0.01 Da is the uncalibrated fallback |
 | Conflicting matches | Test the nearest mass only; if already claimed, insert a missing observation rather than choosing another mass |

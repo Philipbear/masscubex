@@ -89,8 +89,15 @@ MS/MS-seeded gap filling and ion grouping are enabled by default.
 ## Failed files and DIA
 
 Corrupt or missing files are recorded and processing continues. Confidently
-recognized DIA acquisitions, including AIF/MSᴱ and SWATH, are skipped by default.
-Unknown acquisition modes are processed with their uncertainty recorded.
+recognized DIA acquisitions, including AIF/MSᴱ, SWATH and mixed DDA/DIA files,
+produce **MS1 feature tables** by default. DDA-style MS/MS association,
+MS2-seeded features and MS2-based in-source-fragment grouping are disabled for
+those files; MS1 isotope/adduct grouping remains enabled. No DIA deconvolution
+is performed. Files without MS1 scans receive a specific file error.
+Use `--dia-policy skip` or `error` for an explicit exclusion policy.
+Unknown acquisition modes retain the ordinary configured processing, with
+their uncertainty recorded. JSON sidecars retain both requested `config` and
+per-file `effective_config`, plus the applied `acquisition_policy`.
 
 Each run writes `features/reports/<run-id>/` containing `summary.json`,
 `errors.tsv`, `skipped.tsv`, and `files.jsonl`. A batch with file errors finishes

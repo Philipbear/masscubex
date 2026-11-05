@@ -3,6 +3,7 @@
 import csv
 import gzip
 import json
+from pathlib import Path
 import subprocess
 import sys
 
@@ -11,6 +12,7 @@ import pytest
 from masscubex.acquisition import DIA_TERMS, inspect_acquisition
 from masscubex.config import Config
 from masscubex.pipeline import process_file
+from masscubex.output import iter_feature_rows
 from masscubex.reporting import BatchReport
 
 from conftest import mzml_spectrum, mzxml_scan, write_mzml, write_mzxml
@@ -373,13 +375,14 @@ def test_dia_exclusion_does_not_calibrate_or_create_a_table(tmp_path, monkeypatc
         "masscubex.pipeline.calibrate_file", lambda *a, **k: pytest.fail("DIA calibrated")
     )
     output = tmp_path / "dia.parquet"
-    result = process_file(path, output)
+    result = process_file(path, output, config=Config(dia_policy="skip"))
     assert result.status == "skipped" and result.skip_reason == "dia_acquisition"
     assert result.output is None and not output.exists()
     assert not list(tmp_path.glob("*.lock")) and not list(tmp_path.glob("*.partial"))
     # Old feature tables must never be silently deleted by the exclusion policy.
     output.write_bytes(b"old output")
-    assert process_file(path, output).skip_reason == "dia_acquisition"
+    excluded = process_file(path, output, config=Config(dia_policy="skip"))
+    assert excluded.skip_reason == "dia_acquisition"
     assert output.read_bytes() == b"old output"
     with pytest.raises(ValueError, match="DIA acquisition"):
         process_file(path, output, config=Config(dia_policy="error"))
@@ -411,15 +414,95 @@ def test_dia_report_distinguishes_policy_exclusion_from_resume(tmp_path):
     assert len(rows) == 1 and rows[0]["reason"] == "dia_acquisition"
 
 
-def test_explicit_process_override_and_resume_provenance(tmp_path):
+def test_default_dia_processing_and_resume_provenance(tmp_path):
     path = write_mzml(tmp_path / "dia.mzML", [survey()], groups=cv("MS:1003227", name="AIF"))
-    config = Config(dia_policy="process")
+    config = Config()
+    assert config.dia_policy == "process"
     result = process_file(path, tmp_path / "features.tsv", config=config)
     assert result.status == "ok" and result.acquisition["mode"] == "dia"
     resumed = process_file(path, tmp_path / "features.tsv", config=config, resume=True)
     assert resumed.skip_reason == "already_complete" and resumed.acquisition == result.acquisition
-    excluded = process_file(path, tmp_path / "features.tsv", resume=True)
+    metadata = json.loads((tmp_path / "features.tsv.json").read_text())
+    assert metadata["config"]["associate_ms2"] is True
+    assert metadata["effective_config"]["associate_ms2"] is False
+    assert metadata["effective_config"]["ms2_seeded_features"] is False
+    assert metadata["effective_config"]["group_isf"] is False
+    assert metadata["effective_config"]["group_ions"] is True
+    assert metadata["acquisition_policy"]["applied"] == "dia_ms1_only"
+    assert metadata["algorithm_policy"]["ms2_seeding_extension"] is False
+    excluded = process_file(
+        path, tmp_path / "features.tsv", config=Config(dia_policy="skip"), resume=True
+    )
     assert excluded.skip_reason == "dia_acquisition"
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_dia_extracts_same_ms1_features_without_fragment_links(tmp_path, monkeypatch, mixed):
+    scans = [
+        mzml_spectrum(index, index, [100.0, 121.981942], [height, height / 2])
+        for index, height in enumerate([1000, 2000, 1000], start=1)
+    ]
+    # A strong fragment/precursor must not add seeded features or ISF labels.
+    precursor = (
+        '<precursorList><precursor><selectedIonList><selectedIon>'
+        + cv("MS:1000744", 300)
+        + '</selectedIon></selectedIonList></precursor></precursorList>'
+    )
+    scans.insert(1, mzml_spectrum(4, 1.5, [100], [100000], level=2, precursor=precursor))
+    declaration = (cv("MS:1003221", name="DDA") if mixed else "") + cv(
+        "MS:1003227", name="AIF"
+    )
+    dia = write_mzml(tmp_path / "dia.mzML", scans, groups=declaration)
+    # Keep baseline settings identical to the automatically selected DIA policy.
+    baseline = write_mzml(tmp_path / "ms1.mzML", [scans[0], scans[2], scans[3]])
+    expected = process_file(
+        baseline,
+        tmp_path / "baseline.parquet",
+        config=Config(associate_ms2=False, ms2_seeded_features=False, group_isf=False),
+    )
+    monkeypatch.setattr(
+        "masscubex.pipeline.associate_ms2", lambda *a, **k: pytest.fail("DIA fragments associated")
+    )
+    monkeypatch.setattr(
+        "masscubex.gapfill.seed_ms2_features", lambda *a, **k: pytest.fail("DIA seeds created")
+    )
+    result = process_file(dia, tmp_path / "dia.parquet")
+    assert result.acquisition["mode"] == ("mixed_dia" if mixed else "dia")
+    assert list(iter_feature_rows(result.output)) == list(iter_feature_rows(expected.output))
+    rows = list(iter_feature_rows(result.output))
+    assert len(rows) == 2
+    assert all(not row["ms2_scan_numbers"] for row in rows)
+    assert all(row["best_ms2_scan_number"] is None for row in rows)
+    assert any(row["adduct"] for row in rows)
+    metadata = json.loads((tmp_path / "dia.parquet.json").read_text())
+    assert metadata["acquisition_policy"]["scope"] == "entire_file"
+    assert metadata["parameter_tuning"]["enabled"] is True
+
+
+def test_dia_ms2_only_does_not_create_precursor_seeded_rows(tmp_path):
+    path = write_mzml(
+        tmp_path / "dia_only.mzML", [window(1, 200, 100)], groups=cv("MS:1003227", name="AIF")
+    )
+    with pytest.raises(ValueError, match="DIA MS1-only extraction requires MS1"):
+        process_file(path, tmp_path / "features.parquet")
+    assert not (tmp_path / "features.parquet").exists()
+    assert not list(tmp_path.glob("*.partial"))
+
+
+def test_cli_default_processes_dia_ms1_features(tmp_path):
+    path = write_mzml(tmp_path / "dia.mzML", [survey()], groups=cv("MS:1003227", name="AIF"))
+    output = tmp_path / "output"
+    run = subprocess.run(
+        [sys.executable, "-m", "masscubex", "extract", str(path), "-o", str(output)],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    result = json.loads(run.stdout)
+    assert result["status"] == "ok"
+    assert result["acquisition"]["mode"] == "dia"
+    metadata = json.loads(Path(result["output"] + ".json").read_text())
+    assert metadata["acquisition_policy"]["applied"] == "dia_ms1_only"
 
 
 @pytest.mark.parametrize("value", ["invalid", None, True, [], {}])
@@ -448,6 +531,8 @@ def test_cli_skips_dia_reports_corruption_and_processes_later_files(tmp_path, wo
             str(output),
             "--workers",
             str(workers),
+            "--dia-policy",
+            "skip",
         ],
         capture_output=True,
         text=True,

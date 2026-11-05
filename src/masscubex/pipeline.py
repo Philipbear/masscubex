@@ -1,6 +1,6 @@
 """Streaming extraction and crash-safe, independently resumable file outputs."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from bisect import bisect_left
 from contextlib import closing, ExitStack
 from datetime import datetime, timezone
@@ -305,7 +305,15 @@ def process_file(
         if (output.exists() or metadata_path.exists()) and not (overwrite or resume):
             raise FileExistsError(f"Output exists: {output}; use resume=True or overwrite=True")
         started = time.perf_counter()
-        runtime_config = resolve_ms2_filter(source, config)
+        # Broad-window fragments do not identify individual MS1 precursors.
+        # Apply one conservative policy to the entire file, including mixed
+        # DDA/DIA acquisitions, while retaining MS1 isotope/adduct grouping.
+        acquisition_config = (
+            replace(config, associate_ms2=False, ms2_seeded_features=False, group_isf=False)
+            if acquisition.is_dia
+            else config
+        )
+        runtime_config = resolve_ms2_filter(source, acquisition_config)
         scan_source = ScanSource(source, runtime_config)
         tuning = calibrate_file(source, runtime_config, scan_source=scan_source)
         timings = {
@@ -317,7 +325,10 @@ def process_file(
             "parameter_tuning": tuning.diagnostics,
             "timings_seconds": timings,
             "scan_cache": scan_source.stats,
-            "ms2_min_intensity_used": runtime_config.ms2_min_intensity,
+            "ms2_processing_enabled": runtime_config.associate_ms2,
+            "ms2_min_intensity_used": (
+                runtime_config.ms2_min_intensity if runtime_config.associate_ms2 else None
+            ),
         }
         with tempfile.NamedTemporaryFile(
             mode="wb",
@@ -329,14 +340,14 @@ def process_file(
             temp_table = Path(stream.name)
             temporary.append(temp_table)
         with closing(scan_source.scans()) as scans, ExitStack() as preprocessing:
-            if config.group_ions:
+            if runtime_config.group_ions:
                 from .grouping_spectra import GroupingSpectra
 
                 # Preprocessing already produces exact upstream float32 values.
                 # Keep that representation on disk instead of doubling its size.
                 grouping_spectra = GroupingSpectra(output.parent, dtype="float32")
             collector = MS2Collector(runtime_config, tuning.configs)
-            stream_ms1 = collector.ms1_stream(scans) if config.associate_ms2 else scans
+            stream_ms1 = collector.ms1_stream(scans) if runtime_config.associate_ms2 else scans
             noise_cache = None
             if (
                 runtime_config.noise_mode == "adaptive"
@@ -372,10 +383,10 @@ def process_file(
             # Upstream sorts parent traces by apex m/z before segmentation,
             # then sorts the resulting features by apex m/z again.
             features.sort(key=lambda f: (f.mz, f._parent_mz))
-            if config.associate_ms2 or config.group_ions:
+            if runtime_config.associate_ms2 or runtime_config.group_ions:
                 # Compact summaries resolve overlaps globally; full MS1 spectra
                 # remain streamed. The no-MS2/no-grouping path writes lazily.
-                if config.associate_ms2:
+                if runtime_config.associate_ms2:
                     from .gapfill import seed_ms2_features
 
                     started = time.perf_counter()
@@ -396,7 +407,7 @@ def process_file(
                     )
                     timings["ms2_gapfill"] = time.perf_counter() - started
                 scan_source.release()
-                if config.group_ions:
+                if runtime_config.group_ions:
                     from .grouping import group_ions
 
                     started = time.perf_counter()
@@ -406,13 +417,15 @@ def process_file(
                     timings["ion_grouping"] = time.perf_counter() - started
             extraction_before_write = timings.get("feature_extraction", 0.0)
             started = time.perf_counter()
-            count = write_features(temp_table, features, output_format, config=config)
+            count = write_features(temp_table, features, output_format, config=runtime_config)
             timings["table_write"] = (
                 time.perf_counter()
                 - started
                 - timings["feature_extraction"]
                 + extraction_before_write
             )
+        if acquisition.is_dia and not stats["ms1_scans"]:
+            raise ValueError(f"DIA MS1-only extraction requires MS1 scans: {source}")
         if not stats["ms1_scans"] and not count:
             raise ValueError(f"No MS1 scans or usable MS2 precursor features found in {source}")
         if signature != _signature(source):
@@ -426,21 +439,34 @@ def process_file(
             "dependencies": implementation_id()[1],
             "input": signature,
             "config": config.to_dict(),
+            "effective_config": runtime_config.to_dict(),
+            "acquisition_policy": {
+                "version": 1,
+                "requested_dia_policy": config.dia_policy,
+                "applied": "dia_ms1_only" if acquisition.is_dia else "standard",
+                "scope": "entire_file",
+                "disabled_operations": (
+                    ["ms2_association", "ms2_seeded_features", "ms2_in_source_fragments"]
+                    if acquisition.is_dia
+                    else []
+                ),
+                "dia_deconvolution": False,
+            },
             "algorithm_policy": {
                 "upstream_commit": "356748ede691862b9a87f67812db5e728a703b9d",
                 "upstream_version": "1.2.22",
                 "core_algorithms": "upstream_with_configurable_extensions",
-                "adaptive_ms1_noise": config.noise_mode == "adaptive",
-                "auto_tuning_extension": config.auto_tune,
-                "profile_centroiding_extension": config.profile_mode == "centroid",
-                "ms2_seeding_extension": config.ms2_seeded_features,
+                "adaptive_ms1_noise": runtime_config.noise_mode == "adaptive",
+                "auto_tuning_extension": runtime_config.auto_tune,
+                "profile_centroiding_extension": runtime_config.profile_mode == "centroid",
+                "ms2_seeding_extension": runtime_config.ms2_seeded_features,
                 "scan_precision": "float32_as_upstream",
             },
             "features": count,
             **stats,
             "elapsed_seconds": elapsed,
             "output_format": output_format,
-            "output_columns": feature_columns(config),
+            "output_columns": feature_columns(runtime_config),
             "output_precision": OUTPUT_PRECISION,
             "output_bytes": temp_table.stat().st_size,
             "output_sha256": _sha256(temp_table),

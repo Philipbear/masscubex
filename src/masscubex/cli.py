@@ -457,7 +457,7 @@ def _parser():
         if name == "quant_method":
             help_ = "Primary output measurement: peak_height (default) or peak_area"
         if name == "dia_policy":
-            help_ = "Confirmed DIA: skip (default), process explicitly, or error; unknown modes are reported"
+            help_ = "Confirmed DIA: process MS1 only (default), skip, or error; unknown modes are reported"
         if name in {"ms2_rt_tolerance", "group_rt_tolerance"}:
             help_ += "; seconds"
         if name == "ms2_max_isolation_width":

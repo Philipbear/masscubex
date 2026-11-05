@@ -88,7 +88,7 @@ class Config:
     group_min_correlation: float = 0.9
     isf_min_relative_intensity: float = 0.0
     isf_max_peaks: int = 0  # Zero retains all products from the selected spectrum.
-    dia_policy: str = "skip"
+    dia_policy: str = "process"
 
     def __post_init__(self):
         if not isinstance(self.dia_policy, str) or self.dia_policy not in {

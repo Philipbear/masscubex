@@ -1,20 +1,30 @@
 # Acquisition screening
 
-MassCubeX excludes confidently recognized DIA files before calibration, binary
-spectrum decoding, MS2 seeding and feature-table creation. This is an input
-acceptance policy; the inherited MassCube feature algorithms are unchanged.
+MassCubeX detects confidently recognized DIA files before scientific processing.
+The default policy extracts their MS1 features, with MS1 isotope/adduct grouping,
+and disables DDA-style MS/MS association, MS2 seeding and MS2-based in-source
+fragment grouping. The inherited MS1 feature algorithms are unchanged.
 
 ```bash
 masscubex extract /data/study -o features --resume
 masscubex extract sample.mzML -o features --dia-policy error
-# Explicit override for a separate workflow that accepts DIA:
+# The default: MS1-only processing for confirmed DIA.
 masscubex extract sample.mzML -o features --dia-policy process
+# Explicit exclusion, without binary spectrum decoding:
+masscubex extract sample.mzML -o features --dia-policy skip
 ```
 
-The default is `--dia-policy skip`. A DIA exclusion is a successful policy
-decision, not a corrupt-file error. Files that contain any recognized DIA
-segment are excluded, including mixed DDA/DIA acquisitions. No DIA deconvolution
-or assignment of broad-window fragments to individual MS1 features is performed.
+The default is `--dia-policy process`. Files containing any recognized DIA
+segment, including mixed DDA/DIA acquisitions, use the MS1-only policy across
+the entire file. This avoids assigning broad-window fragments to individual
+precursors even when a different segment was declared DDA. No DIA deconvolution
+is performed. DIA files without MS1 scans receive a specific file error.
+The JSON sidecar records requested `config`, per-file `effective_config`, and
+the applied `acquisition_policy`, including each disabled MS2-dependent operation.
+
+An explicit `--dia-policy skip` exclusion is a successful policy decision,
+not a corrupt-file error. It preserves existing outputs and does not decode
+binary spectra. `--dia-policy error` makes a detected DIA input a file error.
 
 ## Evidence
 
@@ -108,7 +118,7 @@ stay in JSONL and summary counts; they are omitted from `skipped.tsv`. A DIA
 skip has no new feature table and `output: null`. Existing tables are preserved
 if an input is now excluded; use reports to select accepted tables downstream.
 Code/configuration fingerprints invalidate older completion markers, so old
-results cannot bypass the new screening policy under `--resume`.
+results cannot bypass the selected acquisition policy under `--resume`.
 
 The Python `process_file` API returns the same acquisition/skip information;
 the CLI persists it in batch reports. File errors do not stop later files, and

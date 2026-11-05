@@ -11,10 +11,12 @@ See [the comparison table](UPSTREAM_COMPARISON.md).
 
 ## Input and scan preprocessing
 
-Before scientific processing, [acquisition screening](ACQUISITION.md) excludes
-confirmed DIA by default using metadata and repeated window evidence. Unknown
-modes remain labelled unknown and are processed. This addition changes input
-acceptance, not the inherited feature algorithms for accepted files.
+Before scientific processing, [acquisition screening](ACQUISITION.md) identifies
+confirmed DIA using metadata and repeated window evidence. Such files use
+MS1-only extraction by default: MS1 isotope/adduct grouping is retained, while
+DDA-style MS/MS association, MS2 seeding and fragment-based grouping are disabled.
+Unknown modes remain labelled unknown and use the configured ordinary processing.
+No DIA deconvolution is performed; explicit skip/error policies remain available.
 
 The streaming readers support mzML/mzXML, gzip, float32/float64 binary arrays,
 zlib and optional MS-Numpress. They validate XML, lengths, encodings, finite

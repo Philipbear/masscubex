@@ -74,7 +74,7 @@ error records. The process coordinator keeps numerical libraries in workers.
 | Best MS2 | Summed retained fragment intensity; first acquisition wins ties |
 | MS2 noise | Fixed instrument default: 10,000 for Orbitrap header keyword, otherwise 500 |
 | Ion grouping | On, with the selected catalog |
-| Confirmed DIA | Skip before extraction; unknown modes are reported and processed |
+| Confirmed DIA | MS1-only extraction; MS1 grouping retained; DDA-style fragment association/seeding disabled |
 | Auto-tuning / profile centroiding / MS2 seeding | On / centroid profile / on |
 
 Select the revised signal-preserving estimator explicitly:
@@ -232,12 +232,21 @@ record successful/skipped/error files and reasons. Retry repaired inputs with
 `--retry-errors PATH`. A batch with file failures returns nonzero after processing
 remaining inputs. Global setup/storage failures can still stop the batch.
 
-Confirmed DIA is skipped by default and listed with detection evidence in
-`skipped.tsv`; this does not make the exit code nonzero. `summary.json` separates
-DIA exclusions from resume hits. Unknown modes remain explicitly unknown and
-are processed. `--dia-policy error` treats DIA as a file error;
-`--dia-policy process` explicitly permits it. See [acquisition screening](ACQUISITION.md)
-for evidence rules, formats and limitations.
+Confirmed DIA is processed by default as MS1-only data. DDA-style MS/MS
+association, MS2-seeded features and MS2-based in-source-fragment grouping are
+disabled across the entire confirmed DIA/mixed-DIA file. MS1 isotope/adduct
+grouping remains available. There is no DIA deconvolution; a DIA export without
+MS1 scans receives a specific file error. Unknown modes remain explicitly
+unknown and use the ordinary requested processing.
+
+`--dia-policy skip` explicitly excludes confirmed DIA and lists the evidence in
+`skipped.tsv`, without making the exit code nonzero. `summary.json` separates
+those exclusions from resume hits. `--dia-policy error` treats DIA as a file
+error. `--dia-policy process` is the default MS1-only policy, rather than an
+override that assigns broad-window fragments to individual precursors. JSON
+sidecars store requested `config`, per-file `effective_config` and the applied
+`acquisition_policy`; polarity-specific calibration settings remain under
+`parameter_tuning.effective_configs`. See [acquisition screening](ACQUISITION.md).
 
 Temporary outputs are published atomically. Resume checks input identity,
 configuration, implementation/dependency fingerprints and output checksums.
