@@ -9,9 +9,3 @@
 # Preserve the pinned scientific source verbatim, including upstream whitespace.
 src/masscubex/upstream.py whitespace=-blank-at-eol,-blank-at-eof linguist-vendored
 tests/upstream_masscube.py whitespace=-blank-at-eol,-blank-at-eof linguist-vendored
-
-# Retain reproducible evidence without burying source changes in GitHub diffs.
-benchmarks/results/*.json linguist-generated
-benchmarks/results/*.txt linguist-generated
-examples/*.tsv linguist-generated
-examples/*.json linguist-generated

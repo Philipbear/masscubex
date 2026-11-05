@@ -15,7 +15,24 @@ from .features import Feature
 
 ALL_FIELDS = fields(Feature)
 FEATURE_FIELDS = [f for f in ALL_FIELDS if f.metadata.get("tsv", True)]
-FEATURE_COLUMNS = ["feature_id"] + [f.name for f in FEATURE_FIELDS]
+OPTIONAL_COLUMNS = ("peak_area", "ion_relations", "apex_noise_threshold", "gaussian_similarity")
+
+
+def feature_columns(config=None):
+    """Resolve a per-file layout without changing shared writer state.
+
+    Keep the chosen quantification column. Peak area can also be requested
+    alongside height; detailed grouping evidence and diagnostics are opt-in.
+    """
+    excluded = {"peak_height", *OPTIONAL_COLUMNS}
+    excluded.remove(getattr(config, "quant_method", "peak_height"))
+    for name in OPTIONAL_COLUMNS:
+        if getattr(config, "include_" + name, False):
+            excluded.discard(name)
+    return ["feature_id"] + [f.name for f in FEATURE_FIELDS if f.name not in excluded]
+
+
+FEATURE_COLUMNS = feature_columns()
 FLOAT_COLUMNS = {f.name for f in FEATURE_FIELDS if float in (get_args(f.type) or (f.type,))}
 # Historical TSVs must still parse as typed values, including removed columns.
 LEGACY_FLOAT_COLUMNS = {f.name for f in ALL_FIELDS if float in (get_args(f.type) or (f.type,))}
@@ -26,8 +43,9 @@ NESTED_COLUMNS = {
     "ion_relations",
 }
 BOOLEAN_COLUMNS = {f.name for f in FEATURE_FIELDS if bool in (get_args(f.type) or (f.type,))}
+LEGACY_BOOLEAN_COLUMNS = {f.name for f in ALL_FIELDS if bool in (get_args(f.type) or (f.type,))}
 ROW_GROUP_SIZE = 8192
-TABLE_SCHEMA_VERSION = 10
+TABLE_SCHEMA_VERSION = 13
 # Named policies avoid accidentally rounding an identifier or a new measurement
 # as though it were an intensity. Both writers use Python binary64 half-even
 # rounding, including halfway cases; the in-memory Feature is never modified.
@@ -96,8 +114,12 @@ def resolve_output(source, output_path, output_format):
     return path, inferred
 
 
-@lru_cache(maxsize=1)
-def parquet_schema():
+def parquet_schema(config=None):
+    return _parquet_schema(tuple(feature_columns(config)))
+
+
+@lru_cache(maxsize=32)
+def _parquet_schema(columns):
     import pyarrow as pa
 
     # Every possible evidence field has a fixed type, including empty files and
@@ -133,6 +155,8 @@ def parquet_schema():
     }
     schema = [pa.field("feature_id", pa.int64(), nullable=False)]
     for field in FEATURE_FIELDS:
+        if field.name not in columns:
+            continue
         types = get_args(field.type) or (field.type,)
         dtype = nested.get(field.name)
         if dtype is None:
@@ -154,6 +178,7 @@ def parquet_schema():
             b"masscubex.peak_area_unit": b"intensity * second",
             b"masscubex.feature_id": b"one-based row id within this input file",
             b"masscubex.output_precision": json.dumps(OUTPUT_PRECISION, sort_keys=True).encode(),
+            b"masscubex.output_columns": json.dumps(columns).encode(),
         },
     )
 
@@ -175,22 +200,26 @@ def _rounded_relations(relations, feature_id):
     return result
 
 
-def feature_rows(features):
+def feature_rows(features, config=None):
     """Validate finite scalars/evidence before either writer publishes a table."""
+    columns = feature_columns(config)
+    float_columns = FLOAT_COLUMNS.intersection(columns)
     for index, feature in enumerate(features, 1):
-        row = {name: getattr(feature, name) for name in FEATURE_COLUMNS[1:]}
-        if any(row[name] is not None and not math.isfinite(row[name]) for name in FLOAT_COLUMNS):
+        row = {name: getattr(feature, name) for name in columns[1:]}
+        if any(row[name] is not None and not math.isfinite(row[name]) for name in float_columns):
             raise ValueError(f"Non-finite feature value (numerical overflow) in feature {index}")
-        row["ion_relations"] = _rounded_relations(feature.ion_relations, index)
+        if "ion_relations" in row:
+            row["ion_relations"] = _rounded_relations(feature.ion_relations, index)
         yield {"feature_id": index, **row}
 
 
-def _write_tsv(path, features):
+def _write_tsv(path, features, config=None):
     count = 0
+    columns = feature_columns(config)
     with open(path, "w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
-        writer.writerow(FEATURE_COLUMNS)
-        for row in feature_rows(features):
+        writer.writerow(columns)
+        for row in feature_rows(features, config):
             writer.writerow(
                 [
                     ""
@@ -200,7 +229,7 @@ def _write_tsv(path, features):
                     else json.dumps(row[name], separators=(",", ":"), allow_nan=False)
                     if name in NESTED_COLUMNS or name in BOOLEAN_COLUMNS
                     else row[name]
-                    for name in FEATURE_COLUMNS
+                    for name in columns
                 ]
             )
             count += 1
@@ -227,9 +256,7 @@ def _parquet_batch(features, first_id, schema):
         elif name in FLOAT_COLUMNS:
             digits = DECIMAL_PLACES[name]
             values = [
-                None
-                if (value := getattr(feature, name)) is None
-                else round(float(value), digits)
+                None if (value := getattr(feature, name)) is None else round(float(value), digits)
                 for feature in features
             ]
         else:
@@ -241,11 +268,11 @@ def _parquet_batch(features, first_id, schema):
     return pa.Table.from_arrays(columns, schema=schema)
 
 
-def _write_parquet(path, features):
+def _write_parquet(path, features, config=None):
     import pyarrow as pa
     import pyarrow.parquet as pq
 
-    schema = parquet_schema()
+    schema = parquet_schema(config)
     categories = [field.name for field in schema if pa.types.is_string(field.type)]
     count = 0
     with pq.ParquetWriter(
@@ -258,12 +285,12 @@ def _write_parquet(path, features):
     return count
 
 
-def write_features(path, features, output_format):
+def write_features(path, features, output_format, *, config=None):
     """Write a temporary table; the pipeline owns atomic publication and cleanup."""
     if output_format == "parquet":
-        count = _write_parquet(path, features)
+        count = _write_parquet(path, features, config)
     elif output_format == "tsv":
-        count = _write_tsv(path, features)
+        count = _write_tsv(path, features, config)
     else:
         raise ValueError("Output format must be parquet or tsv")
     # Windows' _commit (used by os.fsync) requires a writable descriptor.
@@ -285,7 +312,7 @@ def iter_feature_rows(path):
         with pq.ParquetFile(path) as source:
             for batch in source.iter_batches(batch_size=ROW_GROUP_SIZE, use_threads=False):
                 for row in batch.to_pylist():
-                    for relation in row["ion_relations"]:
+                    for relation in row.get("ion_relations", ()):
                         keep_null = (
                             {"parent_ion", "fragment_ion"}
                             if relation["relation"] in {"in_source_fragment", "neutral_loss"}
@@ -313,7 +340,7 @@ def iter_feature_rows(path):
                         if name in integer_columns
                         else json.loads(value)
                         if name in NESTED_COLUMNS
-                        or name in BOOLEAN_COLUMNS
+                        or name in LEGACY_BOOLEAN_COLUMNS
                         or (name == "adduct" and (value.startswith('["') or value == "[]"))
                         else value
                     )

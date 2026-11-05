@@ -26,7 +26,7 @@ jobs:
           python -m pip install -e ".[dev]"
           python -m pip install "setuptools>=77" wheel Cython
           python -m pip install --no-build-isolation "pynumpress>=0.0.9,<0.1"
-      - run: ruff check src tests benchmarks
+      - run: ruff check src tests
       - run: python -m pytest -q --junitxml=test-results-source.xml
       - run: python -m build
       - name: Install the built wheel

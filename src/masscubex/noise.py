@@ -292,6 +292,10 @@ def estimate_noise(mz, intensity, config: Config | None = None):
         raise ValueError("Noise estimation requires sorted finite m/z and nonnegative intensity")
     if config.noise_mode == "none":
         return np.zeros(mz.size), np.zeros(mz.size), np.full(mz.size, config.min_intensity)
+    if config.noise_estimator == "consistency":
+        raise ValueError(
+            "Consistency noise requires neighboring scans; use process_file/extract CLI"
+        )
     if config.noise_layout == "bins":
         return estimate_bins(
             mz,

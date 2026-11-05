@@ -8,7 +8,6 @@ encodings fail explicitly instead of producing an apparently valid table.
 from dataclasses import dataclass
 from pathlib import Path
 import base64
-import gzip
 import math
 import re
 import zlib
@@ -17,7 +16,7 @@ from lxml import etree
 import numpy as np
 
 from .array_validation import normalized_arrays
-from .formats import file_format
+from .formats import file_format, open_xml
 
 
 @dataclass(slots=True)
@@ -59,6 +58,11 @@ class MS2Scan:
 def _scan_number(native_id):
     if native_id.isdecimal():
         return int(native_id)
+    # PSI-MS 1001508: Agilent MassHunter uses scanId, not scan. A native
+    # cycle/experiment tuple or an index remains a different identifier.
+    agilent = re.fullmatch(r"scanId=(\d+)", native_id)
+    if agilent:
+        return int(agilent.group(1))
     match = re.search(r"(?:^|\s)scan=(\d+)(?:\s|$)", native_id)
     return int(match.group(1)) if match else None
 
@@ -631,10 +635,9 @@ def iter_scans(path, *, assume_centroid=False, include_ms2=True, decode_ms2=Fals
     """
     path = Path(path)
     kind = file_format(path)
-    opener = gzip.open if path.suffix.lower() == ".gz" else open
     reader = _iter_mzml if kind == "mzml" else _iter_mzxml
     try:
-        with opener(path, "rb") as stream:
+        with open_xml(path) as stream:
             for scan in reader(stream, assume_centroid, include_ms2, decode_ms2, sum_ms2):
                 if scan.rt is not None and (not math.isfinite(scan.rt) or scan.rt < 0):
                     raise ValueError(f"Invalid retention time in scan {scan.native_id}")

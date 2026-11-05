@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from bisect import bisect_left
-from contextlib import closing
+from contextlib import closing, ExitStack
 from datetime import datetime, timezone
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
@@ -15,12 +15,14 @@ import tempfile
 import time
 
 from . import __version__
+from .acquisition import inspect_acquisition
 from .config import Config
 from .features import TraceTracker
 from .output import (
     FEATURE_COLUMNS,
     OUTPUT_PRECISION,
     TABLE_SCHEMA_VERSION,
+    feature_columns,
     resolve_output,
     write_features,
 )
@@ -46,11 +48,16 @@ def implementation_id():
         "mass_tolerance.py",
         "mass_tolerance_kernels.py",
         "formats.py",
+        "acquisition.py",
         "readers.py",
         "array_validation.py",
         "scan_cache.py",
         "noise.py",
         "noise_regions.py",
+        "consistency_noise.py",
+        "consistency_kernels.py",
+        "consistency_cache.py",
+        "profile_noise.py",
         "centroid.py",
         "features.py",
         "summary.py",
@@ -85,16 +92,21 @@ def implementation_id():
 @dataclass(frozen=True)
 class ProcessingResult:
     input: str
-    output: str
+    output: str | None
     status: str
     features: int
     ms1_scans: int
     elapsed_seconds: float
+    skip_reason: str | None = None
+    acquisition: dict | None = None
 
 
-def extract_features(scans, config: Config, stats=None, configs=None, spectra=None):
+def extract_features(
+    scans, config: Config, stats=None, configs=None, spectra=None, *, preprocessor=None
+):
     """Yield features from a scan iterator without accumulating completed traces."""
     stats = {} if stats is None else stats
+    preprocessor = preprocessor or preprocess_ms1
     stats.update(ms1_scans=0, input_points=0, retained_centroids=0, profile_scans=0)
     trackers, acquisition_times = {}, {}
 
@@ -128,7 +140,7 @@ def extract_features(scans, config: Config, stats=None, configs=None, spectra=No
         stats["input_points"] += len(scan.mz)
         if not scan.centroided:
             stats["profile_scans"] += 1
-        mz, intensity, threshold = preprocess_ms1(scan, config)
+        mz, intensity, threshold = preprocessor(scan, config)
         stats["retained_centroids"] += len(mz)
         if spectra is not None:
             spectra.append(scan.rt, scan.polarity, mz, intensity)
@@ -263,15 +275,45 @@ def process_file(
                     metadata["features"],
                     metadata["ms1_scans"],
                     time.perf_counter() - start,
+                    skip_reason="already_complete",
+                    acquisition=metadata.get("acquisition"),
                 )
+        started = time.perf_counter()
+        acquisition = inspect_acquisition(source)
+        inspection_seconds = time.perf_counter() - started
+        if signature != _signature(source):
+            raise RuntimeError(f"Input changed during acquisition inspection: {source}")
+        if acquisition.mode == "chromatogram_only":
+            raise ValueError(
+                f"Chromatogram-only export has no mass spectra: {source}; "
+                "MRM/SRM chromatograms cannot be used for untargeted MS1 feature extraction"
+            )
+        if acquisition.is_dia:
+            if config.dia_policy == "skip":
+                return ProcessingResult(
+                    str(source),
+                    None,
+                    "skipped",
+                    0,
+                    0,
+                    time.perf_counter() - start,
+                    skip_reason="dia_acquisition",
+                    acquisition=acquisition.to_dict(),
+                )
+            if config.dia_policy == "error":
+                raise ValueError(f"DIA acquisition: {source}: {'; '.join(acquisition.evidence)}")
         if (output.exists() or metadata_path.exists()) and not (overwrite or resume):
             raise FileExistsError(f"Output exists: {output}; use resume=True or overwrite=True")
         started = time.perf_counter()
         runtime_config = resolve_ms2_filter(source, config)
         scan_source = ScanSource(source, runtime_config)
         tuning = calibrate_file(source, runtime_config, scan_source=scan_source)
-        timings = {"calibration": time.perf_counter() - started}
+        timings = {
+            "acquisition_inspection": inspection_seconds,
+            "calibration": time.perf_counter() - started,
+        }
         stats = {
+            "acquisition": acquisition.to_dict(),
             "parameter_tuning": tuning.diagnostics,
             "timings_seconds": timings,
             "scan_cache": scan_source.stats,
@@ -286,7 +328,7 @@ def process_file(
         ) as stream:
             temp_table = Path(stream.name)
             temporary.append(temp_table)
-        with closing(scan_source.scans()) as scans:
+        with closing(scan_source.scans()) as scans, ExitStack() as preprocessing:
             if config.group_ions:
                 from .grouping_spectra import GroupingSpectra
 
@@ -295,13 +337,38 @@ def process_file(
                 grouping_spectra = GroupingSpectra(output.parent, dtype="float32")
             collector = MS2Collector(runtime_config, tuning.configs)
             stream_ms1 = collector.ms1_stream(scans) if config.associate_ms2 else scans
+            noise_cache = None
+            if (
+                runtime_config.noise_mode == "adaptive"
+                and runtime_config.noise_estimator == "consistency"
+            ):
+                from .consistency_cache import ConsistencyCache
+
+                started = time.perf_counter()
+                noise_cache = preprocessing.enter_context(ConsistencyCache(output.parent))
+                noise_cache.build(
+                    stream_ms1,
+                    collector.noise_records if collector.noise_records is not None else [],
+                    runtime_config,
+                    tuning.configs,
+                )
+                timings["adaptive_noise"] = time.perf_counter() - started
+                stream_ms1 = noise_cache.frames
             features = _timed_extraction(
                 extract_features(
-                    stream_ms1, runtime_config, stats, tuning.configs, grouping_spectra
+                    stream_ms1,
+                    runtime_config,
+                    stats,
+                    tuning.configs,
+                    grouping_spectra,
+                    preprocessor=noise_cache.preprocess if noise_cache is not None else None,
                 ),
                 timings,
             )
             features = list(features)
+            if noise_cache is not None:
+                noise_cache.apply_stats(stats)
+                preprocessing.close()
             # Upstream sorts parent traces by apex m/z before segmentation,
             # then sorts the resulting features by apex m/z again.
             features.sort(key=lambda f: (f.mz, f._parent_mz))
@@ -339,7 +406,7 @@ def process_file(
                     timings["ion_grouping"] = time.perf_counter() - started
             extraction_before_write = timings.get("feature_extraction", 0.0)
             started = time.perf_counter()
-            count = write_features(temp_table, features, output_format)
+            count = write_features(temp_table, features, output_format, config=config)
             timings["table_write"] = (
                 time.perf_counter()
                 - started
@@ -373,6 +440,7 @@ def process_file(
             **stats,
             "elapsed_seconds": elapsed,
             "output_format": output_format,
+            "output_columns": feature_columns(config),
             "output_precision": OUTPUT_PRECISION,
             "output_bytes": temp_table.stat().st_size,
             "output_sha256": _sha256(temp_table),
@@ -399,7 +467,13 @@ def process_file(
         # JSON is the completion marker. A crash between renames cannot pass resume validation.
         os.replace(temp_json, metadata_path)
         return ProcessingResult(
-            str(source), str(output), "ok", count, stats["ms1_scans"], time.perf_counter() - start
+            str(source),
+            str(output),
+            "ok",
+            count,
+            stats["ms1_scans"],
+            time.perf_counter() - start,
+            acquisition=acquisition.to_dict(),
         )
     finally:
         if grouping_spectra is not None:

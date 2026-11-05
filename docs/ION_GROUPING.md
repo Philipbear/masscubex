@@ -13,10 +13,11 @@ EIC ±0.005 Da and shared-positive-scan Pearson correlation >0.9. Fewer than
 three shared observations returns 1, as upstream; constant longer traces fail.
 No five-observation or overlap-fraction requirement is added.
 
-The output has one `adduct` string per feature, `group_id`, `is_isotope`,
-`isotope_state` and `is_in_source_fragment`. The default anchor label is an
+The output has one `adduct` string per feature, `group_id`, `isotope_state`
+and `is_in_source_fragment`. The default anchor label is an
 assumption, not an identification. Related features have one final assignment;
-`ion_relations` retains the assigned links and available evidence. A monomer
+`--include-ion-relations` exports the assigned links and available evidence in
+the optional `ion_relations` column. A monomer
 H/Na pair does not generate a second dimer H/Na hypothesis. Actual dimer-mass
 ions remain allowed. Isotopes use the upstream M+1..M+3 offsets and the 1.5×
 relative-height limit for isotopes of assigned child ions.
@@ -33,6 +34,17 @@ merging supplies fragment masses by default.
 `--isf-min-relative-intensity` defaults to 0 and `--isf-max-peaks` to 0 (unlimited);
 explicit pruning remains available. MS2 uses upstream adjacent-centroid merging; a separate profile-MS2
 mass-detection algorithm is not implemented. Grouping is not DIA deconvolution.
+
+Source-fragment assignment does not use a catalog of allowed neutral losses.
+It searches for an MS1 feature matching an observed product-ion m/z from the
+anchor's selected best MS2: default mass error <0.01 Da, apex RT difference
+<3 seconds, same polarity, and partner EIC correlation >0.9. The EIC is extracted
+within ±0.005 Da on the anchor's scan times, and only the nearest-RT mass
+candidate is checked. When requested, the output link records the parent/fragment feature IDs,
+supporting MS2 identifiers, product-ion mass, mass error and correlation. These
+are putative assignments; coeluting unrelated ions or a chimeric MS2 can also
+satisfy the rule. As in upstream, fewer than three shared positive scans returns
+correlation 1, so that edge case does not establish a well-sampled peak-shape match.
 
 ## Selected ion catalog
 

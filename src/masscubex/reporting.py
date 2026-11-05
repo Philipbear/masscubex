@@ -40,6 +40,7 @@ class BatchReport:
     """
 
     ERROR_COLUMNS = ("input", "input_kind", "stage", "error_type", "error_message")
+    SKIP_COLUMNS = ("input", "reason", "acquisition_mode", "vendor", "evidence")
 
     def __init__(self, root, config, options, *, checkpoint_seconds=30.0):
         self.started = datetime.now(timezone.utc)
@@ -54,8 +55,10 @@ class BatchReport:
         self.counts = {"total": 0, "succeeded": 0, "skipped": 0, "failed": 0}
         self.error_types = {}
         self.error_stages = {}
+        self.skip_reasons = {}
+        self.acquisition_modes = {}
         self.features_written = 0
-        self.records = self.errors = None
+        self.records = self.errors = self.skips = None
 
     def __enter__(self):
         self.directory.mkdir(parents=True, exist_ok=False)
@@ -66,6 +69,11 @@ class BatchReport:
                 self.errors, self.ERROR_COLUMNS, delimiter="\t", lineterminator="\n"
             )
             self.writer.writeheader()
+            self.skips = (self.directory / "skipped.tsv").open("x", encoding="utf-8", newline="")
+            self.skip_writer = csv.DictWriter(
+                self.skips, self.SKIP_COLUMNS, delimiter="\t", lineterminator="\n"
+            )
+            self.skip_writer.writeheader()
             self.checkpoint("running")
         except BaseException:
             self._close()
@@ -86,6 +94,27 @@ class BatchReport:
             self.error_stages[stage] = self.error_stages.get(stage, 0) + 1
         elif status == "ok":
             self.features_written += result["features"]
+        elif status == "skipped":
+            reason = result.get("skip_reason") or "already_complete"
+            self.skip_reasons[reason] = self.skip_reasons.get(reason, 0) + 1
+            # Resume hits already have a complete feature table and a JSONL
+            # outcome. Keep this file focused on excluded inputs.
+            if reason != "already_complete":
+                acquisition = result.get("acquisition") or {}
+                self.skip_writer.writerow(
+                    {
+                        "input": result["input"],
+                        "reason": reason,
+                        "acquisition_mode": acquisition.get("mode", "unknown"),
+                        "vendor": acquisition.get("vendor", "unknown"),
+                        "evidence": "; ".join(acquisition.get("evidence", [])),
+                    }
+                )
+                self.skips.flush()
+        acquisition = result.get("acquisition")
+        if acquisition:
+            mode = acquisition["mode"]
+            self.acquisition_modes[mode] = self.acquisition_modes.get(mode, 0) + 1
         self.counts["total"] += 1
         self.counts[key] += 1
         if time.monotonic() - self.last_checkpoint >= self.checkpoint_seconds:
@@ -93,11 +122,11 @@ class BatchReport:
 
     def checkpoint(self, status, fatal_error=None):
         now = datetime.now(timezone.utc).isoformat()
-        for stream in (self.records, self.errors):
+        for stream in (self.records, self.errors, self.skips):
             stream.flush()
             os.fsync(stream.fileno())
         summary = {
-            "report_schema_version": 1,
+            "report_schema_version": 2,
             "software": "masscubex",
             "version": __version__,
             "run_id": self.run_id,
@@ -110,11 +139,17 @@ class BatchReport:
             "features_written": self.features_written,
             "error_types": self.error_types,
             "error_stages": self.error_stages,
+            "skip_reasons": self.skip_reasons,
+            "acquisition_modes": self.acquisition_modes,
             "fatal_error": fatal_error,
             "working_directory": os.getcwd(),
             "options": self.options,
             "config": self.config,
-            "reports": {"all_outcomes": "files.jsonl", "errors": "errors.tsv"},
+            "reports": {
+                "all_outcomes": "files.jsonl",
+                "errors": "errors.tsv",
+                "skipped": "skipped.tsv",
+            },
         }
         temporary = self.directory / "summary.json.partial"
         try:
@@ -129,7 +164,7 @@ class BatchReport:
         self.last_checkpoint = time.monotonic()
 
     def _close(self):
-        for stream in (self.records, self.errors):
+        for stream in (self.records, self.errors, self.skips):
             if stream is not None:
                 stream.close()
 

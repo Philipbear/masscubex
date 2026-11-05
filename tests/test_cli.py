@@ -12,6 +12,10 @@ def test_default_quantification_and_numbered_catalog(capsys):
     assert main(["defaults"]) == 0
     config = json.loads(capsys.readouterr().out)
     assert config["quant_method"] == "peak_height"
+    assert config["include_peak_area"] is False
+    assert config["include_ion_relations"] is False
+    assert config["include_apex_noise_threshold"] is False
+    assert config["include_gaussian_similarity"] is False
     assert config["best_ms2"] == "fragment_intensity"
     assert config["associate_ms2"] is True
     assert config["auto_tune"] is True
@@ -157,11 +161,98 @@ def test_cli_area_selection_reaches_output(sample_file, tmp_path, capsys):
         (row,) = csv.DictReader(stream, delimiter="\t")
     assert "quant_method" not in row and "intensity" not in row
     assert row["peak_area"] == "780.0"
-    assert row["peak_height"] == "100.0"
+    assert "peak_height" not in row
     metadata = json.loads(Path(result["output"] + ".json").read_text())
     assert metadata["config"]["quant_method"] == "peak_area"
     assert metadata["config"]["best_ms2"] == "apex"
     assert metadata["config"]["segment"] is False
+
+
+@pytest.mark.parametrize("output_format", ["tsv", "parquet"])
+def test_cli_optional_columns(sample_file, tmp_path, capsys, output_format):
+    from masscubex import iter_feature_rows
+
+    assert (
+        main(
+            [
+                "extract",
+                str(sample_file),
+                "-o",
+                str(tmp_path / "out"),
+                "--format",
+                output_format,
+                "--include-peak-area",
+                "--include-ion-relations",
+                "--include-apex-noise-threshold",
+                "--include-gaussian-similarity",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    (row,) = iter_feature_rows(result["output"])
+    assert row["peak_height"] == 100
+    assert row["peak_area"] == 780
+    assert row["ion_relations"] == []
+    assert "apex_noise_threshold" in row and "gaussian_similarity" in row
+    assert "scan_count" not in row
+    metadata = json.loads(Path(result["output"] + ".json").read_text())
+    assert metadata["config"]["include_peak_area"] is True
+    assert metadata["config"]["include_ion_relations"] is True
+    assert metadata["config"]["include_apex_noise_threshold"] is True
+    assert metadata["config"]["include_gaussian_similarity"] is True
+
+
+def test_cli_can_disable_optional_columns_from_config(tmp_path, capsys):
+    path = tmp_path / "columns.json"
+    path.write_text(
+        json.dumps(
+            {
+                "include_peak_area": True,
+                "include_ion_relations": True,
+                "include_apex_noise_threshold": True,
+                "include_gaussian_similarity": True,
+            }
+        )
+    )
+    assert (
+        main(
+            [
+                "extract",
+                "--config",
+                str(path),
+                "--no-include-peak-area",
+                "--no-include-ion-relations",
+                "--print-config",
+                "--no-include-apex-noise-threshold",
+                "--no-include-gaussian-similarity",
+            ]
+        )
+        == 0
+    )
+    config = json.loads(capsys.readouterr().out)
+    assert config["include_peak_area"] is False
+    assert config["include_ion_relations"] is False
+    assert config["include_apex_noise_threshold"] is False
+    assert config["include_gaussian_similarity"] is False
+
+
+def test_cli_defaults_to_parquet_with_compact_columns(sample_file, tmp_path, capsys):
+    from masscubex import iter_feature_rows
+
+    assert main(["extract", str(sample_file), "-o", str(tmp_path / "out")]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["output"].endswith(".parquet")
+    (row,) = iter_feature_rows(result["output"])
+    assert len(row) == 15
+    assert row["peak_height"] == 100
+    assert {
+        "scan_count",
+        "peak_area",
+        "ion_relations",
+        "apex_noise_threshold",
+        "gaussian_similarity",
+    }.isdisjoint(row)
 
 
 def test_cli_rejects_old_non_three_sigma_json_configuration(tmp_path, capsys):

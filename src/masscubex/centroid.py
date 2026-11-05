@@ -5,7 +5,9 @@ from numba import njit
 
 
 @njit(cache=True, nogil=True)
-def centroid_profile(mz, intensity, baseline, threshold, min_points=3, gap_factor=4.0):
+def centroid_profile(
+    mz, intensity, baseline, threshold, min_points=3, gap_factor=4.0, apex_threshold=None
+):
     """Return centroid m/z, raw apex intensity and apex noise threshold.
 
     Resolve local maxima (including flat tops), split at intervening valleys,
@@ -14,6 +16,8 @@ def centroid_profile(mz, intensity, baseline, threshold, min_points=3, gap_facto
     At least ``min_points`` contiguous samples above threshold are required;
     isolated one-bin electronic spikes and truncated edge maxima are excluded.
     This general-purpose detector is not a vendor peak-picking replacement.
+    An optional higher apex threshold permits hysteresis: boundaries can use a
+    lower support level without lowering the required apex significance.
     """
     n = mz.size
     peaks = np.empty(n, dtype=np.int64)
@@ -50,7 +54,8 @@ def centroid_profile(mz, intensity, baseline, threshold, min_points=3, gap_facto
     kept = 0
     for k in range(count):
         apex = peaks[k]
-        if intensity[apex] <= threshold[apex]:
+        apex_limit = threshold[apex] if apex_threshold is None else apex_threshold[apex]
+        if intensity[apex] <= apex_limit:
             continue
         spacing = min(mz[starts[k]] - mz[starts[k] - 1], mz[ends[k] + 1] - mz[ends[k]])
         max_gap = gap_factor * spacing
@@ -79,6 +84,6 @@ def centroid_profile(mz, intensity, baseline, threshold, min_points=3, gap_facto
             continue
         out_mz[kept] = origin + moment / area
         out_intensity[kept] = intensity[apex]
-        out_threshold[kept] = threshold[apex]
+        out_threshold[kept] = apex_limit
         kept += 1
     return out_mz[:kept], out_intensity[:kept], out_threshold[:kept]

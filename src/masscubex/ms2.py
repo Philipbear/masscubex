@@ -1,7 +1,7 @@
 """MS2 association without loading an entire file's MS1 or fragment spectra."""
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -16,6 +16,11 @@ class MS2Collector:
         self.config = config
         self.configs = configs
         self.records = []
+        self.noise_records = (
+            []
+            if config.noise_mode == "adaptive" and config.noise_estimator == "consistency"
+            else None
+        )
 
     def ms1_stream(self, scans):
         """Collect compact MS2 records while yielding MS1 scans to the extractor."""
@@ -25,6 +30,10 @@ class MS2Collector:
                 previous[scan.polarity] = scan
                 yield scan
                 continue
+            if self.noise_records is not None:
+                # Noise protection uses original acquisition metadata, before
+                # association infers polarity/intensity or prunes fragments.
+                self.noise_records.append(replace(scan, mz=None, intensity=None))
             if scan.polarity == "unknown":
                 scan.polarity_source = "unknown"
                 if scan.precursor_ref:
@@ -115,10 +124,8 @@ def associate_ms2(features, records, config, stats, configs=None):
     # queries. Keep scalar comparisons below, preserving NumPy's installed
     # scalar-promotion rules, but do not rebuild an array for every candidate.
     edges = np.asarray(
-        [
-            f._peak_edges or (f.rt_start_seconds / 60.0, f.rt_end_seconds / 60.0)
-            for f in features
-        ], dtype=np.float32,
+        [f._peak_edges or (f.rt_start_seconds / 60.0, f.rt_end_seconds / 60.0) for f in features],
+        dtype=np.float32,
     ).reshape(-1, 2)
     heights = np.asarray([f.peak_height or 0.0 for f in features], dtype=np.float32)
     assignments = []
@@ -239,8 +246,13 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
     # whose missing intensity required the documented nearest-apex fallback.
     fallback_ids = []
     stats["best_ms2_apex_fallback_feature_ids"] = fallback_ids
-    # The table keeps only the best native scan number. Preserve a resolvable
-    # reference for the exceptional files where that number is absent/ambiguous.
+    # Scan numbers are enough for ordinary files. Keep an exact source lookup
+    # in the sidecar only when a number is absent or repeated anywhere in MS2,
+    # including another feature or an unresolved scan. Positions are zero-based
+    # within the feature's ordered ms2_scan_numbers list, not source indices.
+    scan_number_counts = Counter(scan.scan_number for scan in records)
+    reference_fallbacks = []
+    stats["ms2_identifier_fallbacks"] = reference_fallbacks
     identifier_fallbacks = []
     stats["best_ms2_identifier_fallbacks"] = identifier_fallbacks
     for feature_id, (feature, indices) in enumerate(zip(features, assigned), 1):
@@ -254,6 +266,18 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
         feature.ms2_scan_numbers = tuple(records[i].scan_number for i in indices)
         feature.ms2_native_ids = tuple(records[i].native_id for i in indices)
         feature.ms2_spectrum_indices = tuple(records[i].spectrum_index for i in indices)
+        for position, index in enumerate(indices):
+            scan = records[index]
+            if scan.scan_number is None or scan_number_counts[scan.scan_number] > 1:
+                reference_fallbacks.append(
+                    {
+                        "feature_id": feature_id,
+                        "ms2_list_index": position,
+                        "scan_number": scan.scan_number,
+                        "native_id": scan.native_id,
+                        "spectrum_index": scan.spectrum_index,
+                    }
+                )
         feature.best_ms2_scan_number = None
         feature.best_ms2_native_id = None
         feature.best_ms2_spectrum_index = None
@@ -287,7 +311,7 @@ def apply_ms2_assignments(features, records, assignments, config, stats):
         feature.best_ms2_scan_number = best.scan_number
         feature.best_ms2_native_id = best.native_id
         feature.best_ms2_spectrum_index = best.spectrum_index
-        if best.scan_number is None or feature.ms2_scan_numbers.count(best.scan_number) > 1:
+        if best.scan_number is None or scan_number_counts[best.scan_number] > 1:
             identifier_fallbacks.append(
                 {
                     "feature_id": feature_id,

@@ -63,7 +63,9 @@ def test_missing_signal_imputes_height_only_from_compatible_nearest_scans(
     from masscubex import pipeline
     from masscubex.tuning import TuningResult
 
-    config = Config(auto_tune=False, quant_method=quant, min_scans=20)
+    config = Config(
+        auto_tune=False, quant_method=quant, min_scans=20, include_apex_noise_threshold=True
+    )
     if tuned:
         monkeypatch.setattr(
             pipeline,
@@ -94,8 +96,11 @@ def test_missing_signal_imputes_height_only_from_compatible_nearest_scans(
     # Positive scan times 1,2,3 are nearest; median thresholds 10,20,30 -> 20.
     assert row["feature_origin"] == "ms2_seeded"
     assert row["ms1_quant_status"] == "imputed_noise"
-    assert row["peak_height"] == "2.0"
-    assert row["peak_area"] == "" and row["scan_count"] == "0"
+    if quant == "peak_height":
+        assert row["peak_height"] == "2.0"
+    else:
+        assert "peak_height" not in row
+    assert row["peak_area"] == "" and "scan_count" not in row
     assert row["apex_noise_threshold"] == "20.0"
     assert row["ion_relations"] == "[]"
     assert metadata["ms2_assigned"] == 1
@@ -103,7 +108,11 @@ def test_missing_signal_imputes_height_only_from_compatible_nearest_scans(
         source, tmp_path / "disabled.tsv", replace(config, gapfill_noise_fraction=0)
     )
     assert disabled["ms1_quant_status"] == "no_ms1_signal"
-    assert disabled["peak_height"] == disabled["peak_area"] == ""
+    assert disabled["peak_area"] == ""
+    if quant == "peak_height":
+        assert disabled["peak_height"] == ""
+    else:
+        assert "peak_height" not in disabled
 
 
 def test_tolerance_cap_is_minimum_of_physical_radii_not_separate_components():
@@ -122,10 +131,12 @@ def test_explicit_broad_gapfill_override_is_capped_by_ms1_tolerance(tmp_path):
     spectra.append(mzml_spectrum(10, 1, [50], [5], level=2, precursor=precursor_mzml()))
     source = write_mzml(tmp_path / "neighbor.mzML", spectra)
     config = Config(
-        auto_tune=False, mz_tolerance_da=0.002,
-        gapfill_mz_tolerance_da=0.05, min_intensity=2000,
+        auto_tune=False,
+        mz_tolerance_da=0.002,
+        gapfill_mz_tolerance_da=0.05,
+        min_intensity=2000,
     )
     (row,), _ = outputs(source, tmp_path / "out.tsv", config)
     assert "gapfill_mz_radius_da" not in row
     assert row["peak_height"] == "200.0" and row["ms1_quant_status"] == "imputed_noise"
-    assert row["peak_area"] == "" and row["scan_count"] == "0"
+    assert row["peak_area"] == "" and "scan_count" not in row

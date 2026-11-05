@@ -323,12 +323,12 @@ def test_grouping_output_and_disabled_flags(tmp_path):
     rows = list(iter_feature_rows(tsv))
     assert rows == list(iter_feature_rows(parquet))
     assert len(rows) == 3 and len({r["group_id"] for r in rows}) == 1
-    assert sum(r["is_isotope"] for r in rows) == 1
+    assert sum(r["isotope_state"] != "M+0" for r in rows) == 1
     assert {r["adduct"] for r in rows} == {"[M+H]+", "[M+Na]+"}
     assert all("seed_precursor_mz" not in r and "seed_rt_seconds" not in r for r in rows)
     process_file(source, tsv, config=replace(config, group_ions=False), overwrite=True)
     assert all(
-        r["adduct"] is None and r["group_id"] is None and r["is_isotope"] is None
+        r["adduct"] is None and r["group_id"] is None and r["isotope_state"] is None
         for r in iter_feature_rows(tsv)
     )
 

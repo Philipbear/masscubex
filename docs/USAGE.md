@@ -49,9 +49,7 @@ are case-insensitive and include gzip. Manifest paths are relative to the manife
 Output names contain a source-path hash. Each successful input receives a table and JSON sidecar.
 Independent workers use processes by default; `--executor thread` is available.
 For large batches, run `masscubex warmup` once first. The CLI defaults to one
-worker; the examples use three processes as a starting point for this 32 GiB
-Mac. Four processes gave the highest tested sustained throughput below 3 GiB on
-the current cohort; see the [speed/RAM measurements](../benchmarks/results/OVERNIGHT_OPTIMIZATION.md).
+worker. Each worker has its own scan-cache budget and feature graph.
 Final feature/relationship memory grows with the number of features in a
 file, so measure representative large files before increasing concurrency.
 
@@ -76,7 +74,32 @@ error records. The process coordinator keeps numerical libraries in workers.
 | Best MS2 | Summed retained fragment intensity; first acquisition wins ties |
 | MS2 noise | Fixed instrument default: 10,000 for Orbitrap header keyword, otherwise 500 |
 | Ion grouping | On, with the selected catalog |
+| Confirmed DIA | Skip before extraction; unknown modes are reported and processed |
 | Auto-tuning / profile centroiding / MS2 seeding | On / centroid profile / on |
+
+Select the revised signal-preserving estimator explicitly:
+
+```bash
+masscubex extract sample.mzML -o features --noise-estimator consistency
+masscubex extract /data/study -o features --noise-estimator consistency --workers 3 --resume
+```
+
+It uses μ + 3σ in fixed bins (`--noise-window-da`, default 100), with independent
+MS1/MS2 protection. The existing calibration pilot runs first; the estimator
+then uses its learned, polarity-specific mass radii. Profile MS1 uses the
+conditional profile-aware mass detector. The existing `low_tail` default and
+`clipped` alternative remain available. `--noise-fraction` controls `low_tail`,
+not the consistency population model; `--noise-layout sliding` is unsupported
+with consistency. Single-spectrum `estimate_noise` cannot evaluate this mode;
+use the extraction pipeline, which supplies neighboring scans.
+
+Centroid arrays and point decisions use temporary memory maps beside the output;
+these are removed on success or a handled exception. Temporary storage scales
+with the number of detected/raw centroids, while short background-training
+copies are released after their last consumer. Final MS2/grouping still requires
+the file's feature summaries, so this is not a hard bound on total worker RSS.
+The existing raw-MS1 gap-fill search and its raw-scan regional imputation rule
+are retained. [Complete estimator method](NOISE_ESTIMATOR_DESIGN.md).
 
 Disable individual additions when needed:
 
@@ -119,10 +142,35 @@ catalog to exclude the water-loss forms. [Catalog/custom ions](ION_GROUPING.md).
 
 ## Output columns
 
-Schema 10 retains 25 columns. m/z has five decimals, times are seconds with two,
+Schema 13 has 15 default columns. Parquet with Zstd compression is the default;
+use `--format tsv` for text output. m/z has five decimals, times are seconds with two,
 intensities have one and correlations have four. Original MS1 scan arrays are
 float32; height and area follow upstream integer quantification before formatting.
 Nested MS2 references and relationships are native Parquet lists and JSON in TSV.
+
+The default measurement is `peak_height`. These switches apply to both formats:
+
+```bash
+# Add area alongside height:
+masscubex extract sample.mzML -o features --include-peak-area
+# Select area alone:
+masscubex extract sample.mzML -o features --quant-method peak_area
+# Include detailed ion-group evidence:
+masscubex extract sample.mzML -o features --include-ion-relations
+# Include area and detailed relationships (17 columns total):
+masscubex extract sample.mzML -o features --include-peak-area --include-ion-relations
+# Include the two diagnostic columns:
+masscubex extract sample.mzML -o features --include-apex-noise-threshold --include-gaussian-similarity
+```
+
+The same controls are `include_peak_area`, `include_ion_relations`,
+`include_apex_noise_threshold`, `include_gaussian_similarity`, and `quant_method`
+in JSON/Python configuration. All four include options default to `false`;
+enabling all four gives 19 columns with height as the primary measurement.
+Omitting detailed relationships preserves grouping and the compact
+adduct/isotope/source-fragment labels. The JSON sidecar's `output_columns`
+records the exact per-file layout, also embedded in Parquet metadata. Changing
+these options invalidates a previous `--resume` result.
 
 | Column | Meaning |
 | --- | --- |
@@ -130,33 +178,38 @@ Nested MS2 references and relationships are native Parquet lists and JSON in TSV
 | `mz` | Upstream apex mass for detected features; precursor m/z for seeded features |
 | `rt_apex_seconds` | Time of its highest original intensity |
 | `rt_start_seconds`, `rt_end_seconds` | Integration boundaries |
-| `peak_height` | Upstream integer detected height; seeds use raw-MS1 height or a labelled noise-derived estimate when status is `imputed_noise`; blank if unavailable |
-| `peak_area` | Upstream integer trapezoidal area, intensity × seconds; seeds use refined bounds or the fallback window |
-| `scan_count` | Number of observed nonzero MS1 samples |
-| `apex_noise_threshold` | Local MS1 threshold at the detected apex; regional reference for an imputed seed |
-| `gaussian_similarity` | Symmetric apex/FWHM Gaussian Pearson score on the original detected trace, 0–1, four decimals; null for MS2-seeded forced measurements |
-| `segmentation_status` | `split`, `unsplit`, `guarded_split`, `guarded_unsplit`, `disabled`, or `not_applicable` for seeds; `guarded_` means the upstream noise cutoff prevented further splitting |
+| `peak_height` | Default measurement; upstream integer detected height; seeds use raw-MS1 height or a labelled noise-derived estimate when status is `imputed_noise`; blank if unavailable; omitted when area alone is selected |
+| `peak_area` (optional) | With `--include-peak-area` or `--quant-method peak_area`: upstream integer trapezoidal area, intensity × seconds; seeds use refined bounds or the fallback window |
+| `apex_noise_threshold` (optional) | With `--include-apex-noise-threshold`: local MS1 threshold at the detected apex; regional reference for an imputed seed |
+| `gaussian_similarity` (optional) | With `--include-gaussian-similarity`: symmetric apex/FWHM Gaussian Pearson score on the original detected trace, 0–1, four decimals; null for MS2-seeded forced measurements |
 | `polarity` | `positive`, `negative`, or `unknown` |
 | `feature_origin` | `ms1_detected` or `ms2_seeded` |
 | `ms1_quant_status` | `detected`, `gap_filled`, `imputed_noise`, `no_ms1_signal`, `no_ms1_scans`, `ambiguous_polarity`, `no_local_ms1_signal`, `no_local_peak`, or `sampling_limit` |
-| `ms2_count` | Number of associated MS2 scans |
 | `ms2_scan_numbers` | List of native scan numbers; `null` where the format has no numeric scan number |
-| `ms2_native_ids` | List of original spectrum identifiers |
-| `ms2_spectrum_indices` | List of zero-based positions among all source spectra |
 | `best_ms2_scan_number` | Native scan number of the selected best spectrum; blank when unavailable |
 | `adduct` | One assigned ion form; ungrouped positive/negative anchors start as `[M+H]+`/`[M-H]-`; blank if grouping is off or polarity unknown |
 | `group_id` | Greedy ion-group ID within this file, including singleton groups |
-| `is_isotope`, `isotope_state` | Upstream isotope flag and `M+0`/`M+1`/`M+2`/`M+3` state; blank if grouping is off or polarity unknown |
+| `isotope_state` | Upstream `M+0`/`M+1`/`M+2`/`M+3` state; blank if grouping is off or polarity unknown |
 | `is_in_source_fragment` | Assigned source-fragment flag from the selected best parent MS2; null when checks are disabled or polarity unknown |
-| `ion_relations` | Assigned isotope/adduct/fragment links with partner feature IDs and available evidence |
+| `ion_relations` (optional) | With `--include-ion-relations`: assigned isotope/adduct/fragment links with partner feature IDs and available evidence |
 
 
 Previously removed redundant measurement/selection and seed precursor/RT
 columns remain absent. Their settings or exceptional identifiers are in JSON.
-`quant_method` remains a file-level preference; both height and area are always
-exported. Source scan numbers may be absent or duplicated; native IDs and source
-spectrum indices allow reliable lookup. Best-scan exceptions are recorded in
-`best_ms2_identifier_fallbacks` in the sidecar.
+Both height and area remain available internally; these output switches do not
+change their calculation or the grouping algorithm. MS2 counts are the length
+of `ms2_scan_numbers`; isotope membership is
+given by `isotope_state`. These derived columns and the internal segmentation
+status are omitted from both formats, as is `scan_count`.
+
+Source scan numbers may be absent or duplicated. For those exceptions,
+`ms2_identifier_fallbacks` in the JSON sidecar records the `feature_id`, zero-based
+`ms2_list_index` within that row's scan list, `scan_number`, original `native_id`,
+and zero-based source `spectrum_index`. Duplicates are checked across all MS2
+scans in the file, including unassigned scans. Unique numeric scan numbers need
+no extra entry. `best_ms2_identifier_fallbacks` preserves the selected spectrum's
+identity when its number is absent or repeated. Full relationship evidence is
+available through the optional `ion_relations` column.
 
 ## Python
 
@@ -174,10 +227,17 @@ Processed MS1 data used for grouping is file-backed and closed on every exit.
 ## Failures and resuming
 
 A corrupt or missing input does not stop other files. Batch reports are saved to
-`features/reports/<run-id>/summary.json`, `errors.tsv` and `files.jsonl`. They
+`features/reports/<run-id>/summary.json`, `errors.tsv`, `skipped.tsv` and `files.jsonl`. They
 record successful/skipped/error files and reasons. Retry repaired inputs with
 `--retry-errors PATH`. A batch with file failures returns nonzero after processing
 remaining inputs. Global setup/storage failures can still stop the batch.
+
+Confirmed DIA is skipped by default and listed with detection evidence in
+`skipped.tsv`; this does not make the exit code nonzero. `summary.json` separates
+DIA exclusions from resume hits. Unknown modes remain explicitly unknown and
+are processed. `--dia-policy error` treats DIA as a file error;
+`--dia-policy process` explicitly permits it. See [acquisition screening](ACQUISITION.md)
+for evidence rules, formats and limitations.
 
 Temporary outputs are published atomically. Resume checks input identity,
 configuration, implementation/dependency fingerprints and output checksums.

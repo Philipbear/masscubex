@@ -209,7 +209,8 @@ def run_batch(
         exhausted = False
         while pending or not exhausted:
             while (
-                not exhausted and len(pending) < 2 * workers
+                not exhausted
+                and len(pending) < 2 * workers
                 and (not pool_limit or processed_in_pool + len(pending) < pool_limit)
             ):
                 try:
@@ -249,9 +250,12 @@ def run_batch(
                     path = pending.pop(future)
                     try:
                         result = future.result()
-                        # Resume hits do not allocate the extraction graph;
-                        # count attempted extraction jobs, not skipped files.
-                        processed_in_pool += result.get("status") != "skipped"
+                        # Resume hits avoid XML parsing. Count inspected DIA
+                        # exclusions toward recycling alongside extraction jobs.
+                        processed_in_pool += (
+                            result.get("status") != "skipped"
+                            or result.get("skip_reason") == "dia_acquisition"
+                        )
                         yield result
                     except Exception as error:
                         processed_in_pool += 1
@@ -280,6 +284,7 @@ def run_batch(
 
 # Every processing setting is available through JSON; routine controls also have flags.
 _SETTING_FLAGS = (
+    ("dia_policy", "--dia-policy", str),
     ("tuning_min_peaks", "--tuning-min-peaks", int),
     ("tuning_max_peaks", "--tuning-max-peaks", int),
     ("tuning_min_gaussian_similarity", "--tuning-min-gaussian-similarity", float),
@@ -339,9 +344,10 @@ _SETTING_FLAGS = (
     ("isf_max_peaks", "--isf-max-peaks", int),
 )
 _CHOICES = {
+    "dia_policy": ("skip", "process", "error"),
     "quant_method": ("peak_height", "peak_area"),
     "noise_mode": ("adaptive", "none"),
-    "noise_estimator": ("low_tail", "clipped"),
+    "noise_estimator": ("low_tail", "clipped", "consistency"),
     "noise_layout": ("bins", "sliding"),
     "noise_sigma": (3.0,),
     "profile_mode": ("centroid", "reject"),
@@ -404,10 +410,12 @@ def _parser():
     extract.add_argument("--workers", type=int, default=1, help="File workers (default: 1)")
     extract.add_argument("--executor", choices=("process", "thread"), default="process")
     extract.add_argument(
-        "--worker-recycle-files", type=int, default=DEFAULT_WORKER_RECYCLE_FILES,
+        "--worker-recycle-files",
+        type=int,
+        default=DEFAULT_WORKER_RECYCLE_FILES,
         help=(
             "Recycle process pools after N * workers extraction attempts "
-            f"(default: {DEFAULT_WORKER_RECYCLE_FILES}; 0 disables; workers >1; skips excluded)"
+            f"(default: {DEFAULT_WORKER_RECYCLE_FILES}; 0 disables; workers >1; resume hits excluded)"
         ),
     )
     extract.add_argument(
@@ -446,6 +454,10 @@ def _parser():
             help_ += "; calibrated only with --auto-tune unless explicitly overridden"
         if name == "ms2_min_intensity":
             help_ = "Fixed MS2 floor (default: 10000 for an orbitrap header keyword, otherwise 500)"
+        if name == "quant_method":
+            help_ = "Primary output measurement: peak_height (default) or peak_area"
+        if name == "dia_policy":
+            help_ = "Confirmed DIA: skip (default), process explicitly, or error; unknown modes are reported"
         if name in {"ms2_rt_tolerance", "group_rt_tolerance"}:
             help_ += "; seconds"
         if name == "ms2_max_isolation_width":
@@ -454,14 +466,18 @@ def _parser():
             help_ += "; seconds on each side of the first unmatched MS2 in a seeded feature"
         if name == "noise_fraction":
             help_ += "; weakest positive fraction in (0, 1], low_tail only"
+        if name == "noise_estimator":
+            help_ += "; consistency enables signal-preserving multi-scan background estimation"
         if name == "noise_sigma":
-            help_ += "; fixed at 3; tune the background subset with --noise-fraction"
+            help_ += "; fixed at 3; --noise-fraction adjusts the low_tail background subset"
         if name == "scan_cache_mb":
             help_ += "; per-worker decoded scan budget in MiB; 0 disables replay"
         if name == "tuning_peak_limit":
             help_ += "; strongest centroids per m/z region per MS1 scan"
         if name == "noise_min_neighbors":
-            help_ += "; minimum selected background count, excluding the candidate"
+            help_ += (
+                "; low_tail/clipped minimum background count; sliding windows exclude the candidate"
+            )
         if name in {"noise_clip_sigma", "noise_iterations"}:
             help_ += "; clipped estimator only"
         extract.add_argument(
@@ -473,6 +489,26 @@ def _parser():
             help=help_,
         )
     for name, flag, help_ in (
+        (
+            "include_peak_area",
+            "--include-peak-area",
+            "Add peak_area alongside the primary output measurement",
+        ),
+        (
+            "include_ion_relations",
+            "--include-ion-relations",
+            "Export detailed ion_relations; grouping labels are always retained",
+        ),
+        (
+            "include_apex_noise_threshold",
+            "--include-apex-noise-threshold",
+            "Export the local noise threshold at the feature apex",
+        ),
+        (
+            "include_gaussian_similarity",
+            "--include-gaussian-similarity",
+            "Export the upstream Gaussian peak-shape score",
+        ),
         (
             "auto_tune",
             "--auto-tune",

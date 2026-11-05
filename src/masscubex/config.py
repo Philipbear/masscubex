@@ -25,7 +25,9 @@ class Config:
     tuning_locked: tuple[str, ...] = ()
     mass_regions: tuple[MassRegion, ...] = ()
     mz_tolerance_ppm: float = 0.0
-    mz_tolerance_da: float = 0.01  # Upstream fallback; successful calibration supplies regional radii.
+    mz_tolerance_da: float = (
+        0.01  # Upstream fallback; successful calibration supplies regional radii.
+    )
     centroid_mz_tolerance_da: float = 0.002
     noise_mode: str = "adaptive"
     noise_estimator: str = "low_tail"
@@ -54,6 +56,10 @@ class Config:
     profile_min_points: int = 3
     profile_gap_factor: float = 4.0
     quant_method: str = "peak_height"
+    include_peak_area: bool = False
+    include_ion_relations: bool = False
+    include_apex_noise_threshold: bool = False
+    include_gaussian_similarity: bool = False
     associate_ms2: bool = True
     ms2_mz_tolerance_ppm: float = 0.0
     ms2_mz_tolerance_da: float = 0.1
@@ -82,8 +88,15 @@ class Config:
     group_min_correlation: float = 0.9
     isf_min_relative_intensity: float = 0.0
     isf_max_peaks: int = 0  # Zero retains all products from the selected spectrum.
+    dia_policy: str = "skip"
 
     def __post_init__(self):
+        if not isinstance(self.dia_policy, str) or self.dia_policy not in {
+            "skip",
+            "process",
+            "error",
+        }:
+            raise ValueError("dia_policy must be 'skip', 'process' or 'error'")
         integer_minima = {
             "tuning_min_peaks": 20,
             "tuning_max_peaks": 20,
@@ -107,6 +120,10 @@ class Config:
             "segment",
             "peak_shape_guard",
             "assume_centroid",
+            "include_peak_area",
+            "include_ion_relations",
+            "include_apex_noise_threshold",
+            "include_gaussian_similarity",
             "associate_ms2",
             "ms2_seeded_features",
             "group_ions",
@@ -117,8 +134,10 @@ class Config:
                 raise ValueError(f"{name} must be a boolean")
         if self.noise_mode not in {"adaptive", "none"}:
             raise ValueError("noise_mode must be 'adaptive' or 'none'")
-        if self.noise_estimator not in {"low_tail", "clipped"}:
-            raise ValueError("noise_estimator must be 'low_tail' or 'clipped'")
+        if self.noise_estimator not in {"low_tail", "clipped", "consistency"}:
+            raise ValueError("noise_estimator must be 'low_tail', 'clipped' or 'consistency'")
+        if self.noise_estimator == "consistency" and self.noise_layout != "bins":
+            raise ValueError("consistency noise uses fixed m/z bins")
         if self.noise_layout not in {"bins", "sliding"}:
             raise ValueError("noise_layout must be 'bins' or 'sliding'")
         if self.profile_mode not in {"centroid", "reject"}:
@@ -190,6 +209,7 @@ class Config:
             | booleans
             | {
                 "noise_mode",
+                "dia_policy",
                 "noise_estimator",
                 "noise_layout",
                 "profile_mode",

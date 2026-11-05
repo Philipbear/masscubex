@@ -281,7 +281,10 @@ def test_failed_numerical_initializer_does_not_consume_or_mislabel_inputs(tmp_pa
 
 
 @pytest.mark.parametrize("count,expected", [(6, [2, 2, 2]), (7, [2, 2, 2, 1])])
-def test_worker_recycling_drains_every_job_before_replacing_pool(tmp_path, monkeypatch, count, expected):
+@pytest.mark.parametrize("status,reason", [("ok", None), ("skipped", "dia_acquisition")])
+def test_worker_recycling_drains_every_job_before_replacing_pool(
+    tmp_path, monkeypatch, count, expected, status, reason
+):
     pools = []
 
     class Pool:
@@ -297,7 +300,7 @@ def test_worker_recycling_drains_every_job_before_replacing_pool(tmp_path, monke
                 future.set_result(True)
             else:
                 self.jobs.append(args[0])
-                future.set_result({"input": str(args[0]), "status": "ok"})
+                future.set_result({"input": str(args[0]), "status": status, "skip_reason": reason})
             return future
 
         def shutdown(self, **kwargs):

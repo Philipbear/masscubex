@@ -1,7 +1,6 @@
 # Automatic calibration and MS2 gap filling
 
-The local development version retains MassCubeX 0.15.0 calibration policy 5: region-stratified pilot
-sampling, Gaussian-qualified representatives,
+MassCubeX uses region-stratified pilot sampling, Gaussian-qualified representatives,
 three fixed m/z regions (0–200 / 200–500 / 500+), and mean + 3 sample SD mass-error margins.
 Output defaults to Parquet; the calculations apply equally to TSV.
 
@@ -84,9 +83,7 @@ one region cannot displace another's candidates. At the end of the pass, select 
 100 independently in each m/z region. Each selection uses m/z and RT quartiles
 (up to 16 cells), taking the strongest in each cell in rounds. Sparse regions
 still require the same shape and evidence checks. `--tuning-max-peaks` controls
-each selection, not an overall cap of 100 across all regions. The
-[sampling comparison](../benchmarks/results/REGIONAL_SAMPLING.md) measures
-coverage and time against the previous global top-128 selection.
+each selection, not an overall cap of 100 across all regions.
 
 Before selecting the final representatives, screen the full retained candidate
 pool independently for each region and globally. FWHM retains the log-MAD
@@ -276,9 +273,8 @@ unresolved or coisolated ions.
 Require positive evidence within `max(ms2_rt_tolerance, 2 × local median MS1
 interval)` of the original seed time. No local ion gives
 internal `gapfill_status=no_local_ms1_signal`; no ion anywhere gives `no_ms1_signal`.
-Version 0.10 removes the former broad-search / 3× candidate-ranking rule:
-overlapping candidate windows could count the same raw centroid twice. The
-[blank/QC audit](../benchmarks/results/EIC_REVIEW.md) documents this defect.
+Overlapping candidate windows must not count the same raw centroid twice;
+the former broad-search / 3× candidate-ranking rule is not used.
 
 For the selected narrow EIC, interpolate onto a uniform time grid based on the
 median MS1 interval, capped at four times the number of original observations.
@@ -376,6 +372,5 @@ windows can mix ions. Inspect the saved evidence and use overrides when needed.
 Known-truth tests cover alternating polarities with different cadence, mass
 jitter and peak width, both centroid/profile mzML/mzXML, missing polarity,
 parent-reference inference, below-noise seeds, nearby interferents and separate
-chromatographic peaks. Real-data validation uses 50 positive-mode centroid
-mzXML files; it is **not genuine polarity-switching LCMS validation**. See
-[the versioned validation report](../benchmarks/results/VALIDATION.md).
+chromatographic peaks. Synthetic polarity-switching fixtures establish those
+known-truth cases; they do not establish behavior for every instrument export.

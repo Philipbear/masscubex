@@ -11,6 +11,11 @@ See [the comparison table](UPSTREAM_COMPARISON.md).
 
 ## Input and scan preprocessing
 
+Before scientific processing, [acquisition screening](ACQUISITION.md) excludes
+confirmed DIA by default using metadata and repeated window evidence. Unknown
+modes remain labelled unknown and are processed. This addition changes input
+acceptance, not the inherited feature algorithms for accepted files.
+
 The streaming readers support mzML/mzXML, gzip, float32/float64 binary arrays,
 zlib and optional MS-Numpress. They validate XML, lengths, encodings, finite
 values, scan times and polarity metadata; no network vocabulary lookup is used.
@@ -50,6 +55,19 @@ No chromatographic shape gate is added to compensate for a permissive noise thre
 `--noise none --min-intensity VALUE` provides a fixed-floor control. Historical
 sliding windows and clipped estimators remain explicit parameter alternatives;
 they are not default. `noise_sigma` remains fixed at 3.
+
+`--noise-estimator consistency` selects the revised population/evidence model
+described in [the estimator design and experiments](NOISE_ESTIMATOR_DESIGN.md).
+Its approved μ + 3σ decisions are unchanged by the optimized implementation:
+compiled searches preserve strict mass boundaries and ties; stable intensity
+grouping preserves fixed-diameter bands; background reductions retain NumPy's
+original float64 accumulation order. A histogram kernel reproduces explicit
+NumPy bin edges exactly. Filtered training surveys are reused and released after
+their last temporal neighbor. Persistent centroids and decisions use temporary
+disk-backed arrays, while MassCube tracing, splitting, quantification and ion
+grouping remain unchanged. This mode is opt-in and does not replace the default
+low-tail estimator. Raw-gap-fill extraction and imputation retain their existing
+raw-spectrum rules, including below-threshold searches.
 
 ## Trace building
 

@@ -18,6 +18,7 @@ from masscubex.output import (
     FLOAT_COLUMNS,
     OUTPUT_PRECISION,
     ROW_GROUP_SIZE,
+    feature_columns,
     parquet_schema,
     write_features,
 )
@@ -84,7 +85,17 @@ def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_
         replace(example(), is_in_source_fragment=None),
     ]
     a, b = tmp_path / "table.tsv", tmp_path / "table.parquet"
-    assert write_features(a, features, "tsv") == write_features(b, features, "parquet") == 3
+    config = Config(
+        include_peak_area=True,
+        include_ion_relations=True,
+        include_apex_noise_threshold=True,
+        include_gaussian_similarity=True,
+    )
+    assert (
+        write_features(a, features, "tsv", config=config)
+        == write_features(b, features, "parquet", config=config)
+        == 3
+    )
     assert list(iter_feature_rows(a)) == list(iter_feature_rows(b))
     table = pq.read_table(b)
     assert table.schema.field("mz").type == pa.float64()
@@ -98,7 +109,7 @@ def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_
     assert table["peak_height"][0].as_py() is None
     assert table["ms2_scan_numbers"][0].as_py() == [None, 9223372036854775807]
     assert pq.read_metadata(b).row_group(0).column(0).compression == "ZSTD"
-    assert table.schema.metadata[b"masscubex.table_schema"] == b"10"
+    assert table.schema.metadata[b"masscubex.table_schema"] == b"13"
     assert json.loads(table.schema.metadata[b"masscubex.output_precision"]) == OUTPUT_PRECISION
     assert set(FEATURE_COLUMNS).isdisjoint(
         {
@@ -116,9 +127,19 @@ def test_formats_round_measurements_preserve_identifiers_nulls_and_evidence(tmp_
             "best_ms2_precursor_intensity",
             "seed_precursor_mz",
             "seed_rt_seconds",
+            "ms2_count",
+            "ms2_native_ids",
+            "ms2_spectrum_indices",
+            "is_isotope",
+            "segmentation_status",
+            "scan_count",
+            "peak_area",
+            "ion_relations",
+            "apex_noise_threshold",
+            "gaussian_similarity",
         }
     )
-    assert len(FEATURE_COLUMNS) == 25
+    assert len(FEATURE_COLUMNS) == 15
 
 
 def test_rounding_is_output_only_and_tsv_has_fixed_decimal_places(tmp_path):
@@ -141,9 +162,15 @@ def test_rounding_is_output_only_and_tsv_has_fixed_decimal_places(tmp_path):
         ),
     )
     before = deepcopy(feature)
+    config = Config(
+        include_peak_area=True,
+        include_ion_relations=True,
+        include_apex_noise_threshold=True,
+        include_gaussian_similarity=True,
+    )
     tsv, parquet = tmp_path / "sample.tsv", tmp_path / "sample.parquet"
-    write_features(tsv, [feature], "tsv")
-    write_features(parquet, [feature], "parquet")
+    write_features(tsv, [feature], "tsv", config=config)
+    write_features(parquet, [feature], "parquet", config=config)
     assert feature == before
     assert FLOAT_COLUMNS == DECIMAL_PLACES.keys()
     with tsv.open() as stream:
@@ -173,12 +200,126 @@ def test_empty_and_multiple_row_groups_have_identical_explicit_schema(tmp_path):
     assert ids == list(range(1, ROW_GROUP_SIZE + 2))
 
 
+@pytest.mark.parametrize("output_format", ["tsv", "parquet"])
+@pytest.mark.parametrize(
+    "config,measurements,relations",
+    [
+        (Config(), {"peak_height"}, False),
+        (Config(include_peak_area=True), {"peak_height", "peak_area"}, False),
+        (Config(include_ion_relations=True), {"peak_height"}, True),
+        (
+            Config(include_peak_area=True, include_ion_relations=True),
+            {"peak_height", "peak_area"},
+            True,
+        ),
+        (Config(quant_method="peak_area"), {"peak_area"}, False),
+        (Config(quant_method="peak_area", include_ion_relations=True), {"peak_area"}, True),
+        (Config(include_apex_noise_threshold=True), {"peak_height"}, False),
+        (Config(include_gaussian_similarity=True), {"peak_height"}, False),
+        (
+            Config(
+                include_peak_area=True,
+                include_ion_relations=True,
+                include_apex_noise_threshold=True,
+                include_gaussian_similarity=True,
+            ),
+            {"peak_height", "peak_area"},
+            True,
+        ),
+    ],
+)
+def test_requested_columns_and_empty_schemas(
+    tmp_path, output_format, config, measurements, relations
+):
+    feature = replace(
+        example(),
+        peak_height=12.34,
+        peak_area=45.67,
+        apex_noise_threshold=1.234,
+        gaussian_similarity=0.8765432,
+    )
+    before = deepcopy(feature)
+    path = tmp_path / ("selected." + output_format)
+    assert write_features(path, [feature], output_format, config=config) == 1
+    (row,) = iter_feature_rows(path)
+    assert set(row) & {"peak_height", "peak_area"} == measurements
+    assert ("ion_relations" in row) is relations
+    assert "scan_count" not in row
+    assert ("apex_noise_threshold" in row) is config.include_apex_noise_threshold
+    assert ("gaussian_similarity" in row) is config.include_gaussian_similarity
+    if config.include_apex_noise_threshold:
+        assert row["apex_noise_threshold"] == 1.2
+    if config.include_gaussian_similarity:
+        assert row["gaussian_similarity"] == 0.8765
+    assert list(row) == feature_columns(config)
+    for key, value in {"peak_height": 12.3, "peak_area": 45.7}.items():
+        if key in measurements:
+            assert row[key] == value
+    assert feature == before
+
+    empty = tmp_path / ("empty." + output_format)
+    assert write_features(empty, [], output_format, config=config) == 0
+    assert list(iter_feature_rows(empty)) == []
+    if output_format == "parquet":
+        assert pq.read_schema(path) == pq.read_schema(empty) == parquet_schema(config)
+        assert json.loads(pq.read_schema(path).metadata[b"masscubex.output_columns"]) == list(row)
+    else:
+        with path.open() as a, empty.open() as b:
+            assert a.readline() == b.readline()
+
+
+@pytest.mark.parametrize("output_format", ["tsv", "parquet"])
+def test_different_column_layouts_are_isolated_between_threads(tmp_path, output_format):
+    from concurrent.futures import ThreadPoolExecutor
+
+    configs = [Config(), Config(include_peak_area=True, include_ion_relations=True)]
+    paths = [tmp_path / (f"layout-{i}." + output_format) for i in range(2)]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(write_features, path, [example()], output_format, config=config)
+            for path, config in zip(paths, configs)
+        ]
+        assert [future.result() for future in futures] == [1, 1]
+    for path, config in zip(paths, configs):
+        (row,) = iter_feature_rows(path)
+        assert list(row) == feature_columns(config)
+    assert FEATURE_COLUMNS == feature_columns()
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "include_peak_area",
+        "include_ion_relations",
+        "quant_method",
+        "include_apex_noise_threshold",
+        "include_gaussian_similarity",
+    ],
+)
+def test_resume_rebuilds_when_requested_columns_change(sample_file, tmp_path, option):
+    path = tmp_path / "columns.parquet"
+    process_file(sample_file, path)
+    assert process_file(sample_file, path, resume=True).status == "skipped"
+    value = "peak_area" if option == "quant_method" else True
+    config = replace(Config(), **{option: value})
+    assert process_file(sample_file, path, config=config, resume=True).status == "ok"
+    (row,) = iter_feature_rows(path)
+    assert list(row) == feature_columns(config)
+    metadata = json.loads(Path(str(path) + ".json").read_text())
+    assert metadata["output_columns"] == list(row)
+    assert process_file(sample_file, path, config=config, resume=True).status == "skipped"
+    assert process_file(sample_file, path, resume=True).status == "ok"
+    (row,) = iter_feature_rows(path)
+    assert list(row) == FEATURE_COLUMNS
+
+
 def test_default_parquet_explicit_tsv_and_format_mismatch(sample_file, tmp_path):
     result = process_file(sample_file)
     assert result.output.endswith(".features.parquet")
     metadata = json.loads(Path(result.output + ".json").read_text())
     assert metadata["output_format"] == "parquet"
-    assert metadata["schema_version"] == 10
+    assert metadata["schema_version"] == 13
+    assert metadata["output_columns"] == FEATURE_COLUMNS
     assert metadata["output_precision"] == OUTPUT_PRECISION
     assert metadata["output_bytes"] == Path(result.output).stat().st_size
     assert len(metadata["output_sha256"]) == 64
@@ -216,7 +357,7 @@ def test_failed_parquet_write_keeps_prior_table_and_completion_marker(
     sidecar = Path(str(out) + ".json")
     before = out.read_bytes(), sidecar.read_bytes()
 
-    def fail(path, features, output_format):
+    def fail(path, features, output_format, **writer_options):
         Path(path).write_bytes(b"PAR1incomplete")
         raise OSError("injected output failure")
 
@@ -257,18 +398,26 @@ def test_no_ms2_no_grouping_streams_to_parquet(sample_file, tmp_path):
 def test_unknown_evidence_cannot_be_silently_dropped(tmp_path):
     feature = replace(example(), ion_relations=({"relation": "adduct", "future_field": 1},))
     with pytest.raises(ValueError, match="Unknown ion evidence"):
-        write_features(tmp_path / "unknown.parquet", [feature], "parquet")
+        write_features(
+            tmp_path / "unknown.parquet",
+            [feature],
+            "parquet",
+            config=Config(include_ion_relations=True),
+        )
 
 
 def test_rounding_handles_tiny_and_extreme_finite_floats_without_overflow(tmp_path):
     values = [-0.0, 5e-324, 1.7976931348623157e308]
     output = tmp_path / "precision.parquet"
-    write_features(output, [replace(example(), peak_area=v) for v in values], "parquet")
+    config = Config(quant_method="peak_area")
+    write_features(
+        output, [replace(example(), peak_area=v) for v in values], "parquet", config=config
+    )
     actual = pq.read_table(output, columns=["peak_area"])["peak_area"].to_pylist()
     expected = [-0.0, 0.0, values[-1]]
     assert [struct.pack("d", v) for v in actual] == [struct.pack("d", v) for v in expected]
     tsv = tmp_path / "precision.tsv"
-    write_features(tsv, [replace(example(), peak_area=v) for v in values], "tsv")
+    write_features(tsv, [replace(example(), peak_area=v) for v in values], "tsv", config=config)
     assert list(iter_feature_rows(tsv)) == list(iter_feature_rows(output))
 
 
@@ -295,4 +444,25 @@ def test_legacy_tsv_reader_keeps_removed_measurements_typed(tmp_path):
             "best_ms2_spectrum_index": 6,
             "best_ms2_precursor_intensity": 123.4567,
         }
+    ]
+    path.write_text(
+        "is_isotope\tms2_count\tms2_native_ids\tms2_spectrum_indices\tsegmentation_status\n"
+        'false\t1\t["scan=7"]\t[6]\tguarded_unsplit\n'
+        "true\t0\t[]\t[]\tunsplit\n"
+    )
+    assert list(iter_feature_rows(path)) == [
+        {
+            "is_isotope": False,
+            "ms2_count": 1,
+            "ms2_native_ids": ["scan=7"],
+            "ms2_spectrum_indices": [6],
+            "segmentation_status": "guarded_unsplit",
+        },
+        {
+            "is_isotope": True,
+            "ms2_count": 0,
+            "ms2_native_ids": [],
+            "ms2_spectrum_indices": [],
+            "segmentation_status": "unsplit",
+        },
     ]

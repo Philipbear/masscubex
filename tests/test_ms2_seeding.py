@@ -2,38 +2,66 @@
 
 import csv
 import json
+from collections import Counter, defaultdict
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from masscubex import Config, process_file
+from masscubex.readers import MS2Scan, iter_scans
 from conftest import mzml_spectrum, mzxml_scan, write_mzml, write_mzxml
 from test_ms2 import precursor_mzml
 
 
 def outputs(path, output, config=None):
+    # Scientific measurement tests explicitly request both optional columns.
+    config = replace(config or Config(), include_peak_area=True, include_ion_relations=True)
     process_file(path, output, config=config)
     with output.open() as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
     metadata = json.loads(Path(str(output) + ".json").read_text())
     # All successful-file MS2 scans must occur once in the feature table or in
     # the explicit unresolved list. Numeric scan numbers alone are not unique.
-    indices = [i for row in rows for i in json.loads(row["ms2_spectrum_indices"])]
-    indices += [r["spectrum_index"] for r in metadata["unassigned_ms2"]]
-    assert len(indices) == len(set(indices)) == metadata["ms2_scans"]
+    source = [scan for scan in iter_scans(path) if isinstance(scan, MS2Scan)]
+    by_number = defaultdict(list)
+    by_index = {scan.spectrum_index: scan for scan in source}
+    for scan in source:
+        by_number[scan.scan_number].append(scan)
+    fallback_by_position = {
+        (entry["feature_id"], entry["ms2_list_index"]): entry
+        for entry in metadata["ms2_identifier_fallbacks"]
+    }
+    indices = []
+    scan_counts = Counter(scan.scan_number for scan in source)
     for row in rows:
-        if int(row["ms2_count"]):
-            number = int(row["best_ms2_scan_number"]) if row["best_ms2_scan_number"] else None
-            numbers = json.loads(row["ms2_scan_numbers"])
-            assert number in numbers
-            if number is None or numbers.count(number) > 1:
+        numbers = json.loads(row["ms2_scan_numbers"])
+        row_indices = []
+        for position, number in enumerate(numbers):
+            fallback = fallback_by_position.get((int(row["feature_id"]), position))
+            if number is None or scan_counts[number] > 1:
+                assert fallback is not None
+                scan = by_index[fallback["spectrum_index"]]
+                assert fallback["native_id"] == scan.native_id
+                assert fallback["scan_number"] == scan.scan_number == number
+            else:
+                assert fallback is None
+                (scan,) = by_number[number]
+            row_indices.append(scan.spectrum_index)
+        indices.extend(row_indices)
+        if numbers:
+            best = int(row["best_ms2_scan_number"]) if row["best_ms2_scan_number"] else None
+            assert best in numbers
+            if best is None or scan_counts[best] > 1:
                 fallback = next(
                     r
                     for r in metadata["best_ms2_identifier_fallbacks"]
                     if r["feature_id"] == int(row["feature_id"])
                 )
-                assert fallback["spectrum_index"] in json.loads(row["ms2_spectrum_indices"])
+                assert fallback["spectrum_index"] in row_indices
+    indices += [r["spectrum_index"] for r in metadata["unassigned_ms2"]]
+    assert len(indices) == len(set(indices)) == metadata["ms2_scans"]
+    assert set(indices) == set(by_index)
     return rows, metadata
 
 
@@ -65,14 +93,17 @@ def test_weak_ms1_gapfill_all_ids_widths_and_quantification(tmp_path, format_, p
     writer = write_mzml if format_ == "mzml" else write_mzxml
     path = writer(tmp_path / ("run.mzML.gz" if format_ == "mzml" else "run.mzXML"), spectra)
     config = Config(
-        noise_mode="none", min_intensity=100, quant_method="peak_area", ms2_min_intensity=0,
+        noise_mode="none",
+        min_intensity=100,
+        ms2_min_intensity=0,
+        include_apex_noise_threshold=True,
     )
     (row,), metadata = outputs(path, tmp_path / "out.tsv", config)
     assert row["feature_origin"] == "ms2_seeded"
     assert row["ms1_quant_status"] == "gap_filled"
     assert float(row["peak_height"]) == 4
     assert float(row["peak_area"]) == 15
-    assert row["scan_count"] == "7"
+    assert "scan_count" not in row
     assert row["apex_noise_threshold"] == ""
     assert json.loads(row["ms2_scan_numbers"]) == [102, 103]
     assert row["best_ms2_scan_number"] == "103"
@@ -88,7 +119,7 @@ def test_short_ms1_trace_is_preserved_when_below_min_scan_count(tmp_path):
     spectra.append(mzml_spectrum(3, 1.1, [50], [5], level=2, precursor=precursor_mzml()))
     path = write_mzml(tmp_path / "short.mzML", spectra)
     (row,), _ = outputs(path, tmp_path / "out.tsv", Config(min_scans=3))
-    assert row["feature_origin"] == "ms2_seeded" and row["scan_count"] == "2"
+    assert row["feature_origin"] == "ms2_seeded" and "scan_count" not in row
     assert float(row["peak_height"]) == 20 and float(row["peak_area"]) == 15
 
 
@@ -159,7 +190,7 @@ def test_unusable_precursors_are_explicit_and_seeding_can_be_disabled(tmp_path):
     ]
     rows, metadata = outputs(path, tmp_path / "off.tsv", Config(ms2_seeded_features=False))
     assert len(rows) == 1 and rows[0]["feature_origin"] == "ms1_detected"
-    assert rows[0]["ms2_count"] == "0" and metadata["ms2_unassigned"] == 4
+    assert json.loads(rows[0]["ms2_scan_numbers"]) == [] and metadata["ms2_unassigned"] == 4
     assert metadata["ms2_gapfill_passes"] == 0
 
 
@@ -180,7 +211,7 @@ def test_old_config_width_can_be_overridden_explicitly(tmp_path):
     old_config = Config(ms2_max_isolation_width=4)
     rows, metadata = outputs(path, tmp_path / "guard.tsv", old_config)
     assert len(rows) == 1 and rows[0]["feature_origin"] == "ms1_detected"
-    assert rows[0]["ms2_count"] == "0"
+    assert json.loads(rows[0]["ms2_scan_numbers"]) == []
     assert metadata["ms2_unassigned_reasons"] == {"isolation_width_limit": 1}
     rows, metadata = outputs(
         path, tmp_path / "default.tsv", replace(old_config, ms2_max_isolation_width=0)
@@ -203,15 +234,20 @@ def test_repeated_seeds_are_bounded_and_native_numbers_are_not_used_as_keys(tmp_
     )
     path = write_mzml(tmp_path / "repeated.mzML", spectra)
     rows, metadata = outputs(
-        path, tmp_path / "out.tsv", Config(min_intensity=10, ms2_min_intensity=0),
+        path,
+        tmp_path / "out.tsv",
+        Config(min_intensity=10, ms2_min_intensity=0),
     )
     assert len(rows) == 3  # A seed at 1 s covers [0, 6]; its 6 s member cannot expand it.
-    assert [int(r["ms2_count"]) for r in rows] == [4, 1, 1]
+    assert [len(json.loads(r["ms2_scan_numbers"])) for r in rows] == [4, 1, 1]
     assert json.loads(rows[0]["ms2_scan_numbers"]) == [100, 100, 100, None]
     assert rows[0]["best_ms2_scan_number"] == ""
     assert "best_ms2_native_id" not in rows[0]
     assert metadata["best_ms2_identifier_fallbacks"][0]["native_id"] == "cycle=1 experiment=2"
     assert metadata["ms2_assigned"] == 6
+    assert len(metadata["ms2_identifier_fallbacks"]) == 6
+    assert {r["feature_id"] for r in metadata["ms2_identifier_fallbacks"]} == {1, 2, 3}
+    assert len(metadata["best_ms2_identifier_fallbacks"]) == 3
 
 
 def test_gapfill_uses_actual_times_and_does_not_integrate_across_long_acquisition_gaps(tmp_path):
@@ -219,7 +255,9 @@ def test_gapfill_uses_actual_times_and_does_not_integrate_across_long_acquisitio
     spectra.append(mzml_spectrum(3, 30, [50], [5], level=2, precursor=precursor_mzml()))
     path = write_mzml(tmp_path / "gaps.mzML", spectra)
     (row,), _ = outputs(
-        path, tmp_path / "out.tsv", Config(min_intensity=10, ms2_gapfill_rt_window=30),
+        path,
+        tmp_path / "out.tsv",
+        Config(min_intensity=10, ms2_gapfill_rt_window=30),
     )
     assert row["peak_height"] == "2.0" and row["peak_area"] == "0.0"
 
@@ -229,7 +267,12 @@ def test_gapfill_window_controls_actual_measurement_and_resume(tmp_path):
     spectra.append(mzml_spectrum(100, 3, [50], [5], level=2, precursor=precursor_mzml()))
     path = write_mzml(tmp_path / "window.mzML", spectra)
     output = tmp_path / "out.tsv"
-    config = Config(min_intensity=10, ms2_gapfill_rt_window=1)
+    config = Config(
+        min_intensity=10,
+        ms2_gapfill_rt_window=1,
+        include_peak_area=True,
+        include_ion_relations=True,
+    )
     (row,), _ = outputs(path, output, config)
     assert float(row["peak_area"]) == 7
     assert process_file(path, output, config=config, resume=True).status == "skipped"
@@ -280,7 +323,8 @@ def test_float32_mass_boundary_and_raw_duplicate_centroids_use_maximum_intensity
     spectra.append(mzxml_scan(2, 0.1, [50], [5], level=2, precursor=precursor))
     path = write_mzxml(tmp_path / "precision.mzXML", spectra)
     (row,), _ = outputs(
-        path, tmp_path / "out.tsv",
+        path,
+        tmp_path / "out.tsv",
         Config(min_intensity=100, mz_tolerance_da=0.01, gapfill_mz_tolerance_da=0.01),
     )
     assert row["feature_origin"] == "ms2_seeded"
@@ -331,12 +375,11 @@ def test_ms2_only_files_preserve_features_without_inventing_ms1_quantification(t
     ]
     path = write_mzml(tmp_path / "only_ms2.mzML", spectra)
     output = tmp_path / "out.tsv"
-    (row,), metadata = outputs(path, output, Config(group_ions=True))
+    config = Config(group_ions=True, include_peak_area=True, include_ion_relations=True)
+    (row,), metadata = outputs(path, output, config)
     assert row["ms1_quant_status"] == "no_ms1_scans"
     assert row["peak_height"] == row["peak_area"] == ""
     assert json.loads(row["ms2_scan_numbers"]) == [0, 1, 2]
     assert metadata["ms1_scans"] == 0 and metadata["ms2_assigned"] == 3
     assert metadata["ms2_gapfill_passes"] == 0
-    assert (
-        process_file(path, output, config=Config(group_ions=True), resume=True).status == "skipped"
-    )
+    assert process_file(path, output, config=config, resume=True).status == "skipped"

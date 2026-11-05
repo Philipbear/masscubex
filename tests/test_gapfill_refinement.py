@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 
@@ -119,5 +121,5 @@ def test_broad_search_cannot_borrow_a_different_ms1_ion(tmp_path, monkeypatch):
     assert row["ms1_quant_status"] == "imputed_noise"
     assert float(row["peak_height"]) == 10  # 0.1 * explicit noise floor, not the neighboring ion.
     assert row["peak_area"] == ""
-    assert row["scan_count"] == "0"
-    assert row["ms2_count"] == "1"
+    assert "scan_count" not in row
+    assert len(json.loads(row["ms2_scan_numbers"])) == 1

@@ -2,13 +2,13 @@
 
 from functools import lru_cache
 from dataclasses import replace
-import gzip
 from types import FunctionType
 
 import numpy as np
 
 from . import upstream
 from .centroid import centroid_profile
+from .formats import open_xml
 from .noise import estimate_noise
 
 
@@ -37,8 +37,7 @@ def resolve_ms2_filter(source, config):
     """Match upstream's first-300-lines Orbitrap keyword/default selection."""
     if config.ms2_min_intensity is not None:
         return config
-    opener = gzip.open if str(source).lower().endswith(".gz") else open
-    with opener(source, "rb") as stream:
+    with open_xml(source) as stream:
         text = (
             b"".join(stream.readline() for _ in range(300)).decode("utf-8", errors="ignore").lower()
         )

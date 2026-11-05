@@ -133,7 +133,7 @@ def test_refined_queries_release_finished_slices_and_enforce_collection_limit(
     process_file(write_mzml(tmp_path / "queries.mzML", spectra), output, config=config)
     with output.open() as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
-    assert len(rows) == 4 and all(r["ms2_count"] == "1" for r in rows)
+    assert len(rows) == 4 and all(len(json.loads(r["ms2_scan_numbers"])) == 1 for r in rows)
     assert finished[0] < 20 and len(finished) == 4
     assert all(not m.samples and m.finalized for m in measurements)
     metadata = json.loads(Path(str(output) + ".json").read_text())

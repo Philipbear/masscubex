@@ -356,19 +356,36 @@ def test_end_to_end_ms2_and_quantification_tsv_resume(tmp_path):
             spectra.append(spectrum)
     path = write_mzml(tmp_path / "run.mzML", spectra)
     output = tmp_path / "run.tsv"
-    config = Config(quant_method="peak_area", best_ms2="precursor_intensity")
+    config = Config(
+        quant_method="peak_area", best_ms2="precursor_intensity", include_peak_area=True
+    )
     process_file(path, output, config=config)
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
-    assert float(row["peak_height"]) == 100
-    trace = np.column_stack((
-        np.full(7, 100), [10, 40, 70, 100, 70, 40, 10], np.arange(7), np.zeros(7),
-    ))
+    assert "peak_height" not in row
+    trace = np.column_stack(
+        (
+            np.full(7, 100),
+            [10, 40, 70, 100, 70, 40, 10],
+            np.arange(7),
+            np.zeros(7),
+        )
+    )
     _, (reference,) = reference_segments(trace, Config(segment=False))
     assert float(row["peak_area"]) == reference.peak_area
     assert "intensity" not in row and "quant_method" not in row
     assert json.loads(row["ms2_scan_numbers"]) == [101, None, 103]
-    assert json.loads(row["ms2_spectrum_indices"]) == [2, 4, 6]
+    assert "ms2_spectrum_indices" not in row and "ms2_native_ids" not in row
+    metadata = json.loads((output.parent / (output.name + ".json")).read_text())
+    assert metadata["ms2_identifier_fallbacks"] == [
+        {
+            "feature_id": 1,
+            "ms2_list_index": 1,
+            "scan_number": None,
+            "native_id": "cycle=2 experiment=1",
+            "spectrum_index": 4,
+        }
+    ]
     assert row["best_ms2_scan_number"] == "101"
     assert "best_ms2_precursor_intensity" not in row
     assert "best_ms2_precursor_intensity_source" not in row
@@ -383,4 +400,4 @@ def test_end_to_end_ms2_and_quantification_tsv_resume(tmp_path):
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
     assert row["peak_height"] == "100.0" and row["peak_area"] == f"{reference.peak_area:.1f}"
-    assert row["ms2_count"] == "0" and row["best_ms2_scan_number"] == ""
+    assert json.loads(row["ms2_scan_numbers"]) == [] and row["best_ms2_scan_number"] == ""

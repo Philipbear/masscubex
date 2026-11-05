@@ -12,6 +12,7 @@ polarity separation and compact output are also intentional adaptations.
 | Step | Current default |
 | --- | --- |
 | Scan representation | float32 m/z and intensities, as upstream |
+| Acquisition acceptance | MassCubeX screens metadata and repeated windows, skipping recognized DIA before extraction; unknown modes remain labelled unknown |
 | Scan cleanup | Strict mass/intensity bounds; adjacent-centroid merging at 0.002 Da after filtering |
 | Trace matching | Last observed mass, not a running weighted mean; exact midpoint ties do not match. Regional auto-tuned radius by default; upstream 0.01 Da is the uncalibrated fallback |
 | Conflicting matches | Test the nearest mass only; if already claimed, insert a missing observation rather than choosing another mass |
@@ -34,7 +35,7 @@ attribution. The optimized tracker is compared against original `detect_features
 The interval adapter and compiled peak selector preserve those rules and are
 checked against the original functions, including raw valleys and tie behavior.
 Feature mass remains the apex mass. Thread/process workers do not mutate shared
-upstream globals. See the [five-file performance comparison](../benchmarks/results/UPSTREAM_SPEED.md).
+upstream globals.
 
 ## Enabled extensions
 
@@ -64,23 +65,17 @@ not library identifications.
 
 mzML/mzXML streaming, per-polarity processing, compressed Parquet/TSV output,
 scan provenance, failure reports and resumable transactions are repository
-adaptations. Outputs retain 25 columns and the requested rounding. The internal
+adaptations. Outputs have 15 default columns, with peak area, detailed ion
+relationships and noise/shape diagnostics available as explicit output options,
+and use the requested rounding. The internal
 MS1 scan representation is now float32, following upstream; earlier claims that
 all computation remained float64 no longer describe this version.
 
-## Focused verification
+## Verification
 
-[The parity report](../benchmarks/results/upstream-restoration-2026-11-04.json)
-compares complete measurements and MS2 references on six public sample/blank/QC
-files **with auto-tuning, profile centroiding and MS2 seeding disabled**, with
-fixed thresholds and with the same adaptive MS1 filter supplied to the reference.
-It establishes parity of the inherited algorithms, not equivalence of the full
-default pipeline. Full grouping labels are additionally compared on the example
-sample. Randomized trace tests cover the optimized matcher; pinned source-body
-hashes prevent silent changes to copied functions.
-
-The reference comparisons above isolate scientific parity. Publication checks
-also cover the complete source and installed-wheel suites; see the
-[code audit](CODE_AUDIT.md) for results and the migration of older test fixtures.
-Earlier feature-count and throughput reports describe their recorded
-implementations rather than these restored defaults.
+Synthetic tests compare tracing, segmentation, measurements, MS2 ownership and
+ion grouping with the pinned upstream functions. Function-body hashes guard
+the copied scientific code. Other tests cover profile scans, polarity switching,
+corrupt inputs, noise-model evidence, conditional output columns and restarts.
+See [development checks](DEVELOPMENT.md). Test datasets and generated reports
+are not bundled with the repository.

@@ -20,7 +20,8 @@ def test_tsv_and_provenance(sample_file, tmp_path):
     with output.open() as stream:
         (row,) = csv.DictReader(stream, delimiter="\t")
     assert row["mz"] == "100.12346"
-    assert float(row["peak_area"]) == 780
+    assert float(row["peak_height"]) == 100
+    assert {"scan_count", "peak_area", "ion_relations"}.isdisjoint(row)
     metadata = json.loads(Path(str(output) + ".json").read_text())
     assert metadata["config"]["noise_mode"] == "adaptive"
     assert metadata["retained_centroids"] == 9
@@ -42,7 +43,7 @@ def test_resume_validates_config_input_and_table(sample_file, tmp_path):
     metadata.write_text("broken json")
     assert process_file(sample_file, output, resume=True).status == "ok"
     provenance = json.loads(metadata.read_text())
-    provenance["schema_version"] = 9  # Previous export shape must be regenerated.
+    provenance["schema_version"] = 12  # Previous export shape must be regenerated.
     metadata.write_text(json.dumps(provenance))
     assert process_file(sample_file, output, resume=True).status == "ok"
     provenance = json.loads(metadata.read_text())

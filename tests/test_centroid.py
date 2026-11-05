@@ -51,6 +51,21 @@ def test_centroid_does_not_bridge_large_sampling_gap():
     assert len(detect(mz, y, Config(noise_mode="none"))[0]) == 0
 
 
+def test_hysteresis_keeps_weak_peak_shoulders_with_same_apex_significance():
+    mz = np.arange(100, 105, dtype=float)
+    y = np.array([0.0, 4.0, 9.0, 4.0, 0.0])
+    high = np.full(5, 8.0)
+    low = np.full(5, 3.0)
+    baseline = np.zeros(5)
+    assert not len(centroid_profile(mz, y, baseline, high)[0])
+    masses, heights, thresholds = centroid_profile(mz, y, baseline, low, apex_threshold=high)
+    np.testing.assert_array_equal(masses, [102.0])
+    np.testing.assert_array_equal(heights, [9.0])
+    np.testing.assert_array_equal(thresholds, [8.0])
+    y[2] = 7.0
+    assert not len(centroid_profile(mz, y, baseline, low, apex_threshold=high)[0])
+
+
 def test_profile_to_chromatographic_feature():
     mz = np.linspace(99.95, 100.05, 501)
     scans = [

@@ -114,7 +114,13 @@ def test_separate_tuning_quantification_ms2_and_groups(
     source = switching_file(
         tmp_path, format_, profile, precision=precision, compress=compress, gz=gz
     )
-    config = Config(noise_mode="none", tuning_block_scans=2048, tuning_block_seconds=300)
+    config = Config(
+        noise_mode="none",
+        tuning_block_scans=2048,
+        tuning_block_seconds=300,
+        include_peak_area=True,
+        include_ion_relations=True,
+    )
     rows, meta = outputs(source, tmp_path / "out.tsv", config)
     tune = meta["parameter_tuning"]["polarities"]
     pos, neg = tune["positive"], tune["negative"]
@@ -134,20 +140,20 @@ def test_separate_tuning_quantification_ms2_and_groups(
     assert len(detected) == 48 and meta["ms2_assigned"] == 48
     assert meta["ms2_seeded_features"] == len(seeded)
     assert meta["ms2_matched_detected"] + meta["ms2_seeded_scans"] == 48
-    scans = {s.native_id: s for s in iter_scans(source) if hasattr(s, "precursor_mz")}
+    scans = {s.scan_number: s for s in iter_scans(source) if hasattr(s, "precursor_mz")}
     for row in rows:
         polarity = row["polarity"]
         assert all(
-            scans[native].polarity == polarity for native in json.loads(row["ms2_native_ids"])
+            scans[number].polarity == polarity for number in json.loads(row["ms2_scan_numbers"])
         )
-        assert int(row["ms2_count"]) in (0, 1)
+        assert len(json.loads(row["ms2_scan_numbers"])) in (0, 1)
         for relation in json.loads(row["ion_relations"]):
             assert rows[relation["partner_feature_id"] - 1]["polarity"] == polarity
         if row["feature_origin"] == "ms2_seeded":
             # Calibration can leave an MS2 outside its detected peak's mass
             # window. Preserve it at the exact precursor, without cross-polarity evidence.
-            (native,) = json.loads(row["ms2_native_ids"])
-            assert float(row["mz"]) == round(scans[native].precursor_mz, 5)
+            (number,) = json.loads(row["ms2_scan_numbers"])
+            assert float(row["mz"]) == round(scans[number].precursor_mz, 5)
             assert row["ms1_quant_status"] in {"gap_filled", "no_local_ms1_signal"}
             if row["ms1_quant_status"] == "no_local_ms1_signal":
                 assert row["peak_height"] == row["peak_area"] == ""
@@ -193,12 +199,12 @@ def test_unknown_ms2_uses_explicit_parent_only_and_never_a_single_candidate_gues
             ]
     path = write_mzml(tmp_path / "unknown.mzML", spectra)
     rows, meta = outputs(path, tmp_path / "out.tsv")
-    assigned = {native: row for row in rows for native in json.loads(row["ms2_native_ids"])}
-    assert assigned["scan=90"]["feature_origin"] == "ms1_detected"
-    assert assigned["scan=90"]["polarity"] == "positive"
-    assert assigned["scan=91"]["feature_origin"] == "ms2_seeded"
-    assert assigned["scan=91"]["ms1_quant_status"] == "ambiguous_polarity"
-    assert assigned["scan=91"]["peak_height"] == ""
+    assigned = {number: row for row in rows for number in json.loads(row["ms2_scan_numbers"])}
+    assert assigned[90]["feature_origin"] == "ms1_detected"
+    assert assigned[90]["polarity"] == "positive"
+    assert assigned[91]["feature_origin"] == "ms2_seeded"
+    assert assigned[91]["ms1_quant_status"] == "ambiguous_polarity"
+    assert assigned[91]["peak_height"] == ""
     assert meta["ms2_polarity_inferences"][0]["native_id"] == "scan=90"
 
 
@@ -237,13 +243,14 @@ def test_tuned_pipeline_preserves_below_noise_seeds_and_distinct_local_peaks(tmp
         ),
     )
     seeds = [
-        r for r in rows
+        r
+        for r in rows
         if r["feature_origin"] == "ms2_seeded" and abs(float(r["mz"]) - 800.0001) < 1e-5
     ]
     assert meta["parameter_tuning"]["polarities"]["positive"]["status"] == "tuned"
-    assert len(seeds) == 2 and sum(int(r["ms2_count"]) for r in seeds) == 6
+    assert len(seeds) == 2 and sum(len(json.loads(r["ms2_scan_numbers"])) for r in seeds) == 6
     assert meta["ms2_assigned"] == 54 and meta["ms2_unassigned"] == 0
-    assert [int(r["ms2_count"]) for r in seeds] == [3, 3]
+    assert [len(json.loads(r["ms2_scan_numbers"])) for r in seeds] == [3, 3]
     assert [float(r["rt_apex_seconds"]) for r in seeds] == [40, 52]
     for row, height in zip(seeds, [4, 8]):
         assert row["ms1_quant_status"] == "gap_filled"

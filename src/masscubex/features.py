@@ -350,7 +350,7 @@ class Feature:
     rt_end_seconds: float
     peak_height: float | None
     peak_area: float | None
-    scan_count: int
+    scan_count: int = field(metadata={"tsv": False})
     apex_noise_threshold: float | None
     apex_threshold_ratio: float | None = field(metadata={"tsv": False})
     polarity: str
@@ -358,10 +358,10 @@ class Feature:
     # every output row. Quantification settings live in the file sidecar.
     intensity: float | None = field(default=0.0, metadata={"tsv": False})
     quant_method: str = field(default="peak_height", metadata={"tsv": False})
-    ms2_count: int = 0
+    ms2_count: int = field(default=0, metadata={"tsv": False})
     ms2_scan_numbers: tuple = ()
-    ms2_native_ids: tuple = ()
-    ms2_spectrum_indices: tuple = ()
+    ms2_native_ids: tuple = field(default=(), metadata={"tsv": False})
+    ms2_spectrum_indices: tuple = field(default=(), metadata={"tsv": False})
     best_ms2_scan_number: int | None = None
     best_ms2_native_id: str | None = field(default=None, metadata={"tsv": False})
     best_ms2_spectrum_index: int | None = field(default=None, metadata={"tsv": False})
@@ -372,7 +372,7 @@ class Feature:
     best_ms2_precursor_intensity_source: str | None = field(default=None, metadata={"tsv": False})
     adduct: str | None = None
     group_id: int | None = None
-    is_isotope: bool | None = None
+    is_isotope: bool | None = field(default=None, metadata={"tsv": False})
     isotope_state: str | None = None
     is_in_source_fragment: bool | None = None
     ion_relations: tuple = ()
@@ -383,7 +383,7 @@ class Feature:
     gapfill_status: str | None = field(default=None, metadata={"tsv": False})
     gapfill_mz_radius_da: float | None = field(default=None, metadata={"tsv": False})
     gaussian_similarity: float | None = None
-    segmentation_status: str = "not_applicable"
+    segmentation_status: str = field(default="not_applicable", metadata={"tsv": False})
     trace: np.ndarray | None = field(default=None, repr=False, metadata={"tsv": False})
     _ms2_records: tuple = field(default=(), repr=False, metadata={"tsv": False})
     _parent_mz: float = field(default=0.0, repr=False, metadata={"tsv": False})
@@ -575,7 +575,9 @@ def warmup():
     tracker.add_features(mz, intensity, threshold, 3.0)
     list(tracker.flush_features())
     centroid_profile(mz, intensity, np.zeros(2), threshold, 3, 4.0)
-    centroid_profile(mz.astype(np.float32), intensity.astype(np.float32), np.zeros(2), threshold, 3, 4.0)
+    centroid_profile(
+        mz.astype(np.float32), intensity.astype(np.float32), np.zeros(2), threshold, 3, 4.0
+    )
     # Production centroids are float32 column views; calibration uses float64
     # arrays. Expire two traces to also prime the reversed finished-ID view.
     signals = np.column_stack((mz, intensity)).astype(np.float32)

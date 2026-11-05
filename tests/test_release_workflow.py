@@ -75,16 +75,23 @@ def test_batched_polarity_switching_does_not_bridge_acquisition_gaps(tmp_path, a
         Config(auto_tune=auto, noise_mode="none", min_scans=3, max_gap_seconds=4),
     )
     assert len(rows) == 4 and meta["ms2_assigned"] == 4
-    assert all(r["feature_origin"] == "ms1_detected" and r["ms2_count"] == "1" for r in rows)
+    assert all(
+        r["feature_origin"] == "ms1_detected" and len(json.loads(r["ms2_scan_numbers"])) == 1
+        for r in rows
+    )
     for row in rows:
         expected = 10 if row["polarity"] == "positive" else 100
         assert float(row["peak_height"]) == expected
         start = float(row["rt_start_seconds"])
         assert start in ({0, 10} if row["polarity"] == "positive" else {5, 15})
-        trace = np.column_stack((
-            np.full(3, 100), np.full(3, expected),
-            np.arange(start, start + 3), np.zeros(3),
-        ))
+        trace = np.column_stack(
+            (
+                np.full(3, 100),
+                np.full(3, expected),
+                np.arange(start, start + 3),
+                np.zeros(3),
+            )
+        )
         _, (peak,) = reference_segments(trace, Config(segment=False))
         assert float(row["peak_area"]) == peak.peak_area
 

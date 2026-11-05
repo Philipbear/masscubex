@@ -1,9 +1,0 @@
-{
-  "implementation_sha256": "136cacbefa58dc1575c27a005964cb55f0f47b220d786facd71af488c8fb89f2",
-  "input": "/Users/shipei/Documents/projects/masscubeX/validation/MSV000086989/NIST_POS_Samp_14-03.mzXML",
-  "additional_signatures": {
-    "masscubex.peak_shapes.gaussian_similarity": [
-      "(Array(float64, 1, 'A', False, aligned=True), Array(float64, 1, 'C', False, aligned=True))"
-    ]
-  }
-}
