@@ -91,7 +91,8 @@ The optimized array-pool tracker implements original `detect_features` rules:
    at the previous mass. Finish after the eleventh consecutive miss (ten allowed).
    There is no default elapsed-time gap cutoff.
 5. Start new traces for unclaimed signals. Expired-trace removal order and stable
-   ties follow upstream. Retain short traces, including one nonzero observation.
+   ties follow upstream. Retain detected features with at least five nonzero MS1
+   observations by default. `--min-scans 1` retains short traces.
 
 Positive/negative streams use the same rules separately. Automatic calibration
 is on by default and supplies each stream's regional MS1 tolerance:
@@ -104,9 +105,10 @@ Calibration never adds an elapsed-time cutoff to the ten-missing-scan rule;
 
 ## Splitting and measurements
 
-Upstream rules finalize and split each trace. Trim leading and
-trailing zeros. Fewer than five nonzero observations prevents splitting, not
-output. A trace-noise score greater than 3 also prevents splitting. The score
+Upstream rules finalize and split each trace. Trim leading and trailing zeros.
+Splitting requires at least five nonzero observations. The configurable
+`min_scans` threshold also applies to detected features after splitting.
+A trace-noise score greater than 3 prevents splitting. The score
 zeros observations below 5% of the trace maximum, zero-pads the ends, and computes
 half the total absolute first difference divided by the maximum, minus one,
 with the original arithmetic; spans shorter than five samples have score zero.

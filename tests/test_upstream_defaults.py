@@ -22,7 +22,9 @@ import upstream_masscube as original
 
 def upstream_config(**kwargs):
     """Disable added stages for a strict upstream algorithm comparison."""
-    return Config(auto_tune=False, profile_mode="reject", ms2_seeded_features=False, **kwargs)
+    return Config(
+        min_scans=1, auto_tune=False, profile_mode="reject", ms2_seeded_features=False, **kwargs
+    )
 
 
 def test_scientific_source_bodies_are_unchanged():
@@ -81,15 +83,16 @@ def test_compiled_tracking_and_final_measurements_match_original(seed):
         np.testing.assert_allclose(ours.trace[:, 1] / 60, old.rt_seq, rtol=0, atol=1e-15)
 
 
-def test_short_traces_and_gap_rule_are_upstream_defaults():
-    cfg = Config()
-    assert cfg.min_scans == 1 and cfg.max_gap_scans == 10 and cfg.max_gap_seconds == 0
+def test_default_observation_cutoff_and_explicit_short_trace_option():
+    cfg = Config(noise_mode="none")
+    assert cfg.min_scans == 5 and cfg.max_gap_scans == 10 and cfg.max_gap_seconds == 0
     assert cfg.mz_tolerance_da == 0.01 and cfg.mz_tolerance_ppm == 0
     assert cfg.auto_tune and cfg.ms2_seeded_features and cfg.profile_mode == "centroid"
-    scans = [Scan(i * 100.0, np.array([100.0]), np.array([10.0]), "positive") for i in range(2)]
-    (feature,) = extract_features(scans, Config(noise_mode="none"))
-    assert feature.scan_count == 2  # No extra elapsed-time cutoff.
-    (single,) = extract_features(scans[:1], Config(noise_mode="none"))
+    scans = [Scan(i * 100.0, np.array([100.0]), np.array([10.0]), "positive") for i in range(5)]
+    assert not list(extract_features(scans[:4], cfg))
+    (feature,) = extract_features(scans, cfg)
+    assert feature.scan_count == 5
+    (single,) = extract_features(scans[:1], Config(noise_mode="none", min_scans=1))
     assert single.scan_count == 1 and single.peak_area == 0
 
 
@@ -148,7 +151,8 @@ def test_profile_centroiding_is_enabled_by_default_and_can_be_disabled(tmp_path)
     mz = np.linspace(99.99, 100.01, 101)
     intensity = 1000 * np.exp(-0.5 * ((mz - 100) / 0.002) ** 2)
     source = write_mzml(
-        tmp_path / "profile.mzML", [mzml_spectrum(1, 1, mz, intensity, mode="profile")]
+        tmp_path / "profile.mzML",
+        [mzml_spectrum(i, i, mz, intensity, mode="profile") for i in range(1, 6)],
     )
     with pytest.raises(ValueError, match="Profile MS1"):
         process_file(source, tmp_path / "rejected.parquet", config=Config(profile_mode="reject"))

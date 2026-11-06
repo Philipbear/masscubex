@@ -18,7 +18,7 @@ polarity separation and compact output are also intentional adaptations.
 | Conflicting matches | Test the nearest mass only; if already claimed, insert a missing observation rather than choosing another mass |
 | Trace priority | Initial scan in mass order; subsequently stable descending latest-scan intensity, including zero for missed observations |
 | Missing scans | Ten allowed; finish on the eleventh miss; no default elapsed-time cutoff |
-| Output filtering | Keep short traces, including one observation; no five-observation minimum |
+| Output filtering | Require five observed MS1 scans per detected feature by default. `--min-scans 1` retains upstream's short traces. |
 | Segmentation | Original noise >3 veto, sigma 0.6 scans, 3% prominence, distance 3, raw-median apex gate, raw valleys, two passes |
 | Feature mass | Apex m/z |
 | Quantification | Original integer peak height and trapezoidal area (intensity × seconds), including upstream float32 arithmetic and minute-to-second conversion |

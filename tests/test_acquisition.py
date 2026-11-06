@@ -438,9 +438,9 @@ def test_default_dia_processing_and_resume_provenance(tmp_path):
 
 @pytest.mark.parametrize("mixed", [False, True])
 def test_dia_extracts_same_ms1_features_without_fragment_links(tmp_path, monkeypatch, mixed):
-    scans = [
+    ms1_scans = [
         mzml_spectrum(index, index, [100.0, 121.981942], [height, height / 2])
-        for index, height in enumerate([1000, 2000, 1000], start=1)
+        for index, height in enumerate([1000, 1500, 2000, 1500, 1000], start=1)
     ]
     # A strong fragment/precursor must not add seeded features or ISF labels.
     precursor = (
@@ -448,13 +448,14 @@ def test_dia_extracts_same_ms1_features_without_fragment_links(tmp_path, monkeyp
         + cv("MS:1000744", 300)
         + '</selectedIon></selectedIonList></precursor></precursorList>'
     )
-    scans.insert(1, mzml_spectrum(4, 1.5, [100], [100000], level=2, precursor=precursor))
+    scans = ms1_scans.copy()
+    scans.insert(1, mzml_spectrum(6, 1.5, [100], [100000], level=2, precursor=precursor))
     declaration = (cv("MS:1003221", name="DDA") if mixed else "") + cv(
         "MS:1003227", name="AIF"
     )
     dia = write_mzml(tmp_path / "dia.mzML", scans, groups=declaration)
     # Keep baseline settings identical to the automatically selected DIA policy.
-    baseline = write_mzml(tmp_path / "ms1.mzML", [scans[0], scans[2], scans[3]])
+    baseline = write_mzml(tmp_path / "ms1.mzML", ms1_scans)
     expected = process_file(
         baseline,
         tmp_path / "baseline.parquet",

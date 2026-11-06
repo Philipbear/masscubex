@@ -130,7 +130,7 @@ def test_absent_ms1_without_supported_noise_and_unavailable_ms1_are_blank(tmp_pa
         mzml_spectrum(11, 30, [50], [5], level=2, precursor=precursor_mzml()),
     ]
     path = write_mzml(tmp_path / "absent.mzML", spectra)
-    rows, metadata = outputs(path, tmp_path / "out.tsv", Config(group_ions=True))
+    rows, metadata = outputs(path, tmp_path / "out.tsv", Config(group_ions=True, min_scans=1))
     detected = [r for r in rows if r["feature_origin"] == "ms1_detected"]
     seeded = [r for r in rows if r["feature_origin"] == "ms2_seeded"]
     assert len(detected) == 1 and detected[0]["mz"] == "200.00000"
@@ -179,7 +179,8 @@ def test_unusable_precursors_are_explicit_and_seeding_can_be_disabled(tmp_path):
         ),
     ]
     path = write_mzml(tmp_path / "metadata.mzML", spectra)
-    rows, metadata = outputs(path, tmp_path / "out.tsv")
+    config = Config(min_scans=1)
+    rows, metadata = outputs(path, tmp_path / "out.tsv", config)
     assert len(rows) == 2
     assert [r["feature_origin"] for r in rows] == ["ms1_detected", "ms2_seeded"]
     assert metadata["ms2_assigned"] == 1
@@ -188,7 +189,7 @@ def test_unusable_precursors_are_explicit_and_seeding_can_be_disabled(tmp_path):
         "missing_precursor_mz",
         "missing_retention_time",
     ]
-    rows, metadata = outputs(path, tmp_path / "off.tsv", Config(ms2_seeded_features=False))
+    rows, metadata = outputs(path, tmp_path / "off.tsv", replace(config, ms2_seeded_features=False))
     assert len(rows) == 1 and rows[0]["feature_origin"] == "ms1_detected"
     assert json.loads(rows[0]["ms2_scan_numbers"]) == [] and metadata["ms2_unassigned"] == 4
     assert metadata["ms2_gapfill_passes"] == 0
@@ -208,7 +209,7 @@ def test_old_config_width_can_be_overridden_explicitly(tmp_path):
     spectra = [mzml_spectrum(1, 0, [100], [10])]
     spectra.append(mzml_spectrum(2, 0, [50], [5], level=2, precursor=precursor_mzml(width=25)))
     path = write_mzml(tmp_path / "wide.mzML", spectra)
-    old_config = Config(ms2_max_isolation_width=4)
+    old_config = Config(ms2_max_isolation_width=4, min_scans=1)
     rows, metadata = outputs(path, tmp_path / "guard.tsv", old_config)
     assert len(rows) == 1 and rows[0]["feature_origin"] == "ms1_detected"
     assert json.loads(rows[0]["ms2_scan_numbers"]) == []

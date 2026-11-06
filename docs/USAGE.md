@@ -66,7 +66,7 @@ error records. The process coordinator keeps numerical libraries in workers.
 | MS1 noise | 100 Da bins, lowest 10%, minimum five background points, μ + 3σ |
 | Trace tolerance | Auto-tuned by polarity and m/z region; radius `max(Da, m/z × ppm × 1e−6)`; unsupported file-wide calibration falls back to strict ±0.01 Da |
 | Trace gaps | Ten missing observations, no elapsed-time limit |
-| Minimum output observations | One: short traces are retained as upstream |
+| Minimum output observations | Five observed MS1 scans per detected feature |
 | Near-mass merging | 0.002 Da after filtering |
 | Splitting | Upstream noise veto >3, sigma 0.6 scans, prominence 3%, distance three, two passes |
 | Quantification | Apex m/z; upstream integer height and area |
@@ -108,13 +108,17 @@ masscubex extract sample.mzML -o features --no-auto-tune
 masscubex extract sample.mzML -o features --profile-mode reject
 masscubex extract sample.mzML -o features --no-ms2-seeded-features
 # Upstream parameter baseline, retaining adaptive MS1 noise and the selected catalog
-masscubex extract sample.mzML -o features --no-auto-tune --profile-mode reject --no-ms2-seeded-features
+masscubex extract sample.mzML -o features --min-scans 1 --no-auto-tune --profile-mode reject --no-ms2-seeded-features
 ```
 
 Unmatched usable MS2 precursors create labelled seeded features, with raw-MS1
 measurements or labelled noise-derived heights. Scans lacking usable metadata
 remain in JSON diagnostics. With seeding disabled, all unmatched scans are
 reported there instead of adding rows. [Full extension details](AUTO_TUNING.md).
+
+`--min-scans` counts nonzero MS1 observations in each detected feature. The trace
+gap setting can allow missing scans between observations. Use `--min-scans 1`
+to retain short traces. MS2-seeded features have separate provenance labels.
 
 Use `--mz-da`, `--mz-ppm`, `--max-gap-scans`, `--min-scans`,
 `--centroid-mz-da`, `--ms2-min-intensity`, `--ms2-relative-intensity`,

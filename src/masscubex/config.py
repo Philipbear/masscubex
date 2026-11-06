@@ -39,7 +39,7 @@ class Config:
     noise_iterations: int = 2
     noise_min_neighbors: int = 5
     min_intensity: float = 0.0
-    min_scans: int = 1
+    min_scans: int = 5
     max_gap_scans: int = 10
     max_gap_seconds: float = 0.0  # Zero uses upstream's scan-count gap rule only.
     segment: bool = True

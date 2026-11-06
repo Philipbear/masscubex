@@ -91,7 +91,7 @@ def test_overrides_and_unknown_polarity_are_protected():
 
 @pytest.mark.parametrize("missing_scans, expected_traces", [(10, 1), (11, 2)])
 def test_mass_calibration_preserves_scan_count_gap_rule(missing_scans, expected_traces):
-    tuned, info = derive_settings(peaks(), [0.5] * 100, [], Config(), "positive")
+    tuned, info = derive_settings(peaks(), [0.5] * 100, [], Config(min_scans=1), "positive")
     assert info["status"] == "tuned"
     assert tuned.max_gap_seconds == 0 and "max_gap_seconds" not in info["applied_parameters"]
     tracker = TraceTracker(tuned)
@@ -111,7 +111,7 @@ def test_mass_calibration_preserves_scan_count_gap_rule(missing_scans, expected_
 
 
 def test_learned_regional_radii_drive_extraction_separately_by_polarity():
-    base = Config(noise_mode="none", segment=False)
+    base = Config(min_scans=1, noise_mode="none", segment=False)
     configs = {}
     for polarity, regional_ppm in [("positive", (2, 12)), ("negative", (12, 2))]:
         anchors = []

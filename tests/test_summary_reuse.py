@@ -49,12 +49,12 @@ def reference_segments(trace, config):
 @pytest.mark.parametrize(
     "config",
     [
-        Config(),
-        Config(segment=False),
-        Config(peak_shape_guard=False),
-        Config(segmentation_passes=3),
-        Config(smoothing_sigma=1.2, peak_distance=5, peak_prominence=0.02),
-        Config(group_ions=False, quant_method="peak_area"),
+        Config(min_scans=1),
+        Config(min_scans=1, segment=False),
+        Config(min_scans=1, peak_shape_guard=False),
+        Config(min_scans=1, segmentation_passes=3),
+        Config(min_scans=1, smoothing_sigma=1.2, peak_distance=5, peak_prominence=0.02),
+        Config(min_scans=1, group_ions=False, quant_method="peak_area"),
     ],
 )
 def test_reused_summary_matches_original_full_precision(config):
@@ -176,7 +176,8 @@ def test_sparse_long_span_keeps_upstream_scores_and_splitting_path():
     # Three observed ions spanning seven acquisitions are not a short span.
     y = np.array([0, 2, 0, 0, 10, 0, 0, 2, 0, 0], dtype=float)
     trace = np.column_stack((np.full(len(y), 100), y, np.arange(len(y)), np.ones(len(y))))
-    _, expected = reference_segments(trace, Config())
-    (actual,) = summarize_trace(trace, Config())
+    config = Config(min_scans=3)
+    _, expected = reference_segments(trace, config)
+    (actual,) = summarize_trace(trace, config)
     assert actual.gaussian_similarity == expected[0].gaussian_similarity > 0
     assert actual.scan_count == 3
